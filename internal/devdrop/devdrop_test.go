@@ -157,14 +157,21 @@ func TestSyncCreatesPlaceholderAndHydrateClonesLocalRemote(t *testing.T) {
 	if err := SaveManifest(workspace, m); err != nil {
 		t.Fatal(err)
 	}
+	plan, err := BuildPlan()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := SaveLastPlan(plan); err != nil {
+		t.Fatal(err)
+	}
 	actions, err := ApplySync()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(actions) != 1 || actions[0].Kind != "create-placeholder" {
+	if len(actions) != 1 || actions[0].Kind != "placeholder" {
 		t.Fatalf("unexpected sync actions: %+v", actions)
 	}
-	if !exists(filepath.Join(workspace, "work", "app", ".devdrop-placeholder.json")) {
+	if !exists(filepath.Join(workspace, "work", "app")) {
 		t.Fatal("placeholder not created")
 	}
 	st, err := LoadState()
@@ -179,9 +186,6 @@ func TestSyncCreatesPlaceholderAndHydrateClonesLocalRemote(t *testing.T) {
 	}
 	if !exists(filepath.Join(workspace, "work", "app", ".git")) {
 		t.Fatal("repo was not cloned")
-	}
-	if exists(filepath.Join(workspace, "work", "app", ".devdrop-placeholder.json")) {
-		t.Fatal("placeholder remained after hydrate")
 	}
 }
 

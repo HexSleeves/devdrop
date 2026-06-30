@@ -17,12 +17,6 @@ type ScanSummary struct {
 	ProjectsWithEnv   int
 }
 
-type SyncAction struct {
-	Kind string
-	Path string
-	Note string
-}
-
 func ScanWorkspace() (ScanSummary, error) {
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -43,10 +37,7 @@ func ScanWorkspace() (ScanSummary, error) {
 	seen := map[string]bool{}
 	summary := ScanSummary{}
 	err = filepath.WalkDir(cfg.WorkspaceRoot, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return nil
-		}
-		if !d.IsDir() {
+		if walkErr != nil || !d.IsDir() {
 			return nil
 		}
 		if path == cfg.WorkspaceRoot {
@@ -60,13 +51,16 @@ func ScanWorkspace() (ScanSummary, error) {
 		if err != nil {
 			return nil
 		}
-		rel = filepath.ToSlash(rel)
+		_, clean, err := safeWorkspacePath(cfg.WorkspaceRoot, rel)
+		if err != nil {
+			return filepath.SkipDir
+		}
 		info := gitInfo(path)
 		hasMarker := info.IsRepo || hasDependencyMarker(path) || exists(filepath.Join(path, ".env"))
 		if !hasMarker {
 			return nil
 		}
-		p := projectFromPath(rel, path, info)
+		p := projectFromPath(clean, path, info)
 		upsertProject(&m, p)
 		st.Projects[p.ID] = stateForProject(path, p, info)
 		seen[p.ID] = true
@@ -91,9 +85,11 @@ func ScanWorkspace() (ScanSummary, error) {
 		if seen[p.ID] {
 			continue
 		}
-		full := filepath.Join(cfg.WorkspaceRoot, filepath.FromSlash(p.Path))
-		info := gitInfo(full)
-		st.Projects[p.ID] = stateForProject(full, p, info)
+		full, _, err := safeWorkspacePath(cfg.WorkspaceRoot, p.Path)
+		if err != nil {
+			return ScanSummary{}, err
+		}
+		st.Projects[p.ID] = stateForProject(full, p, gitInfo(full))
 	}
 	st.LastScanAt = nowRFC3339()
 	if err := SaveManifest(cfg.WorkspaceRoot, m); err != nil {
@@ -124,7 +120,7 @@ func projectFromPath(rel, abs string, info GitInfo) Project {
 func stateForProject(abs string, p Project, info GitInfo) ProjectState {
 	_, err := os.Stat(abs)
 	existsOnDisk := err == nil
-	placeholder := exists(filepath.Join(abs, ".devdrop-placeholder.json"))
+	placeholder := existsOnDisk && isEmptyDir(abs) && p.Type == ProjectTypeGit && !info.IsRepo
 	return ProjectState{
 		Hydrated:       existsOnDisk && !placeholder && (p.Type != ProjectTypeGit || info.IsRepo),
 		Exists:         existsOnDisk,
@@ -144,11 +140,10 @@ func AddProject(rel string) (Project, error) {
 	if err != nil {
 		return Project{}, err
 	}
-	clean, err := cleanRel(rel)
+	full, clean, err := safeWorkspacePath(cfg.WorkspaceRoot, rel)
 	if err != nil {
 		return Project{}, err
 	}
-	full := filepath.Join(cfg.WorkspaceRoot, filepath.FromSlash(clean))
 	info := gitInfo(full)
 	if !exists(full) {
 		if err := os.MkdirAll(full, 0o755); err != nil {
@@ -175,76 +170,143 @@ func AddProject(rel string) (Project, error) {
 	return p, SaveState(st)
 }
 
-func PlanSync() ([]SyncAction, error) {
+func BuildPlan() (Plan, error) {
 	cfg, err := LoadConfig()
 	if err != nil {
-		return nil, err
+		return Plan{}, err
 	}
 	m, err := LoadManifest(cfg.WorkspaceRoot)
 	if err != nil {
-		return nil, err
+		return Plan{}, err
 	}
-	var actions []SyncAction
+	hash, err := ManifestHash(cfg.WorkspaceRoot)
+	if err != nil {
+		return Plan{}, err
+	}
+	plan := Plan{
+		Version:       1,
+		WorkspaceRoot: cfg.WorkspaceRoot,
+		ManifestHash:  hash,
+		GeneratedAt:   nowRFC3339(),
+	}
 	for _, p := range m.Projects {
-		full := filepath.Join(cfg.WorkspaceRoot, filepath.FromSlash(p.Path))
-		if !exists(full) {
-			actions = append(actions, SyncAction{Kind: "create-placeholder", Path: p.Path, Note: p.Name})
+		full, _, err := safeWorkspacePath(cfg.WorkspaceRoot, p.Path)
+		if err != nil {
+			plan.Actions = append(plan.Actions, PlanAction{Safety: "skipped", Kind: "skip", Path: p.Path, Project: p.Name, Reason: err.Error()})
 			continue
 		}
-		if p.Type == ProjectTypeGit {
-			info := gitInfo(full)
-			if info.IsRepo && p.Remote != "" && info.Remote != "" && info.Remote != p.Remote {
-				actions = append(actions, SyncAction{Kind: "conflict", Path: p.Path, Note: fmt.Sprintf("manifest remote %s != local remote %s", p.Remote, info.Remote)})
-			}
+		info := gitInfo(full)
+		if info.MissingGit {
+			plan.Warnings = append(plan.Warnings, info.InspectWarning)
 		}
+		if !exists(full) {
+			kind := "create-folder"
+			if p.Type == ProjectTypeGit {
+				kind = "placeholder"
+			}
+			plan.Actions = append(plan.Actions, PlanAction{Safety: "safe", Kind: kind, Path: p.Path, Project: p.Name})
+			continue
+		}
+		if p.Type == ProjectTypeGit && info.IsRepo {
+			if info.Dirty {
+				plan.Actions = append(plan.Actions, PlanAction{Safety: "skipped", Kind: "skip", Path: p.Path, Project: p.Name, Reason: "repo is dirty; DevDrop will not pull or modify it"})
+			}
+			if p.Remote != "" && info.Remote != "" && info.Remote != p.Remote {
+				plan.Warnings = append(plan.Warnings, fmt.Sprintf("%s has a different Git remote than manifest: %s != %s", p.Path, info.Remote, p.Remote))
+				plan.Actions = append(plan.Actions, PlanAction{Safety: "skipped", Kind: "skip", Path: p.Path, Project: p.Name, Reason: "Git remote differs from manifest"})
+			}
+			if info.InspectWarning != "" {
+				plan.Warnings = append(plan.Warnings, fmt.Sprintf("%s: %s", p.Path, info.InspectWarning))
+			}
+			continue
+		}
+		if p.Type == ProjectTypeGit && !isEmptyDir(full) {
+			plan.Actions = append(plan.Actions, PlanAction{Safety: "skipped", Kind: "skip", Path: p.Path, Project: p.Name, Reason: "folder exists and is non-empty but is not a Git repo"})
+			continue
+		}
+		plan.Actions = append(plan.Actions, PlanAction{Safety: "skipped", Kind: "skip", Path: p.Path, Project: p.Name, Reason: "project already exists"})
 	}
-	return actions, nil
+	return plan, nil
 }
 
-func ApplySync() ([]SyncAction, error) {
-	actions, err := PlanSync()
-	if err != nil {
-		return nil, err
-	}
+func SaveLastPlan(plan Plan) error {
+	return writeJSON(lastPlanPath(plan.WorkspaceRoot), plan, 0o600)
+}
+
+func LoadLastPlan(workspace string) (Plan, error) {
+	var plan Plan
+	err := readJSON(lastPlanPath(workspace), &plan)
+	return plan, err
+}
+
+func ApplyLastPlan() (Plan, error) {
 	cfg, err := LoadConfig()
 	if err != nil {
-		return nil, err
+		return Plan{}, err
 	}
-	for _, a := range actions {
-		if a.Kind != "create-placeholder" {
+	plan, err := LoadLastPlan(cfg.WorkspaceRoot)
+	if err != nil {
+		return Plan{}, fmt.Errorf("no saved plan found; run `devspace plan` first: %w", err)
+	}
+	currentHash, err := ManifestHash(cfg.WorkspaceRoot)
+	if err != nil {
+		return Plan{}, err
+	}
+	if currentHash != plan.ManifestHash {
+		return Plan{}, fmt.Errorf("manifest changed since plan was generated; run `devspace plan` again before apply")
+	}
+	applied := plan
+	applied.Actions = append([]PlanAction(nil), plan.Actions...)
+	for i, action := range applied.Actions {
+		if action.Safety != "safe" {
 			continue
 		}
-		full := filepath.Join(cfg.WorkspaceRoot, filepath.FromSlash(a.Path))
-		if err := os.MkdirAll(full, 0o755); err != nil {
-			return actions, err
+		if action.Kind != "create-folder" && action.Kind != "placeholder" {
+			continue
 		}
-		placeholder := map[string]string{
-			"path":      a.Path,
-			"createdAt": nowRFC3339(),
-			"note":      "DevDrop placeholder. Run `devdrop project hydrate " + a.Note + "` to clone contents.",
+		full, _, err := safeWorkspacePath(cfg.WorkspaceRoot, action.Path)
+		if err != nil {
+			applied.Actions[i].Safety = "skipped"
+			applied.Actions[i].Kind = "skip"
+			applied.Actions[i].Reason = err.Error()
+			continue
 		}
-		if err := writeJSON(filepath.Join(full, ".devdrop-placeholder.json"), placeholder, 0o644); err != nil {
-			return actions, err
-		}
-	}
-	st, err := LoadState()
-	if err == nil {
-		cfg, cfgErr := LoadConfig()
-		if cfgErr == nil {
-			if m, mErr := LoadManifest(cfg.WorkspaceRoot); mErr == nil {
-				if st.Projects == nil {
-					st.Projects = map[string]ProjectState{}
-				}
-				for _, p := range m.Projects {
-					full := filepath.Join(cfg.WorkspaceRoot, filepath.FromSlash(p.Path))
-					st.Projects[p.ID] = stateForProject(full, p, gitInfo(full))
-				}
+		if exists(full) {
+			if !isEmptyDir(full) {
+				applied.Actions[i].Safety = "skipped"
+				applied.Actions[i].Kind = "skip"
+				applied.Actions[i].Reason = "destination became non-empty after plan; skipped"
+				continue
 			}
+			applied.Actions[i].Safety = "skipped"
+			applied.Actions[i].Kind = "skip"
+			applied.Actions[i].Reason = "destination already exists"
+			continue
 		}
-		st.LastSyncAt = nowRFC3339()
-		_ = SaveState(st)
+		if err := os.MkdirAll(full, 0o755); err != nil {
+			return applied, err
+		}
 	}
-	return actions, nil
+	if err := refreshAllProjectState(cfg.WorkspaceRoot); err != nil {
+		return applied, err
+	}
+	return applied, nil
+}
+
+func PlanSync() ([]PlanAction, error) {
+	plan, err := BuildPlan()
+	if err != nil {
+		return nil, err
+	}
+	return plan.Actions, nil
+}
+
+func ApplySync() ([]PlanAction, error) {
+	plan, err := ApplyLastPlan()
+	if err != nil {
+		return nil, err
+	}
+	return plan.Actions, nil
 }
 
 func HydrateProject(ref string) (Project, error) {
@@ -261,28 +323,51 @@ func HydrateProject(ref string) (Project, error) {
 		return Project{}, fmt.Errorf("project %q not found", ref)
 	}
 	if p.Type != ProjectTypeGit || p.Remote == "" {
-		return Project{}, fmt.Errorf("project %s has no Git remote to hydrate", p.Name)
+		return Project{}, fmt.Errorf("cannot hydrate %s: project has no Git remote", p.Path)
 	}
-	full := filepath.Join(cfg.WorkspaceRoot, filepath.FromSlash(p.Path))
-	placeholder := filepath.Join(full, ".devdrop-placeholder.json")
-	if exists(full) && !exists(placeholder) {
-		return Project{}, fmt.Errorf("project path already exists and is not a placeholder: %s", p.Path)
+	full, _, err := safeWorkspacePath(cfg.WorkspaceRoot, p.Path)
+	if err != nil {
+		return Project{}, err
 	}
-	if exists(placeholder) {
-		if err := os.RemoveAll(full); err != nil {
+	if exists(full) && !isEmptyDir(full) {
+		return Project{}, fmt.Errorf("cannot hydrate %s: destination folder is non-empty; no files were changed", p.Path)
+	}
+	if !exists(full) {
+		parent := filepath.Dir(full)
+		if err := os.MkdirAll(parent, 0o755); err != nil {
 			return Project{}, err
 		}
 	}
 	if err := cloneRepo(p.Remote, full); err != nil {
+		return Project{}, fmt.Errorf("cannot hydrate %s.\n\nReason:\n%w\n\nRemote:\n%s", p.Path, err, p.Remote)
+	}
+	if err := refreshAllProjectState(cfg.WorkspaceRoot); err != nil {
 		return Project{}, err
 	}
-	info := gitInfo(full)
-	st, err := LoadState()
-	if err == nil {
-		st.Projects[p.ID] = stateForProject(full, p, info)
-		_ = SaveState(st)
-	}
 	return p, nil
+}
+
+func refreshAllProjectState(workspace string) error {
+	m, err := LoadManifest(workspace)
+	if err != nil {
+		return err
+	}
+	st, err := LoadState()
+	if err != nil && !missing(err) {
+		return err
+	}
+	if st.Projects == nil {
+		st.Projects = map[string]ProjectState{}
+	}
+	for _, p := range m.Projects {
+		full, _, err := safeWorkspacePath(workspace, p.Path)
+		if err != nil {
+			return err
+		}
+		st.Projects[p.ID] = stateForProject(full, p, gitInfo(full))
+	}
+	st.LastSyncAt = nowRFC3339()
+	return SaveState(st)
 }
 
 func findProject(m Manifest, ref string) (Project, bool) {
@@ -302,12 +387,11 @@ func ignoredName(name string) bool {
 }
 
 func cleanRel(path string) (string, error) {
-	if filepath.IsAbs(path) {
-		return "", fmt.Errorf("project path must be relative")
-	}
-	clean := filepath.ToSlash(filepath.Clean(path))
-	if clean == "." || strings.HasPrefix(clean, "../") || clean == ".." {
-		return "", fmt.Errorf("project path must stay inside workspace")
-	}
-	return clean, nil
+	_, clean, err := safeWorkspacePath("/", path)
+	return clean, err
+}
+
+func isEmptyDir(path string) bool {
+	entries, err := os.ReadDir(path)
+	return err == nil && len(entries) == 0
 }

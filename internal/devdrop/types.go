@@ -94,6 +94,23 @@ type ProjectState struct {
 	Missing        bool   `json:"missing"`
 }
 
+type Plan struct {
+	Version       int          `json:"version"`
+	WorkspaceRoot string       `json:"workspaceRoot"`
+	ManifestHash  string       `json:"manifestHash"`
+	GeneratedAt   string       `json:"generatedAt"`
+	Actions       []PlanAction `json:"actions"`
+	Warnings      []string     `json:"warnings"`
+}
+
+type PlanAction struct {
+	Safety  string `json:"safety"`
+	Kind    string `json:"kind"`
+	Path    string `json:"path"`
+	Reason  string `json:"reason,omitempty"`
+	Project string `json:"project,omitempty"`
+}
+
 type SecretProfile struct {
 	ProjectID string            `json:"projectId"`
 	Profile   string            `json:"profile"`

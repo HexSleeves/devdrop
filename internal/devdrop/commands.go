@@ -14,12 +14,15 @@ import (
 
 func NewRootCommand(version string) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:          "devdrop",
+		Use:          "devspace",
 		Short:        "Synchronize local developer workspace metadata",
 		SilenceUsage: true,
 	}
 	cmd.AddCommand(newVersionCommand(version))
 	cmd.AddCommand(newInitCommand())
+	cmd.AddCommand(newScanCommand())
+	cmd.AddCommand(newPlanCommand())
+	cmd.AddCommand(newApplyCommand())
 	cmd.AddCommand(newWorkspaceCommand())
 	cmd.AddCommand(newProjectCommand())
 	cmd.AddCommand(newEnvCommand())
@@ -61,7 +64,39 @@ func newInitCommand() *cobra.Command {
 
 func newWorkspaceCommand() *cobra.Command {
 	cmd := &cobra.Command{Use: "workspace", Short: "Manage workspace"}
-	cmd.AddCommand(&cobra.Command{
+	cmd.AddCommand(newScanCommand())
+	var dryRun bool
+	syncCmd := &cobra.Command{
+		Use:        "sync",
+		Short:      "Compatibility alias for plan/apply",
+		Deprecated: "use `devspace plan` and `devspace apply` instead",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if dryRun {
+				plan, err := BuildPlan()
+				if err != nil {
+					return err
+				}
+				if err := SaveLastPlan(plan); err != nil {
+					return err
+				}
+				printPlan(cmd.OutOrStdout(), plan)
+				return nil
+			}
+			plan, err := ApplyLastPlan()
+			if err != nil {
+				return err
+			}
+			printApply(cmd.OutOrStdout(), plan)
+			return nil
+		},
+	}
+	syncCmd.Flags().BoolVar(&dryRun, "dry-run", false, "show planned actions without changing files")
+	cmd.AddCommand(syncCmd)
+	return cmd
+}
+
+func newScanCommand() *cobra.Command {
+	return &cobra.Command{
 		Use:   "scan",
 		Short: "Scan workspace projects",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -77,48 +112,92 @@ func newWorkspaceCommand() *cobra.Command {
 			fmt.Fprintf(out, "%d projects with env files\n", s.ProjectsWithEnv)
 			return nil
 		},
-	})
-	var dryRun bool
-	syncCmd := &cobra.Command{
-		Use:   "sync",
-		Short: "Create safe local structure from the manifest",
+	}
+}
+
+func newPlanCommand() *cobra.Command {
+	var jsonOut bool
+	cmd := &cobra.Command{
+		Use:   "plan",
+		Short: "Plan safe workspace changes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var actions []SyncAction
-			var err error
-			if dryRun {
-				actions, err = PlanSync()
-			} else {
-				actions, err = ApplySync()
-			}
+			plan, err := BuildPlan()
 			if err != nil {
 				return err
 			}
-			printActions(cmd.OutOrStdout(), actions, dryRun)
+			if err := SaveLastPlan(plan); err != nil {
+				return err
+			}
+			if jsonOut {
+				return writePrettyJSON(cmd.OutOrStdout(), plan)
+			}
+			printPlan(cmd.OutOrStdout(), plan)
 			return nil
 		},
 	}
-	syncCmd.Flags().BoolVar(&dryRun, "dry-run", false, "show planned actions without changing files")
-	cmd.AddCommand(syncCmd)
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "print machine-readable plan")
 	return cmd
 }
 
-func printActions(out io.Writer, actions []SyncAction, dryRun bool) {
-	if len(actions) == 0 {
-		fmt.Fprintln(out, "Workspace already matches manifest")
-		return
+func newApplyCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "apply",
+		Short: "Apply the last saved safe plan",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			plan, err := ApplyLastPlan()
+			if err != nil {
+				return err
+			}
+			printApply(cmd.OutOrStdout(), plan)
+			return nil
+		},
 	}
-	prefix := "Applied"
-	if dryRun {
-		prefix = "Would apply"
-	}
-	fmt.Fprintf(out, "%s %d action(s):\n", prefix, len(actions))
-	for _, a := range actions {
-		fmt.Fprintf(out, "- %s %s", a.Kind, a.Path)
-		if a.Note != "" {
-			fmt.Fprintf(out, " (%s)", a.Note)
+}
+
+func printPlan(out io.Writer, plan Plan) {
+	fmt.Fprintln(out, "Planned changes:")
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "SAFE:")
+	hasSafe := false
+	for _, a := range plan.Actions {
+		if a.Safety != "safe" {
+			continue
 		}
-		fmt.Fprintln(out)
+		hasSafe = true
+		fmt.Fprintf(out, "%s %s\n", strings.ToUpper(a.Kind), a.Path)
 	}
+	if !hasSafe {
+		fmt.Fprintln(out, "(none)")
+	}
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "SKIPPED:")
+	hasSkipped := false
+	for _, a := range plan.Actions {
+		if a.Safety != "skipped" {
+			continue
+		}
+		hasSkipped = true
+		fmt.Fprintf(out, "SKIP %s because %s\n", a.Path, a.Reason)
+	}
+	if !hasSkipped {
+		fmt.Fprintln(out, "(none)")
+	}
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "WARNINGS:")
+	if len(plan.Warnings) == 0 {
+		fmt.Fprintln(out, "(none)")
+	} else {
+		for _, w := range plan.Warnings {
+			fmt.Fprintf(out, "- %s\n", w)
+		}
+	}
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "No destructive changes will be performed.")
+}
+
+func printApply(out io.Writer, plan Plan) {
+	fmt.Fprintln(out, "Applied safe plan actions.")
+	printPlan(out, plan)
 }
 
 func newProjectCommand() *cobra.Command {

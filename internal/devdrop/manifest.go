@@ -2,6 +2,7 @@ package devdrop
 
 import (
 	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -26,6 +27,15 @@ func SaveManifest(workspace string, m Manifest) error {
 	return writeJSON(manifestPath(workspace), m, 0o600)
 }
 
+func ManifestHash(workspace string) (string, error) {
+	data, err := os.ReadFile(manifestPath(workspace))
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:]), nil
+}
+
 func ValidateManifest(m Manifest) error {
 	if m.Version != ManifestVersion {
 		return fmt.Errorf("unsupported manifest version %d", m.Version)
@@ -39,9 +49,8 @@ func ValidateManifest(m Manifest) error {
 		if p.ID == "" || p.Name == "" || p.Path == "" {
 			return fmt.Errorf("project id, name, and path are required")
 		}
-		cleanPath := filepath.ToSlash(filepath.Clean(p.Path))
-		if filepath.IsAbs(p.Path) || cleanPath == ".." || strings.HasPrefix(cleanPath, "../") {
-			return fmt.Errorf("project %s has invalid relative path %q", p.Name, p.Path)
+		if _, _, err := safeWorkspacePath(m.WorkspaceRoot, p.Path); err != nil {
+			return fmt.Errorf("project %s has invalid relative path %q: %w", p.Name, p.Path, err)
 		}
 		if paths[p.Path] {
 			return fmt.Errorf("duplicate project path %q", p.Path)
@@ -74,7 +83,8 @@ func projectID(rel string) string {
 }
 
 func projectName(rel string) string {
-	return filepath.Base(filepath.Clean(rel))
+	parts := strings.Split(strings.Trim(filepath.ToSlash(rel), "/"), "/")
+	return parts[len(parts)-1]
 }
 
 func upsertProject(m *Manifest, p Project) {

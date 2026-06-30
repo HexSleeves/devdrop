@@ -56,8 +56,42 @@ func manifestPath(workspace string) string {
 	return filepath.Join(workspace, ".devdrop", "manifest.json")
 }
 
+func lastPlanPath(workspace string) string {
+	return filepath.Join(workspace, ".devdrop", "last-plan.json")
+}
+
 func workspaceDevdrop(workspace string) string {
 	return filepath.Join(workspace, ".devdrop")
+}
+
+func safeWorkspacePath(workspace, rel string) (string, string, error) {
+	if rel == "" {
+		return "", "", fmt.Errorf("project path is required")
+	}
+	if filepath.IsAbs(rel) {
+		return "", "", fmt.Errorf("project path must be relative: %s", rel)
+	}
+	clean := filepath.ToSlash(filepath.Clean(rel))
+	if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") {
+		return "", "", fmt.Errorf("project path escapes workspace: %s", rel)
+	}
+	root, err := filepath.Abs(workspace)
+	if err != nil {
+		return "", "", err
+	}
+	full, err := filepath.Abs(filepath.Join(root, filepath.FromSlash(clean)))
+	if err != nil {
+		return "", "", err
+	}
+	back, err := filepath.Rel(root, full)
+	if err != nil {
+		return "", "", err
+	}
+	back = filepath.ToSlash(back)
+	if back == ".." || strings.HasPrefix(back, "../") || filepath.IsAbs(back) {
+		return "", "", fmt.Errorf("project path escapes workspace: %s", rel)
+	}
+	return full, clean, nil
 }
 
 func randomID(prefix string) (string, error) {

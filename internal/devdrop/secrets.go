@@ -90,7 +90,11 @@ func EnvPull(projectRef, profile string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	full := filepath.Join(cfg.WorkspaceRoot, filepath.FromSlash(p.Path), ".env")
+	projectPath, _, err := safeWorkspacePath(cfg.WorkspaceRoot, p.Path)
+	if err != nil {
+		return "", err
+	}
+	full := filepath.Join(projectPath, ".env")
 	var b strings.Builder
 	keys := make([]string, 0, len(sp.Values))
 	for k := range sp.Values {
@@ -107,8 +111,8 @@ func EnvPull(projectRef, profile string) (string, error) {
 		return "", err
 	}
 	if st, err := LoadState(); err == nil {
-		info := gitInfo(filepath.Join(cfg.WorkspaceRoot, filepath.FromSlash(p.Path)))
-		st.Projects[p.ID] = stateForProject(filepath.Join(cfg.WorkspaceRoot, filepath.FromSlash(p.Path)), p, info)
+		info := gitInfo(projectPath)
+		st.Projects[p.ID] = stateForProject(projectPath, p, info)
 		_ = SaveState(st)
 	}
 	return full, nil
