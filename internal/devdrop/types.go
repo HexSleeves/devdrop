@@ -30,22 +30,27 @@ var DefaultIgnores = []string{
 }
 
 type Config struct {
-	MachineID        string `json:"machineId"`
-	MachineName      string `json:"machineName"`
-	WorkspaceRoot    string `json:"workspaceRoot"`
-	AgeIdentityPath  string `json:"ageIdentityPath"`
-	ManifestRemote   string `json:"manifestRemote,omitempty"`
-	ManifestRepoPath string `json:"manifestRepoPath,omitempty"`
-	CreatedAt        string `json:"createdAt"`
-	UpdatedAt        string `json:"updatedAt"`
+	MachineID           string `json:"machineId"`
+	MachineName         string `json:"machineName"`
+	WorkspaceRoot       string `json:"workspaceRoot"`
+	AgeIdentityPath     string `json:"ageIdentityPath"`
+	ManifestRemote      string `json:"manifestRemote,omitempty"`
+	ManifestRepoPath    string `json:"manifestRepoPath,omitempty"`
+	HostedSyncEndpoint  string `json:"hostedSyncEndpoint,omitempty"`
+	HostedSyncToken     string `json:"hostedSyncToken,omitempty"`
+	HostedSyncWorkspace string `json:"hostedSyncWorkspace,omitempty"`
+	CreatedAt           string `json:"createdAt"`
+	UpdatedAt           string `json:"updatedAt"`
 }
 
 type State struct {
-	MachineID     string                  `json:"machineId"`
-	WorkspaceRoot string                  `json:"workspaceRoot"`
-	Projects      map[string]ProjectState `json:"projects"`
-	LastScanAt    string                  `json:"lastScanAt,omitempty"`
-	LastSyncAt    string                  `json:"lastSyncAt,omitempty"`
+	MachineID              string                  `json:"machineId"`
+	WorkspaceRoot          string                  `json:"workspaceRoot"`
+	Projects               map[string]ProjectState `json:"projects"`
+	LastScanAt             string                  `json:"lastScanAt,omitempty"`
+	LastSyncAt             string                  `json:"lastSyncAt,omitempty"`
+	HostedSyncVersion      int                     `json:"hostedSyncVersion,omitempty"`
+	HostedSyncManifestHash string                  `json:"hostedSyncManifestHash,omitempty"`
 }
 
 type Machine struct {

@@ -50,6 +50,8 @@ What works today:
 - Plan and apply safe missing project structure as empty placeholder folders.
 - Hydrate placeholder Git projects with normal `git clone`.
 - Push and pull the workspace manifest through a user-owned Git repository.
+- Opt into a hosted manifest sync control-plane prototype with explicit
+  endpoint/token configuration.
 - Review detected dependency install/dev commands and run them only through an
   explicit setup command.
 - Store encrypted per-project env profiles with native age encryption.
@@ -223,6 +225,54 @@ that would be added, removed, or changed by a future pull. It does not replace
 the local manifest, apply plans, hydrate projects, pull source-code repos, or
 write to the manifest remote.
 
+### `devspace hosted`
+
+Hosted sync is opt-in and separate from Git-backed sync. Configure it only when
+you want the manifest copied to a hosted control plane:
+
+```bash
+devspace hosted serve --addr 127.0.0.1:8787 --store ~/.devdrop/hosted-control-plane --token dev-token
+devspace hosted config set http://127.0.0.1:8787 --token dev-token --workspace team-a
+devspace hosted push
+devspace hosted pull
+```
+
+The runnable prototype server exposes:
+
+```text
+GET /v1/workspaces/{workspace}/manifest
+PUT /v1/workspaces/{workspace}/manifest
+Authorization: Bearer <token>
+```
+
+Storage is one JSON envelope per hosted workspace under the server `--store`
+directory. Each envelope contains the API version, hosted workspace id, monotonic
+sync version, manifest hash, update timestamp, and normalized `manifest.json`.
+The server does not receive source files, dependency folders, `.env` files,
+encrypted secret payloads, plaintext secrets, or local workspace roots.
+
+Hosted `push` sends only the normalized manifest (`workspaceRoot: "."`, no
+machine-local paths) and records the returned hosted version/hash in local state.
+Hosted `pull` localizes the manifest to the current workspace, writes the usual
+`.bak` backup, and then expects the operator to run `devspace plan &&
+devspace apply`.
+
+Hosted conflict behavior is optimistic:
+
+- `PUT` requires the caller's expected hosted version; stale writes return 409.
+- `push` refuses when the hosted manifest changed since the last local hosted
+  sync.
+- `pull` refuses when the local manifest changed since the last local hosted
+  sync.
+- A first-time `pull` refuses to overwrite a non-empty local manifest that
+  differs from hosted.
+
+Hosted path safety runs client-side and server-side. Project paths must remain
+relative to the workspace and hosted sync rejects paths containing `.env`,
+`.git`, dependency, build, cache, coverage, or vendored directory components.
+Git-backed `devspace workspace push/pull/diff` remains the fallback when hosted
+sync is not configured or unavailable.
+
 ### `devspace project hydrate`
 
 ```bash
@@ -357,7 +407,9 @@ when the manifest includes its remote.
 - Git-backed sync stores only `manifest.json`.
 - Manifest sync strips machine-local workspace paths from the synced manifest
   and localizes the manifest on pull.
-- The MVP has no hosted control plane and no background process.
+- Hosted sync is opt-in, stores only normalized manifest metadata, and never
+  uploads source code, dependency folders, `.env` files, or secret values.
+- The MVP has no background process.
 
 ## Conflict Behavior
 
@@ -371,6 +423,8 @@ Manifest sync stops with a clear error when:
 - The remote branch is newer or diverged.
 - The pulled manifest is invalid JSON or fails manifest validation.
 - Pull would overwrite local manifest changes.
+- Hosted push/pull would overwrite local or remote manifest changes without a
+  matching hosted version/hash baseline.
 
 ## What This Tool Will Not Do Without Permission
 
@@ -388,7 +442,7 @@ Manifest sync stops with a clear error when:
 
 ## Known Limitations
 
-- Hosted manifest sync is not implemented.
+- Hosted manifest sync is a local runnable prototype, not a managed deployment.
 - Placeholder hydration uses full `git clone`; partial clone and sparse checkout
   are not implemented.
 - Secret profiles are local to the workspace; there is no team sharing, OS

@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -25,6 +27,7 @@ func NewRootCommand(version string) *cobra.Command {
 	cmd.AddCommand(newPlanCommand())
 	cmd.AddCommand(newApplyCommand())
 	cmd.AddCommand(newWorkspaceCommand())
+	cmd.AddCommand(newHostedCommand())
 	cmd.AddCommand(newProjectCommand())
 	cmd.AddCommand(newEnvCommand())
 	cmd.AddCommand(newStatusCommand())
@@ -62,6 +65,120 @@ func newInitCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&workspace, "workspace", "", "workspace root")
+	return cmd
+}
+
+func newHostedCommand() *cobra.Command {
+	cmd := &cobra.Command{Use: "hosted", Short: "Manage opt-in hosted manifest sync"}
+	cmd.AddCommand(newHostedConfigCommand())
+	cmd.AddCommand(&cobra.Command{
+		Use:   "push",
+		Short: "Push workspace manifest to hosted sync",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			result, err := PushHostedManifest()
+			if err != nil {
+				return err
+			}
+			if result.Changed {
+				fmt.Fprintf(cmd.OutOrStdout(), "Pushed hosted manifest version %d.\n", result.Version)
+				return nil
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Hosted manifest already up to date at version %d.\n", result.Version)
+			return nil
+		},
+	})
+	cmd.AddCommand(&cobra.Command{
+		Use:   "pull",
+		Short: "Pull workspace manifest from hosted sync",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			result, err := PullHostedManifest()
+			if err != nil {
+				return err
+			}
+			if result.Changed {
+				fmt.Fprintf(cmd.OutOrStdout(), "Pulled hosted manifest version %d.\n", result.Version)
+			} else {
+				fmt.Fprintf(cmd.OutOrStdout(), "Local manifest already matches hosted version %d.\n", result.Version)
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), "Next: devspace plan && devspace apply")
+			return nil
+		},
+	})
+	cmd.AddCommand(newHostedServeCommand())
+	return cmd
+}
+
+func newHostedConfigCommand() *cobra.Command {
+	cmd := &cobra.Command{Use: "config", Short: "Configure hosted manifest sync"}
+	var token string
+	var workspace string
+	set := &cobra.Command{
+		Use:   "set <endpoint>",
+		Short: "Set hosted sync endpoint and auth token",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := SetHostedSync(args[0], token, workspace)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Endpoint: %s\n", cfg.HostedSyncEndpoint)
+			fmt.Fprintf(cmd.OutOrStdout(), "Workspace: %s\n", cfg.HostedSyncWorkspace)
+			return nil
+		},
+	}
+	set.Flags().StringVar(&token, "token", "", "hosted sync bearer token")
+	set.Flags().StringVar(&workspace, "workspace", "default", "hosted workspace id")
+	cmd.AddCommand(set)
+	cmd.AddCommand(&cobra.Command{
+		Use:   "get",
+		Short: "Print hosted sync configuration without the token",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := GetHostedSync()
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Endpoint: %s\n", cfg.HostedSyncEndpoint)
+			fmt.Fprintf(cmd.OutOrStdout(), "Workspace: %s\n", cfg.HostedSyncWorkspace)
+			fmt.Fprintln(cmd.OutOrStdout(), "Token: configured")
+			return nil
+		},
+	})
+	return cmd
+}
+
+func newHostedServeCommand() *cobra.Command {
+	var addr string
+	var store string
+	var token string
+	cmd := &cobra.Command{
+		Use:   "serve",
+		Short: "Run a local hosted manifest sync prototype server",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if store == "" {
+				home, err := appHome()
+				if err != nil {
+					return err
+				}
+				store = filepath.Join(home, "hosted-control-plane")
+			}
+			handler, err := NewHostedSyncServer(HostedSyncServerOptions{StoreDir: store, Token: token})
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Hosted manifest sync listening on http://%s\n", addr)
+			fmt.Fprintf(cmd.OutOrStdout(), "Storage: %s\n", store)
+			fmt.Fprintln(cmd.OutOrStdout(), "API: GET/PUT /v1/workspaces/{workspace}/manifest")
+			server := &http.Server{Addr: addr, Handler: handler}
+			return server.ListenAndServe()
+		},
+	}
+	cmd.Flags().StringVar(&addr, "addr", "127.0.0.1:8787", "listen address")
+	cmd.Flags().StringVar(&store, "store", "", "directory for hosted manifest storage")
+	cmd.Flags().StringVar(&token, "token", "", "required bearer token")
 	return cmd
 }
 
