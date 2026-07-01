@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "sdd": {
+      "source": "liatrio-labs/spec-driven-workflow",
+      "sourceType": "github",
+      "skillPath": "skill/SKILL.md",
+      "computedHash": "ac98d6be092326807be1160e0696cd35a3a428671ccde3cd22e58f07851581e3"
+    }
+  }
+}
