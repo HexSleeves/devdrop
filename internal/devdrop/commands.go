@@ -27,6 +27,7 @@ func NewRootCommand(version string) *cobra.Command {
 	cmd.AddCommand(newProjectCommand())
 	cmd.AddCommand(newEnvCommand())
 	cmd.AddCommand(newStatusCommand())
+	cmd.AddCommand(newDoctorCommand())
 	return cmd
 }
 
@@ -431,6 +432,16 @@ func newStatusCommand() *cobra.Command {
 		Short: "Show workspace health",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return printStatus(cmd.OutOrStdout(), nil)
+		},
+	}
+}
+
+func newDoctorCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "doctor",
+		Short: "Diagnose local DevDrop readiness",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return RunDoctor(cmd.OutOrStdout())
 		},
 	}
 }

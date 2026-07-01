@@ -45,6 +45,7 @@ What works today:
 - Scan existing projects for Git metadata, `.env` presence, dependency files,
   and setup hints.
 - Show workspace and project status.
+- Diagnose local readiness before syncing, planning, applying, or hydrating.
 - Add local projects to the manifest.
 - Plan and apply safe missing project structure as empty placeholder folders.
 - Hydrate placeholder Git projects with normal `git clone`.
@@ -118,6 +119,18 @@ devspace project status client-a-api
 
 Shows tracked projects, hydrated projects, placeholders, dirty repos, missing env
 files, stale/missing projects, and last scan/sync timestamps.
+
+### `devspace doctor`
+
+```bash
+devspace doctor
+```
+
+Checks local readiness without changing files or contacting hosted services. It
+reports config, workspace, manifest, Git, manifest remote/cache, saved plan, and
+tracked project path status. It exits non-zero only for hard failures that block
+core commands; stale plans, dirty repos, placeholders, and missing `.env` files
+are reported as warnings.
 
 ### `devspace project add`
 
