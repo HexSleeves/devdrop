@@ -1,7 +1,8 @@
 # Demo Script
 
-This script is designed for the final Module 5 recording. It uses temporary
-directories and local bare Git remotes so the demo works without network access.
+This script is designed for the final Module 5 recording. The executable version
+is checked in as `scripts/demo-check.sh`; it uses temporary directories and local
+bare Git remotes so the demo works without network access.
 
 ## Talk Track
 
@@ -10,47 +11,28 @@ machine publishing safe workspace metadata, a second machine pulling that
 metadata, creating placeholders, hydrating a Git project, and materializing an
 encrypted env value only when requested.
 
-## Setup
+## Run The Demo Check
 
 Start from the repo root:
 
 ```bash
-go build -o .tmp/devspace ./cmd/devdrop
-
-tmp="$(mktemp -d)"
-workspace_a="$tmp/workspace-a"
-workspace_b="$tmp/workspace-b"
-remote_src="$tmp/remote-src"
-project_remote="$tmp/client-a-api.git"
-manifest_remote="$tmp/manifest-sync.git"
+scripts/demo-check.sh
 ```
 
-Create a demo project remote:
+For proof capture, keep the generated workspaces, local bare remotes, pushed
+manifest, and summary file outside the repo with an explicit output directory:
 
 ```bash
-mkdir -p "$remote_src"
-git -C "$remote_src" init -b main
-git -C "$remote_src" config user.email demo@example.com
-git -C "$remote_src" config user.name "Demo User"
-printf '# client-a-api\n' > "$remote_src/README.md"
-git -C "$remote_src" add README.md
-git -C "$remote_src" commit -m "initial"
-git clone --bare "$remote_src" "$project_remote"
+proof_dir="$(mktemp -d /tmp/devdrop-demo-proof.XXXXXX)"
+scripts/demo-check.sh --output-dir "$proof_dir"
 ```
+
+The script builds `devspace`, creates two temporary machine homes, creates a
+local bare project remote and a local bare manifest remote, runs the full
+workflow, asserts the generated `.env` mode is `0600`, and prints
+`DevDrop demo-check passed.` on success.
 
 ## Machine A: Publish Workspace Metadata
-
-```bash
-export DEV_DROP_HOME="$tmp/home-a"
-.tmp/devspace init --workspace "$workspace_a"
-mkdir -p "$workspace_a/work"
-git clone "$project_remote" "$workspace_a/work/client-a-api"
-printf '{"scripts":{"dev":"vite"}}\n' > "$workspace_a/work/client-a-api/package.json"
-.tmp/devspace scan
-.tmp/devspace workspace remote create local "$manifest_remote"
-.tmp/devspace workspace push
-.tmp/devspace status
-```
 
 Narration:
 
@@ -59,18 +41,6 @@ Narration:
 - `workspace push` sends only `manifest.json` to the manifest remote.
 
 ## Machine B: Pull, Plan, Apply, Hydrate
-
-```bash
-export DEV_DROP_HOME="$tmp/home-b"
-.tmp/devspace init --workspace "$workspace_b"
-.tmp/devspace workspace remote set "$manifest_remote"
-.tmp/devspace workspace pull
-.tmp/devspace plan
-.tmp/devspace apply
-.tmp/devspace status
-.tmp/devspace project hydrate client-a-api
-.tmp/devspace status
-```
 
 Narration:
 
@@ -81,13 +51,6 @@ Narration:
 
 ## Encrypted Env Profile
 
-```bash
-printf 'postgres://demo\n' | .tmp/devspace env set client-a-api DATABASE_URL
-.tmp/devspace env list client-a-api
-.tmp/devspace env pull client-a-api
-ls -l "$workspace_b/work/client-a-api/.env"
-```
-
 Narration:
 
 - Env values are stored encrypted under the workspace `.devdrop/secrets`
@@ -95,6 +58,7 @@ Narration:
 - `env list` masks values.
 - `env pull` writes the local `.env` file only on explicit request.
 - The generated `.env` has `0600` permissions.
+- `scripts/demo-check.sh` enforces the `0600` assertion automatically.
 
 ## Close
 

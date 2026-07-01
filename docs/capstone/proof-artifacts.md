@@ -12,7 +12,7 @@ links as releases, PRs, and recordings are created.
 | Release readiness notes | Done | `docs/release-readiness.md` |
 | Capstone spec | Done | `docs/capstone/spec.md` |
 | Case study | Drafted | `docs/capstone/case-study.md` |
-| Demo script | Drafted | `docs/capstone/demo-script.md` |
+| Demo script | Done | `scripts/demo-check.sh`, `docs/capstone/demo-script.md` |
 | Remote-agent case study | Drafted | `docs/capstone/remote-agent-case-study.md` |
 | MVP wave args | Done | `ops/wave-ship/devdrop-mvp.args.json` |
 | Capstone stretch wave args | Drafted | `ops/wave-ship/devdrop-capstone.args.json` |
@@ -30,6 +30,7 @@ go test ./...
 go vet ./...
 go build -o .tmp/devspace ./cmd/devdrop
 .tmp/devspace --help
+scripts/demo-check.sh
 ```
 
 Expected current baseline:
@@ -38,13 +39,23 @@ Expected current baseline:
 - The build produces a local `devspace` binary.
 - `devspace --help` lists init, workspace, project, env, scan, plan, apply,
   status, and version commands.
+- `scripts/demo-check.sh` passes without network access, GitHub auth, Linear
+  auth, or real secrets.
 
 ## Demo Evidence To Capture
 
-Record a terminal walkthrough that shows:
+Run the executable walkthrough:
+
+```bash
+proof_dir="$(mktemp -d /tmp/devdrop-demo-proof.XXXXXX)"
+scripts/demo-check.sh --output-dir "$proof_dir"
+```
+
+Capture the command output and the generated
+`$proof_dir/demo-check-summary.txt`. The walkthrough proves:
 
 1. Build the binary.
-2. Create a temporary workspace and local bare Git project remote.
+2. Create temporary workspaces and local bare Git remotes.
 3. Initialize workspace A.
 4. Clone one project into workspace A and scan it.
 5. Create a local bare manifest remote.
@@ -54,11 +65,12 @@ Record a terminal walkthrough that shows:
 9. Run `plan` and `apply` to create placeholder structure.
 10. Hydrate the placeholder Git project.
 11. Store, list, and pull an encrypted env value.
-12. Show final `devspace status`.
-13. Show the remote-agent delivery workflow: `.claude/workflows/wave-ship.js`,
+12. Assert the generated `.env` mode is `0600`.
+13. Show final `devspace status` and `devspace project status`.
+14. Show the remote-agent delivery workflow: `.claude/workflows/wave-ship.js`,
     `ops/wave-ship/devdrop-mvp.args.json`, and
     `ops/wave-ship/devdrop-capstone.args.json`.
-14. Show the frontier track: hosted sync, daemon/watch, FUSE, team secrets, and
+15. Show the frontier track: hosted sync, daemon/watch, FUSE, team secrets, and
     explicit dependency install.
 
 ## Safety Proof Points
