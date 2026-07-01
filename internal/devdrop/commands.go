@@ -140,6 +140,42 @@ func newWorkspaceRemoteCommand() *cobra.Command {
 			return nil
 		},
 	})
+	create := &cobra.Command{Use: "create", Short: "Create and set a workspace manifest remote"}
+	create.AddCommand(&cobra.Command{
+		Use:   "local <path>",
+		Short: "Create a local bare Git manifest remote",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := CreateLocalManifestRemote(args[0])
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "%s\n", cfg.ManifestRemote)
+			return nil
+		},
+	})
+	private := true
+	var public bool
+	github := &cobra.Command{
+		Use:   "github <owner/repo>",
+		Short: "Create a GitHub manifest remote with gh",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if public {
+				private = false
+			}
+			cfg, err := CreateGitHubManifestRemote(args[0], private)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "%s\n", cfg.ManifestRemote)
+			return nil
+		},
+	}
+	github.Flags().BoolVar(&private, "private", true, "create a private GitHub repo")
+	github.Flags().BoolVar(&public, "public", false, "create a public GitHub repo")
+	create.AddCommand(github)
+	cmd.AddCommand(create)
 	cmd.AddCommand(&cobra.Command{
 		Use:   "get",
 		Short: "Print workspace manifest Git remote",

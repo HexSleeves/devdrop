@@ -89,7 +89,11 @@ func mustGit(ctx context.Context, dir string, args ...string) string {
 }
 
 func runGit(ctx context.Context, dir string, args ...string) (string, error) {
-	cmd := exec.CommandContext(ctx, "git", args...)
+	return runCommand(ctx, dir, "git", args...)
+}
+
+func runCommand(ctx context.Context, dir, name string, args ...string) (string, error) {
+	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
 	var out bytes.Buffer
 	var stderr bytes.Buffer

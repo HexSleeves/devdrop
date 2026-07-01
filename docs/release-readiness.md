@@ -17,6 +17,8 @@
 - Manifest path validation rejects absolute paths and `..` escapes.
 - Manifest writes create `.bak` backups before replacing existing files.
 - `workspace remote set/get` stores manifest remote configuration outside the manifest.
+- `workspace remote create local` creates a local bare Git manifest remote and sets it.
+- `workspace remote create github` has an explicit GitHub CLI path for creating hosted manifest repos.
 - `workspace push` clones the manifest repo cache, writes only `manifest.json`, commits changed manifests, pushes to the configured remote, and is idempotent with no changes.
 - `workspace pull` validates the remote manifest before replacement, localizes the workspace root, creates a manifest backup, and does not run apply automatically.
 - Git-backed manifest pull works into a second workspace, after which plan/apply recreates placeholder folder structure.
@@ -30,6 +32,7 @@
 - Workspace paths and project paths with spaces work.
 - Secret values remain encrypted at rest and masked in list output.
 - Manifest sync refuses invalid JSON, path traversal, dirty manifest repo state, and local unpushed manifest changes.
+- Missing manifest remotes get a purpose-built recovery message with local and GitHub create commands.
 
 ## What Failed
 

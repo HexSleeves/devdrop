@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -47,6 +48,62 @@ func GetManifestRemote() (Config, error) {
 	return cfg, nil
 }
 
+func CreateLocalManifestRemote(path string) (Config, error) {
+	if strings.TrimSpace(path) == "" {
+		return Config{}, fmt.Errorf("manifest remote path is required")
+	}
+	if err := ensureGitAvailable(); err != nil {
+		return Config{}, err
+	}
+	remote, err := expandPath(path)
+	if err != nil {
+		return Config{}, err
+	}
+	if exists(remote) {
+		if !isBareGitRepo(remote) {
+			if !isEmptyDir(remote) {
+				return Config{}, fmt.Errorf("manifest remote path is non-empty and is not a bare Git repository: %s", remote)
+			}
+		} else {
+			return SetManifestRemote(remote)
+		}
+	}
+	if err := os.MkdirAll(filepath.Dir(remote), 0o700); err != nil {
+		return Config{}, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	if _, err := runCommand(ctx, "", "git", "init", "--bare", "-b", "main", remote); err != nil {
+		return Config{}, fmt.Errorf("create local manifest remote failed: %w", err)
+	}
+	return SetManifestRemote(remote)
+}
+
+func CreateGitHubManifestRemote(repo string, private bool) (Config, error) {
+	repo = strings.TrimSpace(repo)
+	if repo == "" {
+		return Config{}, fmt.Errorf("GitHub repository is required, for example HexSleeves/devspace-manifest")
+	}
+	if strings.Count(repo, "/") != 1 {
+		return Config{}, fmt.Errorf("GitHub repository must be owner/name, got %q", repo)
+	}
+	if _, err := exec.LookPath("gh"); err != nil {
+		return Config{}, fmt.Errorf("GitHub remote creation requires GitHub CLI (`gh`); install it or create the repo manually, then run `devspace workspace remote set git@github.com:%s.git`", repo)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	visibility := "--private"
+	if !private {
+		visibility = "--public"
+	}
+	if _, err := runCommand(ctx, "", "gh", "repo", "create", repo, visibility); err != nil {
+		if !strings.Contains(err.Error(), "already exists") {
+			return Config{}, fmt.Errorf("GitHub manifest remote creation failed: %w", err)
+		}
+	}
+	return SetManifestRemote("git@github.com:" + repo + ".git")
+}
+
 func PushWorkspaceManifest() (bool, error) {
 	cfg, err := syncConfig()
 	if err != nil {
@@ -67,7 +124,7 @@ func PushWorkspaceManifest() (bool, error) {
 	if err := ensureCleanManifestRepo(repo); err != nil {
 		return false, err
 	}
-	if err := fetchManifestRepo(repo); err != nil {
+	if err := fetchManifestRepo(repo, cfg.ManifestRemote); err != nil {
 		return false, err
 	}
 	if err := ensureManifestRepoNotBehind(repo); err != nil {
@@ -105,7 +162,7 @@ func PullWorkspaceManifest() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if err := pullManifestRepo(repo); err != nil {
+	if err := pullManifestRepo(repo, cfg.ManifestRemote); err != nil {
 		return false, err
 	}
 	remote, err := loadSyncedManifest(repo)
@@ -183,9 +240,16 @@ func ensureManifestRepo(cfg Config) (string, error) {
 		return "", err
 	}
 	if err := cloneRepo(cfg.ManifestRemote, repo); err != nil {
-		return "", fmt.Errorf("remote clone failed: %w", err)
+		return "", manifestRemoteNotReadyError(cfg.ManifestRemote, fmt.Errorf("remote clone failed: %w", err))
 	}
 	return repo, nil
+}
+
+func isBareGitRepo(path string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	out, err := runCommand(ctx, "", "git", "--git-dir", path, "rev-parse", "--is-bare-repository")
+	return err == nil && out == "true"
 }
 
 func ensureManifestRepoRemote(repo, remote string) error {
@@ -217,17 +281,17 @@ func ensureCleanManifestRepo(repo string) error {
 	return nil
 }
 
-func fetchManifestRepo(repo string) error {
+func fetchManifestRepo(repo, remote string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	if _, err := runGit(ctx, repo, "fetch", "origin"); err != nil {
-		return fmt.Errorf("remote fetch failed: %w", err)
+		return manifestRemoteNotReadyError(remote, fmt.Errorf("remote fetch failed: %w", err))
 	}
 	return nil
 }
 
-func pullManifestRepo(repo string) error {
-	if err := fetchManifestRepo(repo); err != nil {
+func pullManifestRepo(repo, remote string) error {
+	if err := fetchManifestRepo(repo, remote); err != nil {
 		return err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
@@ -403,6 +467,28 @@ func manifestForSync(m Manifest) Manifest {
 	m.WorkspaceRoot = "."
 	m.Machines = nil
 	return m
+}
+
+func manifestRemoteNotReadyError(remote string, err error) error {
+	msg := err.Error()
+	if !strings.Contains(msg, "Repository not found") &&
+		!strings.Contains(msg, "Could not read from remote repository") &&
+		!strings.Contains(msg, "does not appear to be a git repository") &&
+		!strings.Contains(msg, "not found") {
+		return err
+	}
+	return fmt.Errorf("manifest remote is not ready: %s\n\nCreate it first, then rerun sync:\n  devspace workspace remote create github %s --private\n  devspace workspace push\n\nOr use a local bare repo:\n  devspace workspace remote create local ~/Projects/devspace-manifest.git\n  devspace workspace push\n\nOriginal error:\n%w", remote, githubRepoSlug(remote), err)
+}
+
+func githubRepoSlug(remote string) string {
+	trimmed := strings.TrimSuffix(remote, ".git")
+	if strings.HasPrefix(trimmed, "git@github.com:") {
+		return strings.TrimPrefix(trimmed, "git@github.com:")
+	}
+	if strings.HasPrefix(trimmed, "https://github.com/") {
+		return strings.TrimPrefix(trimmed, "https://github.com/")
+	}
+	return "OWNER/REPO"
 }
 
 func localizeSyncedManifest(m Manifest, cfg Config) Manifest {

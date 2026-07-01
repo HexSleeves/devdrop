@@ -113,6 +113,33 @@ func TestHardeningScanIgnoresDependencyFoldersAndNestedRepos(t *testing.T) {
 	hardeningAssertProjectPaths(t, m, []string{"apps/app", "services/api"})
 }
 
+func TestHardeningScanDisambiguatesDuplicateBasenames(t *testing.T) {
+	workspace := hardeningInitWorkspace(t, "code")
+	hardeningGitRepo(t, filepath.Join(workspace, "client-a", "family-events-backend"))
+	hardeningGitRepo(t, filepath.Join(workspace, "client-b", "family-events-backend"))
+
+	if _, err := ScanWorkspace(); err != nil {
+		t.Fatal(err)
+	}
+	m, err := LoadManifest(workspace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Projects) != 2 {
+		t.Fatalf("projects = %+v", m.Projects)
+	}
+	names := map[string]bool{}
+	for _, p := range m.Projects {
+		if names[p.Name] {
+			t.Fatalf("duplicate project name remained: %+v", m.Projects)
+		}
+		names[p.Name] = true
+	}
+	if !names["family-events-backend"] || !names["client-b-family-events-backend"] {
+		t.Fatalf("duplicate basename was not disambiguated predictably: %+v", m.Projects)
+	}
+}
+
 func TestHardeningRejectsPathTraversal(t *testing.T) {
 	workspace := hardeningInitWorkspace(t, "code")
 	for _, path := range []string{"../outside", "ok/../../outside", "..", filepath.Join(string(filepath.Separator), "tmp", "abs")} {

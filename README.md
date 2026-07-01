@@ -38,6 +38,12 @@ What works today:
 - Store encrypted per-project env profiles with native age encryption.
 - Generate local `.env` files with `0600` permissions.
 
+## Capstone Artifacts
+
+This repository is being prepared as a Liatrio Forge Module 5 capstone. See
+[`docs/capstone/README.md`](docs/capstone/README.md) for the capstone spec,
+proof checklist, case study, demo script, and playbook contribution.
+
 ## Supported Commands
 
 ### `devspace init`
@@ -140,11 +146,15 @@ Compatibility alias. Prefer `devspace plan` and `devspace apply`.
 
 ```bash
 devspace workspace remote set <git-url-or-local-path>
+devspace workspace remote create local ~/Projects/devspace-manifest.git
+devspace workspace remote create github HexSleeves/devspace-manifest --private
 devspace workspace remote get
 ```
 
 Stores the Git remote used for manifest sync in local config. The remote setting
-is not written into the workspace manifest.
+is not written into the workspace manifest. `remote create local` initializes a
+local bare Git repository and sets it as the remote. `remote create github` uses
+the GitHub CLI (`gh`) to create the repository, then sets the SSH remote.
 
 ### `devspace workspace push`
 
@@ -221,14 +231,13 @@ printf '# client-a-api\n' > "$remote_src/README.md"
 git -C "$remote_src" add README.md
 git -C "$remote_src" commit -m "initial"
 git clone --bare "$remote_src" "$remote_bare"
-git init --bare -b main "$manifest_remote"
 
 bin/devspace init --workspace "$workspace_a"
 mkdir -p "$workspace_a/work/client-a-api"
 git clone "$remote_bare" "$workspace_a/work/client-a-api"
 printf '{"scripts":{"dev":"vite"}}\n' > "$workspace_a/work/client-a-api/package.json"
 bin/devspace scan
-bin/devspace workspace remote set "$manifest_remote"
+bin/devspace workspace remote create local "$manifest_remote"
 bin/devspace workspace push
 bin/devspace plan
 bin/devspace apply
@@ -246,12 +255,10 @@ To simulate a second machine, use a local bare Git repo for the manifest.
 workspace_b="$tmp/workspace-b"
 manifest_remote="$tmp/manifest-sync.git"
 
-git init --bare -b main "$manifest_remote"
-
 export DEV_DROP_HOME="$tmp/home-a"
 bin/devspace init --workspace "$workspace_a"
 bin/devspace scan
-bin/devspace workspace remote set "$manifest_remote"
+bin/devspace workspace remote create local "$manifest_remote"
 bin/devspace workspace push
 
 export DEV_DROP_HOME="$tmp/home-b"
@@ -291,6 +298,7 @@ Manifest sync stops with a clear error when:
 
 - No manifest remote is configured.
 - Git is not installed.
+- The configured manifest remote does not exist yet.
 - The manifest repo cannot be cloned, fetched, pulled, or pushed.
 - The manifest repo has uncommitted changes.
 - The remote branch is newer or diverged.
@@ -327,6 +335,9 @@ Manifest sync stops with a clear error when:
 
 - If `devspace` is not found, build it with
   `go build -o bin/devspace ./cmd/devdrop` and run `bin/devspace`.
+- If `workspace push` says the manifest remote is not ready, create it first with
+  `devspace workspace remote create github <owner/repo> --private` or
+  `devspace workspace remote create local ~/Projects/devspace-manifest.git`.
 - If commands use the wrong workspace, check `DEV_DROP_HOME` and
   `~/.devdrop/config.json`.
 - If `plan` reports a path conflict, inspect the existing directory and

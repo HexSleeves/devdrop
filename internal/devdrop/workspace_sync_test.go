@@ -2,6 +2,7 @@ package devdrop
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -32,6 +33,51 @@ func TestWorkspaceRemoteSetGet(t *testing.T) {
 	}
 	if got.ManifestRemote != remote {
 		t.Fatalf("get remote = %q", got.ManifestRemote)
+	}
+}
+
+func TestWorkspaceRemoteCreateLocalInitializesBareRepoAndSetsRemote(t *testing.T) {
+	workspace := hardeningInitWorkspace(t, "code")
+	remote := filepath.Join(t.TempDir(), "new-manifest.git")
+
+	cfg, err := CreateLocalManifestRemote(remote)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.WorkspaceRoot != workspace {
+		t.Fatalf("workspace changed: %s", cfg.WorkspaceRoot)
+	}
+	if cfg.ManifestRemote != remote {
+		t.Fatalf("remote = %q", cfg.ManifestRemote)
+	}
+	if !isBareGitRepo(remote) {
+		t.Fatalf("remote was not created as a bare repo: %s", remote)
+	}
+}
+
+func TestWorkspaceRemoteCreateGitHubRequiresGh(t *testing.T) {
+	hardeningInitWorkspace(t, "code")
+	t.Setenv("PATH", t.TempDir())
+
+	_, err := CreateGitHubManifestRemote("HexSleeves/devspace-manifest", true)
+	if err == nil || !strings.Contains(err.Error(), "requires GitHub CLI") {
+		t.Fatalf("github create error = %v", err)
+	}
+}
+
+func TestManifestRemoteNotReadyErrorGivesCreateCommands(t *testing.T) {
+	err := manifestRemoteNotReadyError(
+		"git@github.com:HexSleeves/devspace-manifest.git",
+		errors.New("ERROR: Repository not found."),
+	)
+	if err == nil || !strings.Contains(err.Error(), "manifest remote is not ready") {
+		t.Fatalf("remote not ready error = %v", err)
+	}
+	if !strings.Contains(err.Error(), "devspace workspace remote create github HexSleeves/devspace-manifest --private") {
+		t.Fatalf("missing github recovery command:\n%v", err)
+	}
+	if !strings.Contains(err.Error(), "devspace workspace remote create local ~/Projects/devspace-manifest.git") {
+		t.Fatalf("missing local recovery command:\n%v", err)
 	}
 }
 

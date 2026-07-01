@@ -94,10 +94,38 @@ func upsertProject(m *Manifest, p Project) {
 			return
 		}
 	}
+	p.Name = uniqueProjectName(m.Projects, p)
 	m.Projects = append(m.Projects, p)
 	slices.SortFunc(m.Projects, func(a, b Project) int {
 		return strings.Compare(a.Path, b.Path)
 	})
+}
+
+func uniqueProjectName(projects []Project, p Project) string {
+	if !projectNameExists(projects, p.Name) {
+		return p.Name
+	}
+	pathName := strings.ReplaceAll(strings.Trim(filepath.ToSlash(p.Path), "/"), "/", "-")
+	if pathName != "" && !projectNameExists(projects, pathName) {
+		return pathName
+	}
+	idSuffix := strings.TrimPrefix(p.ID, "project_")
+	if len(idSuffix) > 8 {
+		idSuffix = idSuffix[:8]
+	}
+	if pathName == "" {
+		pathName = p.Name
+	}
+	return pathName + "-" + idSuffix
+}
+
+func projectNameExists(projects []Project, name string) bool {
+	for _, p := range projects {
+		if p.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 func mergeProject(old, next Project) Project {

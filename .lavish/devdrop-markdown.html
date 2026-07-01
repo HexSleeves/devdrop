@@ -1,0 +1,3867 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DevDrop Markdown Reader</title>
+  <meta name="description" content="Interactive HTML reader generated from every Markdown file in the DevDrop repository.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17201a;
+      --muted: #5d6b62;
+      --line: #d9e1da;
+      --line-strong: #b8c6bd;
+      --paper: #f8faf7;
+      --panel: #ffffff;
+      --soft: #eef4f0;
+      --mint: #0f766e;
+      --mint-dark: #0b4f4a;
+      --amber: #b7791f;
+      --red: #b42318;
+      --green: #16803b;
+      --blue: #1d4f8f;
+      --mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --radius: 8px;
+      --shadow: 0 1px 2px rgba(15, 23, 42, 0.08), 0 12px 32px rgba(15, 23, 42, 0.06);
+      --focus: 0 0 0 3px rgba(15, 118, 110, 0.22);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --ink: #eff7f1;
+        --muted: #b7c7bd;
+        --line: #2a3a31;
+        --line-strong: #496257;
+        --paper: #101612;
+        --panel: #161f19;
+        --soft: #1d2a22;
+        --mint: #5ee0d0;
+        --mint-dark: #8df1e4;
+        --amber: #f4bf62;
+        --red: #ff8a7d;
+        --green: #67d391;
+        --blue: #8fb8ff;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 32px rgba(0, 0, 0, 0.28);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      line-height: 1.55;
+      letter-spacing: 0;
+    }
+    button, input { font: inherit; }
+    button, a { touch-action: manipulation; }
+    button:focus-visible, a:focus-visible, input:focus-visible {
+      outline: none;
+      box-shadow: var(--focus);
+    }
+    .app {
+      display: grid;
+      grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+      min-height: 100vh;
+    }
+    .sidebar {
+      position: sticky;
+      top: 0;
+      align-self: start;
+      height: 100vh;
+      overflow: auto;
+      border-right: 1px solid var(--line);
+      background: color-mix(in srgb, var(--panel) 92%, var(--soft));
+      padding: 20px;
+    }
+    .brand {
+      display: grid;
+      gap: 10px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+    .brand-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      min-width: 0;
+    }
+    .brand-mark {
+      display: inline-grid;
+      place-items: center;
+      flex: 0 0 auto;
+      width: 40px;
+      height: 40px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: var(--ink);
+      color: var(--paper);
+      font-weight: 800;
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 1.05rem;
+      line-height: 1.1;
+    }
+    .brand p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 10px;
+      min-width: 0;
+    }
+    .stat strong {
+      display: block;
+      font-size: 1.05rem;
+      line-height: 1;
+    }
+    .stat span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.74rem;
+    }
+    .controls {
+      display: grid;
+      gap: 10px;
+      margin: 18px 0;
+    }
+    .search {
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--ink);
+      padding: 10px 12px;
+    }
+    .segmented {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--panel);
+    }
+    .segmented button {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      min-height: 38px;
+      cursor: pointer;
+    }
+    .segmented button[aria-pressed="true"] {
+      background: var(--ink);
+      color: var(--paper);
+      font-weight: 700;
+    }
+    .nav {
+      display: grid;
+      gap: 6px;
+      margin-top: 18px;
+    }
+    .nav button {
+      min-height: 48px;
+      width: 100%;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: transparent;
+      color: var(--muted);
+      text-align: left;
+      cursor: pointer;
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr);
+      gap: 9px;
+      align-items: center;
+    }
+    .nav button[aria-selected="true"] {
+      background: var(--soft);
+      border-color: var(--line);
+      color: var(--ink);
+      font-weight: 700;
+    }
+    .nav .num {
+      display: inline-grid;
+      place-items: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+    .nav .label {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+    }
+    .nav .title {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .nav .path {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      overflow-wrap: anywhere;
+    }
+    .main {
+      min-width: 0;
+      padding: 28px;
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 20px;
+      align-items: end;
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+    }
+    .hero > * {
+      min-width: 0;
+    }
+    .hero h2 {
+      margin: 0;
+      max-width: 100%;
+      font-size: clamp(1.55rem, 2.7vw, 2.8rem);
+      line-height: 1.02;
+      letter-spacing: 0;
+      overflow-wrap: anywhere;
+    }
+    .hero p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      max-width: 72ch;
+    }
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+      min-width: 0;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 4px 10px;
+      background: var(--soft);
+      color: var(--muted);
+      font-size: 0.82rem;
+      overflow-wrap: anywhere;
+    }
+    .doc-grid {
+      display: grid;
+      gap: 18px;
+    }
+    .doc {
+      display: none;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .doc.active {
+      display: block;
+    }
+    .doc-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 14px;
+      padding: 22px 24px;
+      border-bottom: 1px solid var(--line);
+      background: color-mix(in srgb, var(--soft) 62%, transparent);
+    }
+    .doc-header h2 {
+      margin: 0;
+      font-size: 1.35rem;
+      line-height: 1.15;
+    }
+    .doc-path {
+      margin-top: 6px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      overflow-wrap: anywhere;
+    }
+    .doc-meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-content: start;
+      justify-content: flex-end;
+      gap: 8px;
+      min-width: 0;
+    }
+    .doc-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .rendered, .source {
+      min-width: 0;
+      padding: 24px;
+    }
+    .source {
+      display: none;
+      border-top: 1px solid var(--line);
+      background: color-mix(in srgb, var(--soft) 45%, transparent);
+    }
+    body.show-source .source {
+      display: block;
+    }
+    body.show-source .rendered {
+      border-bottom: 1px solid var(--line);
+    }
+    .markdown {
+      min-width: 0;
+      max-width: 980px;
+    }
+    .markdown h1, .markdown h2, .markdown h3, .markdown h4 {
+      position: relative;
+      margin: 1.5em 0 0.45em;
+      line-height: 1.18;
+      letter-spacing: 0;
+    }
+    .markdown h1:first-child, .markdown h2:first-child, .markdown h3:first-child {
+      margin-top: 0;
+    }
+    .markdown h1 { font-size: 2rem; }
+    .markdown h2 { font-size: 1.45rem; }
+    .markdown h3 { font-size: 1.12rem; }
+    .markdown p, .markdown li {
+      color: color-mix(in srgb, var(--ink) 88%, var(--muted));
+    }
+    .markdown a {
+      color: var(--mint-dark);
+      font-weight: 650;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+    }
+    .heading-link {
+      position: absolute;
+      left: -1.1em;
+      color: var(--muted);
+      opacity: 0;
+      text-decoration: none;
+      font-weight: 700;
+    }
+    .markdown h1:hover .heading-link,
+    .markdown h2:hover .heading-link,
+    .markdown h3:hover .heading-link,
+    .markdown h4:hover .heading-link {
+      opacity: 1;
+    }
+    .markdown blockquote {
+      margin: 18px 0;
+      padding: 12px 16px;
+      border-left: 4px solid var(--mint);
+      background: var(--soft);
+      border-radius: 0 8px 8px 0;
+    }
+    .markdown table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 18px 0;
+      overflow-wrap: anywhere;
+      font-size: 0.93rem;
+    }
+    .markdown th, .markdown td {
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      vertical-align: top;
+    }
+    .markdown th {
+      background: var(--soft);
+      text-align: left;
+    }
+    .markdown :not(pre) > code {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--soft);
+      padding: 0.08em 0.34em;
+      font-family: var(--mono);
+      font-size: 0.88em;
+      overflow-wrap: anywhere;
+    }
+    .code-block {
+      margin: 18px 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #0d1117;
+      min-width: 0;
+    }
+    .code-block figcaption {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 40px;
+      padding: 8px 10px;
+      background: color-mix(in srgb, #0d1117 86%, var(--mint));
+      color: #e6edf3;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+    }
+    .copy-btn {
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 6px;
+      background: rgba(255,255,255,0.08);
+      color: #e6edf3;
+      min-height: 28px;
+      padding: 4px 9px;
+      cursor: pointer;
+    }
+    .diff-render {
+      min-width: 0;
+    }
+    .fallback-code {
+      margin: 0;
+      padding: 14px;
+      color: #e6edf3;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      font-family: var(--mono);
+      font-size: 0.86rem;
+    }
+    .source pre {
+      margin: 0;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      font-family: var(--mono);
+      font-size: 0.86rem;
+      color: var(--ink);
+    }
+    .empty-state {
+      display: none;
+      border: 1px dashed var(--line-strong);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 24px;
+      color: var(--muted);
+    }
+    .empty-state.visible {
+      display: block;
+    }
+    .mobile-toggle {
+      display: none;
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--ink);
+      margin-bottom: 14px;
+      cursor: pointer;
+    }
+    @media (max-width: 860px) {
+      .app {
+        display: block;
+      }
+      .mobile-toggle {
+        display: block;
+      }
+      .sidebar {
+        position: static;
+        display: none;
+        height: auto;
+        max-height: none;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+      body.nav-open .sidebar {
+        display: block;
+      }
+      .main {
+        padding: 16px;
+      }
+      .hero {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 20px;
+      }
+      .badge-row {
+        justify-content: flex-start;
+      }
+      .doc-header {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .doc-meta {
+        justify-content: flex-start;
+      }
+      .rendered, .source {
+        padding: 18px;
+      }
+      .heading-link {
+        position: static;
+        opacity: 1;
+        margin-right: 0.35em;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-row">
+          <div class="brand-mark">DD</div>
+          <div>
+            <h1>DevDrop Markdown</h1>
+            <p>Interactive HTML reader for every Markdown file in this repo.</p>
+          </div>
+        </div>
+        <div class="stats" aria-label="Document stats">
+          <div class="stat"><strong>9</strong><span>files</span></div>
+          <div class="stat"><strong>5,117</strong><span>words</span></div>
+          <div class="stat"><strong>28</strong><span>snippets</span></div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <input id="search" class="search" type="search" placeholder="Search docs..." autocomplete="off">
+        <div class="segmented" aria-label="View mode">
+          <button id="renderedBtn" type="button" aria-pressed="true">HTML</button>
+          <button id="sourceBtn" type="button" aria-pressed="false">HTML + MD</button>
+        </div>
+      </div>
+
+      <nav class="nav" id="nav" aria-label="Markdown files">
+        <button type="button" data-doc="doc-1" aria-selected="true">
+          <span class="num">1</span>
+          <span class="label"><span class="title">DevDrop</span><span class="path">README.md</span></span>
+        </button>
+<button type="button" data-doc="doc-2" aria-selected="false">
+          <span class="num">2</span>
+          <span class="label"><span class="title">Release Readiness</span><span class="path">docs/release-readiness.md</span></span>
+        </button>
+<button type="button" data-doc="doc-3" aria-selected="false">
+          <span class="num">3</span>
+          <span class="label"><span class="title">DevDrop Capstone Packet</span><span class="path">docs/capstone/README.md</span></span>
+        </button>
+<button type="button" data-doc="doc-4" aria-selected="false">
+          <span class="num">4</span>
+          <span class="label"><span class="title">Capstone Spec: DevDrop</span><span class="path">docs/capstone/spec.md</span></span>
+        </button>
+<button type="button" data-doc="doc-5" aria-selected="false">
+          <span class="num">5</span>
+          <span class="label"><span class="title">Proof Artifacts</span><span class="path">docs/capstone/proof-artifacts.md</span></span>
+        </button>
+<button type="button" data-doc="doc-6" aria-selected="false">
+          <span class="num">6</span>
+          <span class="label"><span class="title">Case Study: DevDrop</span><span class="path">docs/capstone/case-study.md</span></span>
+        </button>
+<button type="button" data-doc="doc-7" aria-selected="false">
+          <span class="num">7</span>
+          <span class="label"><span class="title">Demo Script</span><span class="path">docs/capstone/demo-script.md</span></span>
+        </button>
+<button type="button" data-doc="doc-8" aria-selected="false">
+          <span class="num">8</span>
+          <span class="label"><span class="title">Playbook Contribution: Client Enablement Lessons</span><span class="path">docs/capstone/playbook-contribution.md</span></span>
+        </button>
+<button type="button" data-doc="doc-9" aria-selected="false">
+          <span class="num">9</span>
+          <span class="label"><span class="title">DevDrop MVP Wave-Ship Prep</span><span class="path">ops/wave-ship/README.md</span></span>
+        </button>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <button class="mobile-toggle" type="button" id="mobileToggle">Toggle document menu</button>
+      <section class="hero" aria-labelledby="page-title">
+        <div>
+          <h2 id="page-title">Markdown converted into a reviewable HTML surface.</h2>
+          <p>Use the left navigation to switch files, search across converted content, and toggle raw Markdown under each rendered document when you need source-level review.</p>
+        </div>
+        <div class="badge-row">
+          <span class="badge">9 Markdown files</span>
+          <span class="badge">2 tables</span>
+          <span class="badge">28 code blocks</span>
+        </div>
+      </section>
+
+      <div id="emptyState" class="empty-state">No Markdown files match the current search.</div>
+      <section class="doc-grid" id="docs">
+        <article class="doc active" id="doc-1" data-title="DevDrop" data-path="README.md" data-search="devdrop readme.md # devdrop
+
+devdrop is a local-first &quot;dropbox for developers&quot; cli prototype. it keeps a
+developer workspace structurally aligned across machines by tracking project
+metadata, safe placeholder folders, git remotes, setup hints, and encrypted env
+profiles.
+
+the intended command name is `devspace`. the current binary can also be built
+from this repository:
+
+```bash
+go build -o bin/devspace ./cmd/devdrop
+```
+
+during development, you can still run the command directly from source:
+
+```bash
+go test ./...
+go run ./cmd/devdrop --help
+```
+
+## current mvp status
+
+this mvp is local-first. it proves the workflow before adding hosted sync,
+background daemons, or filesystem-level lazy loading.
+
+what works today:
+
+- initialize a workspace and local machine identity.
+- generate a versioned workspace manifest.
+- scan existing projects for git metadata, `.env` presence, dependency files,
+  and setup hints.
+- show workspace and project status.
+- add local projects to the manifest.
+- plan and apply safe missing project structure as empty placeholder folders.
+- hydrate placeholder git projects with normal `git clone`.
+- push and pull the workspace manifest through a user-owned git repository.
+- store encrypted per-project env profiles with native age encryption.
+- generate local `.env` files with `0600` permissions.
+
+## capstone artifacts
+
+this repository is being prepared as a liatrio forge module 5 capstone. see
+[`docs/capstone/readme.md`](docs/capstone/readme.md) for the capstone spec,
+proof checklist, case study, demo script, and playbook contribution.
+
+## supported commands
+
+### `devspace init`
+
+```bash
+devspace init --workspace ~/code
+```
+
+creates:
+
+- `~/.devdrop/config.json`
+- `~/.devdrop/state.json`
+- `~/.devdrop/identity.txt`
+- `&lt;workspace&gt;/.devdrop/manifest.json`
+
+the command is idempotent and does not rotate the machine id or age identity on
+repeat runs.
+
+### `devspace scan`
+
+```bash
+devspace scan
+```
+
+scans the configured workspace and updates the manifest/state with:
+
+- git remote url
+- current branch
+- last commit
+- dirty working tree status
+- `.env` file presence
+- dependency/setup hints
+
+ignored by default:
+
+```text
+node_modules/
+dist/
+build/
+.next/
+turbo/
+target/
+vendor/
+coverage/
+.cache/
+.ds_store
+*.log
+```
+
+### `devspace status`
+
+```bash
+devspace status
+devspace project status client-a-api
+```
+
+shows tracked projects, hydrated projects, placeholders, dirty repos, missing env
+files, stale/missing projects, and last scan/sync timestamps.
+
+### `devspace project add`
+
+```bash
+devspace project add work/client-a-api
+```
+
+adds a relative workspace path to the manifest. existing git repositories are
+recorded as git projects; otherwise the project is tracked as local-only.
+
+### `devspace plan`
+
+```bash
+devspace plan
+devspace plan --json
+```
+
+builds a deterministic plan of safe and skipped actions, saves it to
+`&lt;workspace&gt;/.devdrop/last-plan.json`, and prints a human-readable report.
+`--json` prints the same saved plan as structured json for automation.
+
+### `devspace apply`
+
+```bash
+devspace apply
+```
+
+applies the last saved plan only if the manifest hash still matches. if the
+manifest changed after `plan`, `apply` refuses to run and asks you to re-plan.
+only safe actions are executed. skipped actions remain listed and untouched.
+
+### `devspace workspace sync`
+
+```bash
+devspace workspace sync --dry-run
+devspace workspace sync
+```
+
+compatibility alias. prefer `devspace plan` and `devspace apply`.
+
+### `devspace workspace remote`
+
+```bash
+devspace workspace remote set &lt;git-url-or-local-path&gt;
+devspace workspace remote create local ~/projects/devspace-manifest.git
+devspace workspace remote create github hexsleeves/devspace-manifest --private
+devspace workspace remote get
+```
+
+stores the git remote used for manifest sync in local config. the remote setting
+is not written into the workspace manifest. `remote create local` initializes a
+local bare git repository and sets it as the remote. `remote create github` uses
+the github cli (`gh`) to create the repository, then sets the ssh remote.
+
+### `devspace workspace push`
+
+```bash
+devspace workspace push
+```
+
+validates the local manifest, clones the manifest repo cache if needed, writes
+only `manifest.json`, commits only when the manifest changed, and pushes to the
+configured git remote. if the manifest repo is dirty or the remote branch is
+newer/diverged, the command stops and asks you to pull or reconcile first.
+
+### `devspace workspace pull`
+
+```bash
+devspace workspace pull
+devspace plan
+devspace apply
+```
+
+fetches the configured manifest repo, validates the remote `manifest.json`, backs
+up the current local manifest, and atomically replaces it. it does not run
+`apply`, hydrate projects, pull project repos, install dependencies, or overwrite
+project contents.
+
+### `devspace project hydrate`
+
+```bash
+devspace project hydrate client-a-api
+```
+
+hydrates a placeholder git project with normal `git clone`. the placeholder is
+an empty directory; hydration refuses to clone into non-empty directories and
+does not delete files.
+
+### `devspace env`
+
+```bash
+printf &#39;postgres://local\n&#39; | devspace env set client-a-api database_url
+devspace env list client-a-api
+devspace env pull client-a-api
+```
+
+`env set` reads from stdin when piped, or prompts for a hidden value when run in a
+terminal. `env list` prints keys only, with values masked. `env pull` writes the
+local project `.env` with `0600` permissions.
+
+encrypted profiles are stored under:
+
+```text
+&lt;workspace&gt;/.devdrop/secrets/&lt;project-id&gt;/&lt;profile&gt;.age
+```
+
+## example local workflow
+
+this workflow uses temporary directories and a local bare git remote, so it does
+not need network access.
+
+```bash
+go build -o bin/devspace ./cmd/devdrop
+
+tmp=&quot;$(mktemp -d)&quot;
+export dev_drop_home=&quot;$tmp/home&quot;
+workspace_a=&quot;$tmp/workspace-a&quot;
+remote_src=&quot;$tmp/remote-src&quot;
+remote_bare=&quot;$tmp/client-a-api.git&quot;
+manifest_remote=&quot;$tmp/manifest-sync.git&quot;
+
+mkdir -p &quot;$remote_src&quot;
+git -c &quot;$remote_src&quot; init -b main
+git -c &quot;$remote_src&quot; config user.email demo@example.com
+git -c &quot;$remote_src&quot; config user.name &quot;demo user&quot;
+printf &#39;# client-a-api\n&#39; &gt; &quot;$remote_src/readme.md&quot;
+git -c &quot;$remote_src&quot; add readme.md
+git -c &quot;$remote_src&quot; commit -m &quot;initial&quot;
+git clone --bare &quot;$remote_src&quot; &quot;$remote_bare&quot;
+
+bin/devspace init --workspace &quot;$workspace_a&quot;
+mkdir -p &quot;$workspace_a/work/client-a-api&quot;
+git clone &quot;$remote_bare&quot; &quot;$workspace_a/work/client-a-api&quot;
+printf &#39;{&quot;scripts&quot;:{&quot;dev&quot;:&quot;vite&quot;}}\n&#39; &gt; &quot;$workspace_a/work/client-a-api/package.json&quot;
+bin/devspace scan
+bin/devspace workspace remote create local &quot;$manifest_remote&quot;
+bin/devspace workspace push
+bin/devspace plan
+bin/devspace apply
+printf &#39;postgres://demo\n&#39; | bin/devspace env set client-a-api database_url
+bin/devspace env list client-a-api
+bin/devspace env pull client-a-api
+bin/devspace status
+```
+
+## two-machine git sync workflow
+
+to simulate a second machine, use a local bare git repo for the manifest.
+
+```bash
+workspace_b=&quot;$tmp/workspace-b&quot;
+manifest_remote=&quot;$tmp/manifest-sync.git&quot;
+
+export dev_drop_home=&quot;$tmp/home-a&quot;
+bin/devspace init --workspace &quot;$workspace_a&quot;
+bin/devspace scan
+bin/devspace workspace remote create local &quot;$manifest_remote&quot;
+bin/devspace workspace push
+
+export dev_drop_home=&quot;$tmp/home-b&quot;
+bin/devspace init --workspace &quot;$workspace_b&quot;
+bin/devspace workspace remote set &quot;$manifest_remote&quot;
+bin/devspace workspace pull
+bin/devspace plan
+bin/devspace apply
+bin/devspace status
+```
+
+the second workspace now contains placeholder directories for tracked projects.
+run `bin/devspace project hydrate &lt;project&gt;` to clone a placeholder git project
+when the manifest includes its remote.
+
+## safety guarantees
+
+- project paths in the manifest are relative to the workspace root.
+- absolute paths and parent-directory escapes are rejected.
+- `plan` reports planned filesystem changes before writing anything.
+- `plan --json` emits the same plan as machine-readable json.
+- `apply` executes only a saved plan whose manifest hash still matches.
+- `apply` creates missing directories only; it skips non-empty destinations.
+- plan reports path, dirty-repo, and remote conflicts instead of overwriting local work.
+- hydration clones only into missing or empty directories.
+- env values are encrypted at rest with age.
+- `env list` masks secret values.
+- `env pull` writes `.env` with `0600` permissions.
+- git-backed sync stores only `manifest.json`.
+- manifest sync strips machine-local workspace paths from the synced manifest
+  and localizes the manifest on pull.
+- the mvp has no hosted control plane and no background process.
+
+## conflict behavior
+
+manifest sync stops with a clear error when:
+
+- no manifest remote is configured.
+- git is not installed.
+- the configured manifest remote does not exist yet.
+- the manifest repo cannot be cloned, fetched, pulled, or pushed.
+- the manifest repo has uncommitted changes.
+- the remote branch is newer or diverged.
+- the pulled manifest is invalid json or fails manifest validation.
+- pull would overwrite local manifest changes.
+
+## what this tool will not do without permission
+
+- delete local projects, files, or directories.
+- overwrite existing project contents during apply or hydrate.
+- auto-pull, rebase, merge, or push project git repositories.
+- resolve git conflicts.
+- install dependencies or run project setup commands.
+- upload secrets, source code, or project files.
+- share env profiles with teammates.
+- rotate secrets or replace local `.env` values without an explicit command.
+- watch the filesystem in the background.
+- mount a fuse or virtual filesystem.
+
+## known limitations
+
+- hosted manifest sync is not implemented.
+- placeholder hydration uses full `git clone`; partial clone and sparse checkout
+  are not implemented.
+- secret profiles are local to the workspace; there is no team sharing, os
+  keychain integration, remote backup, or rotation flow.
+- setup hints are informational only and do not install dependencies.
+- editor settings, vs code extensions, devcontainers, nix, mise, and asdf are
+  outside the mvp.
+- the command name is documented as `devspace`, while the current source package
+  still lives under `cmd/devdrop`.
+
+## troubleshooting
+
+- if `devspace` is not found, build it with
+  `go build -o bin/devspace ./cmd/devdrop` and run `bin/devspace`.
+- if `workspace push` says the manifest remote is not ready, create it first with
+  `devspace workspace remote create github &lt;owner/repo&gt; --private` or
+  `devspace workspace remote create local ~/projects/devspace-manifest.git`.
+- if commands use the wrong workspace, check `dev_drop_home` and
+  `~/.devdrop/config.json`.
+- if `plan` reports a path conflict, inspect the existing directory and
+  decide whether it should be tracked, renamed, or left unmanaged.
+- if `project hydrate` fails, confirm the project has a remote url in
+  `&lt;workspace&gt;/.devdrop/manifest.json` and that `git clone &lt;remote&gt; &lt;path&gt;` works
+  by itself.
+- if `env pull` cannot write `.env`, check project path permissions and whether a
+  directory or symlink exists at `.env`.
+- if secret values appear missing, run `devspace env list &lt;project&gt;` to verify
+  the key exists before pulling.
+
+## roadmap
+
+- manifest conflict resolution and force flags.
+- hosted api or cloud object storage.
+- background daemon and filesystem watchers.
+- fuse or virtual filesystem lazy loading.
+- git partial clone or sparse checkout.
+- team/shared secret profiles.
+- os keychain integration.
+- secret rotation.
+- editor settings, devcontainer, nix, mise, or asdf sync.
+- optional dependency setup flows with explicit confirmation.
+- release-readiness checklist automation.
+
+## manifest
+
+see [`examples/manifest.json`](examples/manifest.json).
+
+the manifest is a versioned json file at:
+
+```text
+&lt;workspace&gt;/.devdrop/manifest.json
+```
+
+project paths are always relative to the workspace root. absolute paths and
+parent-directory escapes are rejected.
+">
+          <header class="doc-header">
+            <div>
+              <h2>DevDrop</h2>
+              <div class="doc-path">README.md</div>
+            </div>
+            <div class="doc-meta">
+              <span class="badge">1,623 words</span>
+              <span class="badge">19 code</span>
+              <span class="badge">0 tables</span>
+            </div>
+          </header>
+          <div class="doc-body">
+            <div class="rendered markdown"><h1 id="devdrop-1"><a class="heading-link" href="#devdrop-1" aria-label="Link to DevDrop">#</a>DevDrop</h1><p>DevDrop is a local-first &quot;Dropbox for developers&quot; CLI prototype. It keeps a
+developer workspace structurally aligned across machines by tracking project
+metadata, safe placeholder folders, Git remotes, setup hints, and encrypted env
+profiles.</p>
+<p>The intended command name is <code>devspace</code>. The current binary can also be built
+from this repository:</p>
+<figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-1">Copy</button>
+    </figcaption>
+    <div id="code-1" class="diff-render" data-code-b64="Z28gYnVpbGQgLW8gYmluL2RldnNwYWNlIC4vY21kL2RldmRyb3A=" data-lang="bash"></div>
+    <noscript><pre><code>go build -o bin/devspace ./cmd/devdrop</code></pre></noscript>
+  </figure><p>During development, you can still run the command directly from source:</p>
+<figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-2">Copy</button>
+    </figcaption>
+    <div id="code-2" class="diff-render" data-code-b64="Z28gdGVzdCAuLy4uLgpnbyBydW4gLi9jbWQvZGV2ZHJvcCAtLWhlbHA=" data-lang="bash"></div>
+    <noscript><pre><code>go test ./...
+go run ./cmd/devdrop --help</code></pre></noscript>
+  </figure><h2 id="current-mvp-status-2"><a class="heading-link" href="#current-mvp-status-2" aria-label="Link to Current MVP Status">#</a>Current MVP Status</h2><p>This MVP is local-first. It proves the workflow before adding hosted sync,
+background daemons, or filesystem-level lazy loading.</p>
+<p>What works today:</p>
+<ul>
+<li>Initialize a workspace and local machine identity.</li>
+<li>Generate a versioned workspace manifest.</li>
+<li>Scan existing projects for Git metadata, <code>.env</code> presence, dependency files,
+and setup hints.</li>
+<li>Show workspace and project status.</li>
+<li>Add local projects to the manifest.</li>
+<li>Plan and apply safe missing project structure as empty placeholder folders.</li>
+<li>Hydrate placeholder Git projects with normal <code>git clone</code>.</li>
+<li>Push and pull the workspace manifest through a user-owned Git repository.</li>
+<li>Store encrypted per-project env profiles with native age encryption.</li>
+<li>Generate local <code>.env</code> files with <code>0600</code> permissions.</li>
+</ul>
+<h2 id="capstone-artifacts-3"><a class="heading-link" href="#capstone-artifacts-3" aria-label="Link to Capstone Artifacts">#</a>Capstone Artifacts</h2><p>This repository is being prepared as a Liatrio Forge Module 5 capstone. See
+<a href="docs/capstone/README.md"><code>docs/capstone/README.md</code></a> for the capstone spec,
+proof checklist, case study, demo script, and playbook contribution.</p>
+<h2 id="supported-commands-4"><a class="heading-link" href="#supported-commands-4" aria-label="Link to Supported Commands">#</a>Supported Commands</h2><h3 id="devspace-init-5"><a class="heading-link" href="#devspace-init-5" aria-label="Link to `devspace init`">#</a><code>devspace init</code></h3><figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-3">Copy</button>
+    </figcaption>
+    <div id="code-3" class="diff-render" data-code-b64="ZGV2c3BhY2UgaW5pdCAtLXdvcmtzcGFjZSB+L2NvZGU=" data-lang="bash"></div>
+    <noscript><pre><code>devspace init --workspace ~/code</code></pre></noscript>
+  </figure><p>Creates:</p>
+<ul>
+<li><code>~/.devdrop/config.json</code></li>
+<li><code>~/.devdrop/state.json</code></li>
+<li><code>~/.devdrop/identity.txt</code></li>
+<li><code>&lt;workspace&gt;/.devdrop/manifest.json</code></li>
+</ul>
+<p>The command is idempotent and does not rotate the machine ID or age identity on
+repeat runs.</p>
+<h3 id="devspace-scan-6"><a class="heading-link" href="#devspace-scan-6" aria-label="Link to `devspace scan`">#</a><code>devspace scan</code></h3><figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-4">Copy</button>
+    </figcaption>
+    <div id="code-4" class="diff-render" data-code-b64="ZGV2c3BhY2Ugc2Nhbg==" data-lang="bash"></div>
+    <noscript><pre><code>devspace scan</code></pre></noscript>
+  </figure><p>Scans the configured workspace and updates the manifest/state with:</p>
+<ul>
+<li>Git remote URL</li>
+<li>Current branch</li>
+<li>Last commit</li>
+<li>Dirty working tree status</li>
+<li><code>.env</code> file presence</li>
+<li>Dependency/setup hints</li>
+</ul>
+<p>Ignored by default:</p>
+<figure class="code-block" data-lang="text">
+    <figcaption>
+      <span>text</span>
+      <button class="copy-btn" type="button" data-copy-code="code-5">Copy</button>
+    </figcaption>
+    <div id="code-5" class="diff-render" data-code-b64="bm9kZV9tb2R1bGVzLwpkaXN0LwpidWlsZC8KLm5leHQvCnR1cmJvLwp0YXJnZXQvCnZlbmRvci8KY292ZXJhZ2UvCi5jYWNoZS8KLkRTX1N0b3JlCioubG9n" data-lang="text"></div>
+    <noscript><pre><code>node_modules/
+dist/
+build/
+.next/
+turbo/
+target/
+vendor/
+coverage/
+.cache/
+.DS_Store
+*.log</code></pre></noscript>
+  </figure><h3 id="devspace-status-7"><a class="heading-link" href="#devspace-status-7" aria-label="Link to `devspace status`">#</a><code>devspace status</code></h3><figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-6">Copy</button>
+    </figcaption>
+    <div id="code-6" class="diff-render" data-code-b64="ZGV2c3BhY2Ugc3RhdHVzCmRldnNwYWNlIHByb2plY3Qgc3RhdHVzIGNsaWVudC1hLWFwaQ==" data-lang="bash"></div>
+    <noscript><pre><code>devspace status
+devspace project status client-a-api</code></pre></noscript>
+  </figure><p>Shows tracked projects, hydrated projects, placeholders, dirty repos, missing env
+files, stale/missing projects, and last scan/sync timestamps.</p>
+<h3 id="devspace-project-add-8"><a class="heading-link" href="#devspace-project-add-8" aria-label="Link to `devspace project add`">#</a><code>devspace project add</code></h3><figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-7">Copy</button>
+    </figcaption>
+    <div id="code-7" class="diff-render" data-code-b64="ZGV2c3BhY2UgcHJvamVjdCBhZGQgd29yay9jbGllbnQtYS1hcGk=" data-lang="bash"></div>
+    <noscript><pre><code>devspace project add work/client-a-api</code></pre></noscript>
+  </figure><p>Adds a relative workspace path to the manifest. Existing Git repositories are
+recorded as Git projects; otherwise the project is tracked as local-only.</p>
+<h3 id="devspace-plan-9"><a class="heading-link" href="#devspace-plan-9" aria-label="Link to `devspace plan`">#</a><code>devspace plan</code></h3><figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-8">Copy</button>
+    </figcaption>
+    <div id="code-8" class="diff-render" data-code-b64="ZGV2c3BhY2UgcGxhbgpkZXZzcGFjZSBwbGFuIC0tanNvbg==" data-lang="bash"></div>
+    <noscript><pre><code>devspace plan
+devspace plan --json</code></pre></noscript>
+  </figure><p>Builds a deterministic plan of safe and skipped actions, saves it to
+<code>&lt;workspace&gt;/.devdrop/last-plan.json</code>, and prints a human-readable report.
+<code>--json</code> prints the same saved plan as structured JSON for automation.</p>
+<h3 id="devspace-apply-10"><a class="heading-link" href="#devspace-apply-10" aria-label="Link to `devspace apply`">#</a><code>devspace apply</code></h3><figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-9">Copy</button>
+    </figcaption>
+    <div id="code-9" class="diff-render" data-code-b64="ZGV2c3BhY2UgYXBwbHk=" data-lang="bash"></div>
+    <noscript><pre><code>devspace apply</code></pre></noscript>
+  </figure><p>Applies the last saved plan only if the manifest hash still matches. If the
+manifest changed after <code>plan</code>, <code>apply</code> refuses to run and asks you to re-plan.
+Only safe actions are executed. Skipped actions remain listed and untouched.</p>
+<h3 id="devspace-workspace-sync-11"><a class="heading-link" href="#devspace-workspace-sync-11" aria-label="Link to `devspace workspace sync`">#</a><code>devspace workspace sync</code></h3><figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-10">Copy</button>
+    </figcaption>
+    <div id="code-10" class="diff-render" data-code-b64="ZGV2c3BhY2Ugd29ya3NwYWNlIHN5bmMgLS1kcnktcnVuCmRldnNwYWNlIHdvcmtzcGFjZSBzeW5j" data-lang="bash"></div>
+    <noscript><pre><code>devspace workspace sync --dry-run
+devspace workspace sync</code></pre></noscript>
+  </figure><p>Compatibility alias. Prefer <code>devspace plan</code> and <code>devspace apply</code>.</p>
+<h3 id="devspace-workspace-remote-12"><a class="heading-link" href="#devspace-workspace-remote-12" aria-label="Link to `devspace workspace remote`">#</a><code>devspace workspace remote</code></h3><figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-11">Copy</button>
+    </figcaption>
+    <div id="code-11" class="diff-render" data-code-b64="ZGV2c3BhY2Ugd29ya3NwYWNlIHJlbW90ZSBzZXQgPGdpdC11cmwtb3ItbG9jYWwtcGF0aD4KZGV2c3BhY2Ugd29ya3NwYWNlIHJlbW90ZSBjcmVhdGUgbG9jYWwgfi9Qcm9qZWN0cy9kZXZzcGFjZS1tYW5pZmVzdC5naXQKZGV2c3BhY2Ugd29ya3NwYWNlIHJlbW90ZSBjcmVhdGUgZ2l0aHViIEhleFNsZWV2ZXMvZGV2c3BhY2UtbWFuaWZlc3QgLS1wcml2YXRlCmRldnNwYWNlIHdvcmtzcGFjZSByZW1vdGUgZ2V0" data-lang="bash"></div>
+    <noscript><pre><code>devspace workspace remote set &lt;git-url-or-local-path&gt;
+devspace workspace remote create local ~/Projects/devspace-manifest.git
+devspace workspace remote create github HexSleeves/devspace-manifest --private
+devspace workspace remote get</code></pre></noscript>
+  </figure><p>Stores the Git remote used for manifest sync in local config. The remote setting
+is not written into the workspace manifest. <code>remote create local</code> initializes a
+local bare Git repository and sets it as the remote. <code>remote create github</code> uses
+the GitHub CLI (<code>gh</code>) to create the repository, then sets the SSH remote.</p>
+<h3 id="devspace-workspace-push-13"><a class="heading-link" href="#devspace-workspace-push-13" aria-label="Link to `devspace workspace push`">#</a><code>devspace workspace push</code></h3><figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-12">Copy</button>
+    </figcaption>
+    <div id="code-12" class="diff-render" data-code-b64="ZGV2c3BhY2Ugd29ya3NwYWNlIHB1c2g=" data-lang="bash"></div>
+    <noscript><pre><code>devspace workspace push</code></pre></noscript>
+  </figure><p>Validates the local manifest, clones the manifest repo cache if needed, writes
+only <code>manifest.json</code>, commits only when the manifest changed, and pushes to the
+configured Git remote. If the manifest repo is dirty or the remote branch is
+newer/diverged, the command stops and asks you to pull or reconcile first.</p>
+<h3 id="devspace-workspace-pull-14"><a class="heading-link" href="#devspace-workspace-pull-14" aria-label="Link to `devspace workspace pull`">#</a><code>devspace workspace pull</code></h3><figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-13">Copy</button>
+    </figcaption>
+    <div id="code-13" class="diff-render" data-code-b64="ZGV2c3BhY2Ugd29ya3NwYWNlIHB1bGwKZGV2c3BhY2UgcGxhbgpkZXZzcGFjZSBhcHBseQ==" data-lang="bash"></div>
+    <noscript><pre><code>devspace workspace pull
+devspace plan
+devspace apply</code></pre></noscript>
+  </figure><p>Fetches the configured manifest repo, validates the remote <code>manifest.json</code>, backs
+up the current local manifest, and atomically replaces it. It does not run
+<code>apply</code>, hydrate projects, pull project repos, install dependencies, or overwrite
+project contents.</p>
+<h3 id="devspace-project-hydrate-15"><a class="heading-link" href="#devspace-project-hydrate-15" aria-label="Link to `devspace project hydrate`">#</a><code>devspace project hydrate</code></h3><figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-14">Copy</button>
+    </figcaption>
+    <div id="code-14" class="diff-render" data-code-b64="ZGV2c3BhY2UgcHJvamVjdCBoeWRyYXRlIGNsaWVudC1hLWFwaQ==" data-lang="bash"></div>
+    <noscript><pre><code>devspace project hydrate client-a-api</code></pre></noscript>
+  </figure><p>Hydrates a placeholder Git project with normal <code>git clone</code>. The placeholder is
+an empty directory; hydration refuses to clone into non-empty directories and
+does not delete files.</p>
+<h3 id="devspace-env-16"><a class="heading-link" href="#devspace-env-16" aria-label="Link to `devspace env`">#</a><code>devspace env</code></h3><figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-15">Copy</button>
+    </figcaption>
+    <div id="code-15" class="diff-render" data-code-b64="cHJpbnRmICdwb3N0Z3JlczovL2xvY2FsXG4nIHwgZGV2c3BhY2UgZW52IHNldCBjbGllbnQtYS1hcGkgREFUQUJBU0VfVVJMCmRldnNwYWNlIGVudiBsaXN0IGNsaWVudC1hLWFwaQpkZXZzcGFjZSBlbnYgcHVsbCBjbGllbnQtYS1hcGk=" data-lang="bash"></div>
+    <noscript><pre><code>printf &#39;postgres://local\n&#39; | devspace env set client-a-api DATABASE_URL
+devspace env list client-a-api
+devspace env pull client-a-api</code></pre></noscript>
+  </figure><p><code>env set</code> reads from stdin when piped, or prompts for a hidden value when run in a
+terminal. <code>env list</code> prints keys only, with values masked. <code>env pull</code> writes the
+local project <code>.env</code> with <code>0600</code> permissions.</p>
+<p>Encrypted profiles are stored under:</p>
+<figure class="code-block" data-lang="text">
+    <figcaption>
+      <span>text</span>
+      <button class="copy-btn" type="button" data-copy-code="code-16">Copy</button>
+    </figcaption>
+    <div id="code-16" class="diff-render" data-code-b64="PHdvcmtzcGFjZT4vLmRldmRyb3Avc2VjcmV0cy88cHJvamVjdC1pZD4vPHByb2ZpbGU+LmFnZQ==" data-lang="text"></div>
+    <noscript><pre><code>&lt;workspace&gt;/.devdrop/secrets/&lt;project-id&gt;/&lt;profile&gt;.age</code></pre></noscript>
+  </figure><h2 id="example-local-workflow-17"><a class="heading-link" href="#example-local-workflow-17" aria-label="Link to Example Local Workflow">#</a>Example Local Workflow</h2><p>This workflow uses temporary directories and a local bare Git remote, so it does
+not need network access.</p>
+<figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-17">Copy</button>
+    </figcaption>
+    <div id="code-17" class="diff-render" data-code-b64="Z28gYnVpbGQgLW8gYmluL2RldnNwYWNlIC4vY21kL2RldmRyb3AKCnRtcD0iJChta3RlbXAgLWQpIgpleHBvcnQgREVWX0RST1BfSE9NRT0iJHRtcC9ob21lIgp3b3Jrc3BhY2VfYT0iJHRtcC93b3Jrc3BhY2UtYSIKcmVtb3RlX3NyYz0iJHRtcC9yZW1vdGUtc3JjIgpyZW1vdGVfYmFyZT0iJHRtcC9jbGllbnQtYS1hcGkuZ2l0IgptYW5pZmVzdF9yZW1vdGU9IiR0bXAvbWFuaWZlc3Qtc3luYy5naXQiCgpta2RpciAtcCAiJHJlbW90ZV9zcmMiCmdpdCAtQyAiJHJlbW90ZV9zcmMiIGluaXQgLWIgbWFpbgpnaXQgLUMgIiRyZW1vdGVfc3JjIiBjb25maWcgdXNlci5lbWFpbCBkZW1vQGV4YW1wbGUuY29tCmdpdCAtQyAiJHJlbW90ZV9zcmMiIGNvbmZpZyB1c2VyLm5hbWUgIkRlbW8gVXNlciIKcHJpbnRmICcjIGNsaWVudC1hLWFwaVxuJyA+ICIkcmVtb3RlX3NyYy9SRUFETUUubWQiCmdpdCAtQyAiJHJlbW90ZV9zcmMiIGFkZCBSRUFETUUubWQKZ2l0IC1DICIkcmVtb3RlX3NyYyIgY29tbWl0IC1tICJpbml0aWFsIgpnaXQgY2xvbmUgLS1iYXJlICIkcmVtb3RlX3NyYyIgIiRyZW1vdGVfYmFyZSIKCmJpbi9kZXZzcGFjZSBpbml0IC0td29ya3NwYWNlICIkd29ya3NwYWNlX2EiCm1rZGlyIC1wICIkd29ya3NwYWNlX2Evd29yay9jbGllbnQtYS1hcGkiCmdpdCBjbG9uZSAiJHJlbW90ZV9iYXJlIiAiJHdvcmtzcGFjZV9hL3dvcmsvY2xpZW50LWEtYXBpIgpwcmludGYgJ3sic2NyaXB0cyI6eyJkZXYiOiJ2aXRlIn19XG4nID4gIiR3b3Jrc3BhY2VfYS93b3JrL2NsaWVudC1hLWFwaS9wYWNrYWdlLmpzb24iCmJpbi9kZXZzcGFjZSBzY2FuCmJpbi9kZXZzcGFjZSB3b3Jrc3BhY2UgcmVtb3RlIGNyZWF0ZSBsb2NhbCAiJG1hbmlmZXN0X3JlbW90ZSIKYmluL2RldnNwYWNlIHdvcmtzcGFjZSBwdXNoCmJpbi9kZXZzcGFjZSBwbGFuCmJpbi9kZXZzcGFjZSBhcHBseQpwcmludGYgJ3Bvc3RncmVzOi8vZGVtb1xuJyB8IGJpbi9kZXZzcGFjZSBlbnYgc2V0IGNsaWVudC1hLWFwaSBEQVRBQkFTRV9VUkwKYmluL2RldnNwYWNlIGVudiBsaXN0IGNsaWVudC1hLWFwaQpiaW4vZGV2c3BhY2UgZW52IHB1bGwgY2xpZW50LWEtYXBpCmJpbi9kZXZzcGFjZSBzdGF0dXM=" data-lang="bash"></div>
+    <noscript><pre><code>go build -o bin/devspace ./cmd/devdrop
+
+tmp=&quot;$(mktemp -d)&quot;
+export DEV_DROP_HOME=&quot;$tmp/home&quot;
+workspace_a=&quot;$tmp/workspace-a&quot;
+remote_src=&quot;$tmp/remote-src&quot;
+remote_bare=&quot;$tmp/client-a-api.git&quot;
+manifest_remote=&quot;$tmp/manifest-sync.git&quot;
+
+mkdir -p &quot;$remote_src&quot;
+git -C &quot;$remote_src&quot; init -b main
+git -C &quot;$remote_src&quot; config user.email demo@example.com
+git -C &quot;$remote_src&quot; config user.name &quot;Demo User&quot;
+printf &#39;# client-a-api\n&#39; &gt; &quot;$remote_src/README.md&quot;
+git -C &quot;$remote_src&quot; add README.md
+git -C &quot;$remote_src&quot; commit -m &quot;initial&quot;
+git clone --bare &quot;$remote_src&quot; &quot;$remote_bare&quot;
+
+bin/devspace init --workspace &quot;$workspace_a&quot;
+mkdir -p &quot;$workspace_a/work/client-a-api&quot;
+git clone &quot;$remote_bare&quot; &quot;$workspace_a/work/client-a-api&quot;
+printf &#39;{&quot;scripts&quot;:{&quot;dev&quot;:&quot;vite&quot;}}\n&#39; &gt; &quot;$workspace_a/work/client-a-api/package.json&quot;
+bin/devspace scan
+bin/devspace workspace remote create local &quot;$manifest_remote&quot;
+bin/devspace workspace push
+bin/devspace plan
+bin/devspace apply
+printf &#39;postgres://demo\n&#39; | bin/devspace env set client-a-api DATABASE_URL
+bin/devspace env list client-a-api
+bin/devspace env pull client-a-api
+bin/devspace status</code></pre></noscript>
+  </figure><h2 id="two-machine-git-sync-workflow-18"><a class="heading-link" href="#two-machine-git-sync-workflow-18" aria-label="Link to Two-Machine Git Sync Workflow">#</a>Two-Machine Git Sync Workflow</h2><p>To simulate a second machine, use a local bare Git repo for the manifest.</p>
+<figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-18">Copy</button>
+    </figcaption>
+    <div id="code-18" class="diff-render" data-code-b64="d29ya3NwYWNlX2I9IiR0bXAvd29ya3NwYWNlLWIiCm1hbmlmZXN0X3JlbW90ZT0iJHRtcC9tYW5pZmVzdC1zeW5jLmdpdCIKCmV4cG9ydCBERVZfRFJPUF9IT01FPSIkdG1wL2hvbWUtYSIKYmluL2RldnNwYWNlIGluaXQgLS13b3Jrc3BhY2UgIiR3b3Jrc3BhY2VfYSIKYmluL2RldnNwYWNlIHNjYW4KYmluL2RldnNwYWNlIHdvcmtzcGFjZSByZW1vdGUgY3JlYXRlIGxvY2FsICIkbWFuaWZlc3RfcmVtb3RlIgpiaW4vZGV2c3BhY2Ugd29ya3NwYWNlIHB1c2gKCmV4cG9ydCBERVZfRFJPUF9IT01FPSIkdG1wL2hvbWUtYiIKYmluL2RldnNwYWNlIGluaXQgLS13b3Jrc3BhY2UgIiR3b3Jrc3BhY2VfYiIKYmluL2RldnNwYWNlIHdvcmtzcGFjZSByZW1vdGUgc2V0ICIkbWFuaWZlc3RfcmVtb3RlIgpiaW4vZGV2c3BhY2Ugd29ya3NwYWNlIHB1bGwKYmluL2RldnNwYWNlIHBsYW4KYmluL2RldnNwYWNlIGFwcGx5CmJpbi9kZXZzcGFjZSBzdGF0dXM=" data-lang="bash"></div>
+    <noscript><pre><code>workspace_b=&quot;$tmp/workspace-b&quot;
+manifest_remote=&quot;$tmp/manifest-sync.git&quot;
+
+export DEV_DROP_HOME=&quot;$tmp/home-a&quot;
+bin/devspace init --workspace &quot;$workspace_a&quot;
+bin/devspace scan
+bin/devspace workspace remote create local &quot;$manifest_remote&quot;
+bin/devspace workspace push
+
+export DEV_DROP_HOME=&quot;$tmp/home-b&quot;
+bin/devspace init --workspace &quot;$workspace_b&quot;
+bin/devspace workspace remote set &quot;$manifest_remote&quot;
+bin/devspace workspace pull
+bin/devspace plan
+bin/devspace apply
+bin/devspace status</code></pre></noscript>
+  </figure><p>The second workspace now contains placeholder directories for tracked projects.
+Run <code>bin/devspace project hydrate &lt;project&gt;</code> to clone a placeholder Git project
+when the manifest includes its remote.</p>
+<h2 id="safety-guarantees-19"><a class="heading-link" href="#safety-guarantees-19" aria-label="Link to Safety Guarantees">#</a>Safety Guarantees</h2><ul>
+<li>Project paths in the manifest are relative to the workspace root.</li>
+<li>Absolute paths and parent-directory escapes are rejected.</li>
+<li><code>plan</code> reports planned filesystem changes before writing anything.</li>
+<li><code>plan --json</code> emits the same plan as machine-readable JSON.</li>
+<li><code>apply</code> executes only a saved plan whose manifest hash still matches.</li>
+<li><code>apply</code> creates missing directories only; it skips non-empty destinations.</li>
+<li>Plan reports path, dirty-repo, and remote conflicts instead of overwriting local work.</li>
+<li>Hydration clones only into missing or empty directories.</li>
+<li>Env values are encrypted at rest with age.</li>
+<li><code>env list</code> masks secret values.</li>
+<li><code>env pull</code> writes <code>.env</code> with <code>0600</code> permissions.</li>
+<li>Git-backed sync stores only <code>manifest.json</code>.</li>
+<li>Manifest sync strips machine-local workspace paths from the synced manifest
+and localizes the manifest on pull.</li>
+<li>The MVP has no hosted control plane and no background process.</li>
+</ul>
+<h2 id="conflict-behavior-20"><a class="heading-link" href="#conflict-behavior-20" aria-label="Link to Conflict Behavior">#</a>Conflict Behavior</h2><p>Manifest sync stops with a clear error when:</p>
+<ul>
+<li>No manifest remote is configured.</li>
+<li>Git is not installed.</li>
+<li>The configured manifest remote does not exist yet.</li>
+<li>The manifest repo cannot be cloned, fetched, pulled, or pushed.</li>
+<li>The manifest repo has uncommitted changes.</li>
+<li>The remote branch is newer or diverged.</li>
+<li>The pulled manifest is invalid JSON or fails manifest validation.</li>
+<li>Pull would overwrite local manifest changes.</li>
+</ul>
+<h2 id="what-this-tool-will-not-do-without-permission-21"><a class="heading-link" href="#what-this-tool-will-not-do-without-permission-21" aria-label="Link to What This Tool Will Not Do Without Permission">#</a>What This Tool Will Not Do Without Permission</h2><ul>
+<li>Delete local projects, files, or directories.</li>
+<li>Overwrite existing project contents during apply or hydrate.</li>
+<li>Auto-pull, rebase, merge, or push project Git repositories.</li>
+<li>Resolve Git conflicts.</li>
+<li>Install dependencies or run project setup commands.</li>
+<li>Upload secrets, source code, or project files.</li>
+<li>Share env profiles with teammates.</li>
+<li>Rotate secrets or replace local <code>.env</code> values without an explicit command.</li>
+<li>Watch the filesystem in the background.</li>
+<li>Mount a FUSE or virtual filesystem.</li>
+</ul>
+<h2 id="known-limitations-22"><a class="heading-link" href="#known-limitations-22" aria-label="Link to Known Limitations">#</a>Known Limitations</h2><ul>
+<li>Hosted manifest sync is not implemented.</li>
+<li>Placeholder hydration uses full <code>git clone</code>; partial clone and sparse checkout
+are not implemented.</li>
+<li>Secret profiles are local to the workspace; there is no team sharing, OS
+keychain integration, remote backup, or rotation flow.</li>
+<li>Setup hints are informational only and do not install dependencies.</li>
+<li>Editor settings, VS Code extensions, devcontainers, Nix, mise, and asdf are
+outside the MVP.</li>
+<li>The command name is documented as <code>devspace</code>, while the current source package
+still lives under <code>cmd/devdrop</code>.</li>
+</ul>
+<h2 id="troubleshooting-23"><a class="heading-link" href="#troubleshooting-23" aria-label="Link to Troubleshooting">#</a>Troubleshooting</h2><ul>
+<li>If <code>devspace</code> is not found, build it with
+<code>go build -o bin/devspace ./cmd/devdrop</code> and run <code>bin/devspace</code>.</li>
+<li>If <code>workspace push</code> says the manifest remote is not ready, create it first with
+<code>devspace workspace remote create github &lt;owner/repo&gt; --private</code> or
+<code>devspace workspace remote create local ~/Projects/devspace-manifest.git</code>.</li>
+<li>If commands use the wrong workspace, check <code>DEV_DROP_HOME</code> and
+<code>~/.devdrop/config.json</code>.</li>
+<li>If <code>plan</code> reports a path conflict, inspect the existing directory and
+decide whether it should be tracked, renamed, or left unmanaged.</li>
+<li>If <code>project hydrate</code> fails, confirm the project has a remote URL in
+<code>&lt;workspace&gt;/.devdrop/manifest.json</code> and that <code>git clone &lt;remote&gt; &lt;path&gt;</code> works
+by itself.</li>
+<li>If <code>env pull</code> cannot write <code>.env</code>, check project path permissions and whether a
+directory or symlink exists at <code>.env</code>.</li>
+<li>If secret values appear missing, run <code>devspace env list &lt;project&gt;</code> to verify
+the key exists before pulling.</li>
+</ul>
+<h2 id="roadmap-24"><a class="heading-link" href="#roadmap-24" aria-label="Link to Roadmap">#</a>Roadmap</h2><ul>
+<li>Manifest conflict resolution and force flags.</li>
+<li>Hosted API or cloud object storage.</li>
+<li>Background daemon and filesystem watchers.</li>
+<li>FUSE or virtual filesystem lazy loading.</li>
+<li>Git partial clone or sparse checkout.</li>
+<li>Team/shared secret profiles.</li>
+<li>OS keychain integration.</li>
+<li>Secret rotation.</li>
+<li>Editor settings, devcontainer, Nix, mise, or asdf sync.</li>
+<li>Optional dependency setup flows with explicit confirmation.</li>
+<li>Release-readiness checklist automation.</li>
+</ul>
+<h2 id="manifest-25"><a class="heading-link" href="#manifest-25" aria-label="Link to Manifest">#</a>Manifest</h2><p>See <a href="examples/manifest.json"><code>examples/manifest.json</code></a>.</p>
+<p>The manifest is a versioned JSON file at:</p>
+<figure class="code-block" data-lang="text">
+    <figcaption>
+      <span>text</span>
+      <button class="copy-btn" type="button" data-copy-code="code-19">Copy</button>
+    </figcaption>
+    <div id="code-19" class="diff-render" data-code-b64="PHdvcmtzcGFjZT4vLmRldmRyb3AvbWFuaWZlc3QuanNvbg==" data-lang="text"></div>
+    <noscript><pre><code>&lt;workspace&gt;/.devdrop/manifest.json</code></pre></noscript>
+  </figure><p>Project paths are always relative to the workspace root. Absolute paths and
+parent-directory escapes are rejected.</p>
+</div>
+            <div class="source"><pre># DevDrop
+
+DevDrop is a local-first &quot;Dropbox for developers&quot; CLI prototype. It keeps a
+developer workspace structurally aligned across machines by tracking project
+metadata, safe placeholder folders, Git remotes, setup hints, and encrypted env
+profiles.
+
+The intended command name is `devspace`. The current binary can also be built
+from this repository:
+
+```bash
+go build -o bin/devspace ./cmd/devdrop
+```
+
+During development, you can still run the command directly from source:
+
+```bash
+go test ./...
+go run ./cmd/devdrop --help
+```
+
+## Current MVP Status
+
+This MVP is local-first. It proves the workflow before adding hosted sync,
+background daemons, or filesystem-level lazy loading.
+
+What works today:
+
+- Initialize a workspace and local machine identity.
+- Generate a versioned workspace manifest.
+- Scan existing projects for Git metadata, `.env` presence, dependency files,
+  and setup hints.
+- Show workspace and project status.
+- Add local projects to the manifest.
+- Plan and apply safe missing project structure as empty placeholder folders.
+- Hydrate placeholder Git projects with normal `git clone`.
+- Push and pull the workspace manifest through a user-owned Git repository.
+- Store encrypted per-project env profiles with native age encryption.
+- Generate local `.env` files with `0600` permissions.
+
+## Capstone Artifacts
+
+This repository is being prepared as a Liatrio Forge Module 5 capstone. See
+[`docs/capstone/README.md`](docs/capstone/README.md) for the capstone spec,
+proof checklist, case study, demo script, and playbook contribution.
+
+## Supported Commands
+
+### `devspace init`
+
+```bash
+devspace init --workspace ~/code
+```
+
+Creates:
+
+- `~/.devdrop/config.json`
+- `~/.devdrop/state.json`
+- `~/.devdrop/identity.txt`
+- `&lt;workspace&gt;/.devdrop/manifest.json`
+
+The command is idempotent and does not rotate the machine ID or age identity on
+repeat runs.
+
+### `devspace scan`
+
+```bash
+devspace scan
+```
+
+Scans the configured workspace and updates the manifest/state with:
+
+- Git remote URL
+- Current branch
+- Last commit
+- Dirty working tree status
+- `.env` file presence
+- Dependency/setup hints
+
+Ignored by default:
+
+```text
+node_modules/
+dist/
+build/
+.next/
+turbo/
+target/
+vendor/
+coverage/
+.cache/
+.DS_Store
+*.log
+```
+
+### `devspace status`
+
+```bash
+devspace status
+devspace project status client-a-api
+```
+
+Shows tracked projects, hydrated projects, placeholders, dirty repos, missing env
+files, stale/missing projects, and last scan/sync timestamps.
+
+### `devspace project add`
+
+```bash
+devspace project add work/client-a-api
+```
+
+Adds a relative workspace path to the manifest. Existing Git repositories are
+recorded as Git projects; otherwise the project is tracked as local-only.
+
+### `devspace plan`
+
+```bash
+devspace plan
+devspace plan --json
+```
+
+Builds a deterministic plan of safe and skipped actions, saves it to
+`&lt;workspace&gt;/.devdrop/last-plan.json`, and prints a human-readable report.
+`--json` prints the same saved plan as structured JSON for automation.
+
+### `devspace apply`
+
+```bash
+devspace apply
+```
+
+Applies the last saved plan only if the manifest hash still matches. If the
+manifest changed after `plan`, `apply` refuses to run and asks you to re-plan.
+Only safe actions are executed. Skipped actions remain listed and untouched.
+
+### `devspace workspace sync`
+
+```bash
+devspace workspace sync --dry-run
+devspace workspace sync
+```
+
+Compatibility alias. Prefer `devspace plan` and `devspace apply`.
+
+### `devspace workspace remote`
+
+```bash
+devspace workspace remote set &lt;git-url-or-local-path&gt;
+devspace workspace remote create local ~/Projects/devspace-manifest.git
+devspace workspace remote create github HexSleeves/devspace-manifest --private
+devspace workspace remote get
+```
+
+Stores the Git remote used for manifest sync in local config. The remote setting
+is not written into the workspace manifest. `remote create local` initializes a
+local bare Git repository and sets it as the remote. `remote create github` uses
+the GitHub CLI (`gh`) to create the repository, then sets the SSH remote.
+
+### `devspace workspace push`
+
+```bash
+devspace workspace push
+```
+
+Validates the local manifest, clones the manifest repo cache if needed, writes
+only `manifest.json`, commits only when the manifest changed, and pushes to the
+configured Git remote. If the manifest repo is dirty or the remote branch is
+newer/diverged, the command stops and asks you to pull or reconcile first.
+
+### `devspace workspace pull`
+
+```bash
+devspace workspace pull
+devspace plan
+devspace apply
+```
+
+Fetches the configured manifest repo, validates the remote `manifest.json`, backs
+up the current local manifest, and atomically replaces it. It does not run
+`apply`, hydrate projects, pull project repos, install dependencies, or overwrite
+project contents.
+
+### `devspace project hydrate`
+
+```bash
+devspace project hydrate client-a-api
+```
+
+Hydrates a placeholder Git project with normal `git clone`. The placeholder is
+an empty directory; hydration refuses to clone into non-empty directories and
+does not delete files.
+
+### `devspace env`
+
+```bash
+printf &#39;postgres://local\n&#39; | devspace env set client-a-api DATABASE_URL
+devspace env list client-a-api
+devspace env pull client-a-api
+```
+
+`env set` reads from stdin when piped, or prompts for a hidden value when run in a
+terminal. `env list` prints keys only, with values masked. `env pull` writes the
+local project `.env` with `0600` permissions.
+
+Encrypted profiles are stored under:
+
+```text
+&lt;workspace&gt;/.devdrop/secrets/&lt;project-id&gt;/&lt;profile&gt;.age
+```
+
+## Example Local Workflow
+
+This workflow uses temporary directories and a local bare Git remote, so it does
+not need network access.
+
+```bash
+go build -o bin/devspace ./cmd/devdrop
+
+tmp=&quot;$(mktemp -d)&quot;
+export DEV_DROP_HOME=&quot;$tmp/home&quot;
+workspace_a=&quot;$tmp/workspace-a&quot;
+remote_src=&quot;$tmp/remote-src&quot;
+remote_bare=&quot;$tmp/client-a-api.git&quot;
+manifest_remote=&quot;$tmp/manifest-sync.git&quot;
+
+mkdir -p &quot;$remote_src&quot;
+git -C &quot;$remote_src&quot; init -b main
+git -C &quot;$remote_src&quot; config user.email demo@example.com
+git -C &quot;$remote_src&quot; config user.name &quot;Demo User&quot;
+printf &#39;# client-a-api\n&#39; &gt; &quot;$remote_src/README.md&quot;
+git -C &quot;$remote_src&quot; add README.md
+git -C &quot;$remote_src&quot; commit -m &quot;initial&quot;
+git clone --bare &quot;$remote_src&quot; &quot;$remote_bare&quot;
+
+bin/devspace init --workspace &quot;$workspace_a&quot;
+mkdir -p &quot;$workspace_a/work/client-a-api&quot;
+git clone &quot;$remote_bare&quot; &quot;$workspace_a/work/client-a-api&quot;
+printf &#39;{&quot;scripts&quot;:{&quot;dev&quot;:&quot;vite&quot;}}\n&#39; &gt; &quot;$workspace_a/work/client-a-api/package.json&quot;
+bin/devspace scan
+bin/devspace workspace remote create local &quot;$manifest_remote&quot;
+bin/devspace workspace push
+bin/devspace plan
+bin/devspace apply
+printf &#39;postgres://demo\n&#39; | bin/devspace env set client-a-api DATABASE_URL
+bin/devspace env list client-a-api
+bin/devspace env pull client-a-api
+bin/devspace status
+```
+
+## Two-Machine Git Sync Workflow
+
+To simulate a second machine, use a local bare Git repo for the manifest.
+
+```bash
+workspace_b=&quot;$tmp/workspace-b&quot;
+manifest_remote=&quot;$tmp/manifest-sync.git&quot;
+
+export DEV_DROP_HOME=&quot;$tmp/home-a&quot;
+bin/devspace init --workspace &quot;$workspace_a&quot;
+bin/devspace scan
+bin/devspace workspace remote create local &quot;$manifest_remote&quot;
+bin/devspace workspace push
+
+export DEV_DROP_HOME=&quot;$tmp/home-b&quot;
+bin/devspace init --workspace &quot;$workspace_b&quot;
+bin/devspace workspace remote set &quot;$manifest_remote&quot;
+bin/devspace workspace pull
+bin/devspace plan
+bin/devspace apply
+bin/devspace status
+```
+
+The second workspace now contains placeholder directories for tracked projects.
+Run `bin/devspace project hydrate &lt;project&gt;` to clone a placeholder Git project
+when the manifest includes its remote.
+
+## Safety Guarantees
+
+- Project paths in the manifest are relative to the workspace root.
+- Absolute paths and parent-directory escapes are rejected.
+- `plan` reports planned filesystem changes before writing anything.
+- `plan --json` emits the same plan as machine-readable JSON.
+- `apply` executes only a saved plan whose manifest hash still matches.
+- `apply` creates missing directories only; it skips non-empty destinations.
+- Plan reports path, dirty-repo, and remote conflicts instead of overwriting local work.
+- Hydration clones only into missing or empty directories.
+- Env values are encrypted at rest with age.
+- `env list` masks secret values.
+- `env pull` writes `.env` with `0600` permissions.
+- Git-backed sync stores only `manifest.json`.
+- Manifest sync strips machine-local workspace paths from the synced manifest
+  and localizes the manifest on pull.
+- The MVP has no hosted control plane and no background process.
+
+## Conflict Behavior
+
+Manifest sync stops with a clear error when:
+
+- No manifest remote is configured.
+- Git is not installed.
+- The configured manifest remote does not exist yet.
+- The manifest repo cannot be cloned, fetched, pulled, or pushed.
+- The manifest repo has uncommitted changes.
+- The remote branch is newer or diverged.
+- The pulled manifest is invalid JSON or fails manifest validation.
+- Pull would overwrite local manifest changes.
+
+## What This Tool Will Not Do Without Permission
+
+- Delete local projects, files, or directories.
+- Overwrite existing project contents during apply or hydrate.
+- Auto-pull, rebase, merge, or push project Git repositories.
+- Resolve Git conflicts.
+- Install dependencies or run project setup commands.
+- Upload secrets, source code, or project files.
+- Share env profiles with teammates.
+- Rotate secrets or replace local `.env` values without an explicit command.
+- Watch the filesystem in the background.
+- Mount a FUSE or virtual filesystem.
+
+## Known Limitations
+
+- Hosted manifest sync is not implemented.
+- Placeholder hydration uses full `git clone`; partial clone and sparse checkout
+  are not implemented.
+- Secret profiles are local to the workspace; there is no team sharing, OS
+  keychain integration, remote backup, or rotation flow.
+- Setup hints are informational only and do not install dependencies.
+- Editor settings, VS Code extensions, devcontainers, Nix, mise, and asdf are
+  outside the MVP.
+- The command name is documented as `devspace`, while the current source package
+  still lives under `cmd/devdrop`.
+
+## Troubleshooting
+
+- If `devspace` is not found, build it with
+  `go build -o bin/devspace ./cmd/devdrop` and run `bin/devspace`.
+- If `workspace push` says the manifest remote is not ready, create it first with
+  `devspace workspace remote create github &lt;owner/repo&gt; --private` or
+  `devspace workspace remote create local ~/Projects/devspace-manifest.git`.
+- If commands use the wrong workspace, check `DEV_DROP_HOME` and
+  `~/.devdrop/config.json`.
+- If `plan` reports a path conflict, inspect the existing directory and
+  decide whether it should be tracked, renamed, or left unmanaged.
+- If `project hydrate` fails, confirm the project has a remote URL in
+  `&lt;workspace&gt;/.devdrop/manifest.json` and that `git clone &lt;remote&gt; &lt;path&gt;` works
+  by itself.
+- If `env pull` cannot write `.env`, check project path permissions and whether a
+  directory or symlink exists at `.env`.
+- If secret values appear missing, run `devspace env list &lt;project&gt;` to verify
+  the key exists before pulling.
+
+## Roadmap
+
+- Manifest conflict resolution and force flags.
+- Hosted API or cloud object storage.
+- Background daemon and filesystem watchers.
+- FUSE or virtual filesystem lazy loading.
+- Git partial clone or sparse checkout.
+- Team/shared secret profiles.
+- OS keychain integration.
+- Secret rotation.
+- Editor settings, devcontainer, Nix, mise, or asdf sync.
+- Optional dependency setup flows with explicit confirmation.
+- Release-readiness checklist automation.
+
+## Manifest
+
+See [`examples/manifest.json`](examples/manifest.json).
+
+The manifest is a versioned JSON file at:
+
+```text
+&lt;workspace&gt;/.devdrop/manifest.json
+```
+
+Project paths are always relative to the workspace root. Absolute paths and
+parent-directory escapes are rejected.
+</pre></div>
+          </div>
+        </article>
+<article class="doc" id="doc-2" data-title="Release Readiness" data-path="docs/release-readiness.md" data-search="release readiness docs/release-readiness.md # release readiness
+
+## what was tested
+
+- full go unit/regression suite with `go test ./...`.
+- static checks with `go vet ./...`.
+- cli build with `go build -o .tmp/devspace ./cmd/devdrop`.
+- top-level command help for the `devspace` command surface.
+- local two-machine simulation using temporary directories and a local bare git remote.
+- git-backed manifest push/pull using local bare git remotes only.
+- safety cases for path traversal, invalid json, non-empty destination folders, dirty repos, and missing git.
+
+## what passed
+
+- repeated `init` preserves machine identity, existing config, existing manifest projects, and age identity.
+- workspace scan ignores dependency folders and does not recurse into nested git repos inside a parent repo.
+- manifest path validation rejects absolute paths and `..` escapes.
+- manifest writes create `.bak` backups before replacing existing files.
+- `workspace remote set/get` stores manifest remote configuration outside the manifest.
+- `workspace remote create local` creates a local bare git manifest remote and sets it.
+- `workspace remote create github` has an explicit github cli path for creating hosted manifest repos.
+- `workspace push` clones the manifest repo cache, writes only `manifest.json`, commits changed manifests, pushes to the configured remote, and is idempotent with no changes.
+- `workspace pull` validates the remote manifest before replacement, localizes the workspace root, creates a manifest backup, and does not run apply automatically.
+- git-backed manifest pull works into a second workspace, after which plan/apply recreates placeholder folder structure.
+- hydration after git-backed manifest pull works against local bare git project remotes.
+- `plan` creates safe/skip actions and `plan --json` returns structured json.
+- `apply` uses the saved plan and rejects manifest drift.
+- `apply` creates only safe missing directories and skips non-empty destinations.
+- hydration works against a local bare git repository with no network access.
+- hydration refuses missing remotes and non-empty destination folders.
+- dirty repos are detected and listed as skipped.
+- workspace paths and project paths with spaces work.
+- secret values remain encrypted at rest and masked in list output.
+- manifest sync refuses invalid json, path traversal, dirty manifest repo state, and local unpushed manifest changes.
+- missing manifest remotes get a purpose-built recovery message with local and github create commands.
+
+## what failed
+
+- initial audit found a temporary compile break from partial path-hardening edits.
+- the original hydrate path deleted placeholder directories before cloning.
+- the original sync path recomputed actions during apply and had no saved plan hash.
+- the original docs still described `workspace sync` as the primary flow.
+
+## what was fixed
+
+- replaced direct placeholder marker deletion with empty-directory placeholders.
+- added a saved plan file with manifest hash validation.
+- added top-level `scan`, `plan`, and `apply` commands for the requested workflow.
+- kept `workspace sync` only as a deprecated compatibility alias.
+- added atomic json writes with backups.
+- centralized workspace-relative path validation and used it at mutating call sites.
+- improved git clone errors with remote and next-step guidance.
+- added regression tests for the hardening requirements and local two-machine simulation.
+- added git-backed manifest sync commands and regression tests for local bare remotes, conflict handling, backups, paths with spaces, plan/apply after pull, and hydrate after pull.
+- updated readme command examples, safety guarantees, troubleshooting, and roadmap.
+
+## known limitations
+
+- manifest exchange between machines uses user-owned git remotes only.
+- there is no hosted sync, daemon, fuse layer, partial clone, or sparse checkout.
+- secret profiles are local-only; there is no os keychain integration, team sharing, backup, or rotation flow.
+- dependency/setup commands are detected only as hints and are never executed.
+- the source package path is still `cmd/devdrop`, but the intended binary name is `devspace`.
+
+## remaining risks
+
+- the local config/state directory is still named `.devdrop`; a future rename/migration may be useful if the product name stays `devspace`.
+- plan/apply is intentionally conservative and may require manual cleanup or explicit future flags for advanced cases.
+- manifest sync has no force flag or merge ui; conflicts intentionally require manual reconciliation.
+- git inspection still avoids mutating repos, so stale/outdated remote commit detection remains shallow.
+- encrypted `.env` generation overwrites the target `.env` only when explicitly requested via `env pull`.
+
+## recommended next feature
+
+manifest conflict reconciliation and clearer multi-machine history.
+">
+          <header class="doc-header">
+            <div>
+              <h2>Release Readiness</h2>
+              <div class="doc-path">docs/release-readiness.md</div>
+            </div>
+            <div class="doc-meta">
+              <span class="badge">711 words</span>
+              <span class="badge">0 code</span>
+              <span class="badge">0 tables</span>
+            </div>
+          </header>
+          <div class="doc-body">
+            <div class="rendered markdown"><h1 id="release-readiness-26"><a class="heading-link" href="#release-readiness-26" aria-label="Link to Release Readiness">#</a>Release Readiness</h1><h2 id="what-was-tested-27"><a class="heading-link" href="#what-was-tested-27" aria-label="Link to What Was Tested">#</a>What Was Tested</h2><ul>
+<li>Full Go unit/regression suite with <code>go test ./...</code>.</li>
+<li>Static checks with <code>go vet ./...</code>.</li>
+<li>CLI build with <code>go build -o .tmp/devspace ./cmd/devdrop</code>.</li>
+<li>Top-level command help for the <code>devspace</code> command surface.</li>
+<li>Local two-machine simulation using temporary directories and a local bare Git remote.</li>
+<li>Git-backed manifest push/pull using local bare Git remotes only.</li>
+<li>Safety cases for path traversal, invalid JSON, non-empty destination folders, dirty repos, and missing Git.</li>
+</ul>
+<h2 id="what-passed-28"><a class="heading-link" href="#what-passed-28" aria-label="Link to What Passed">#</a>What Passed</h2><ul>
+<li>Repeated <code>init</code> preserves machine identity, existing config, existing manifest projects, and age identity.</li>
+<li>Workspace scan ignores dependency folders and does not recurse into nested Git repos inside a parent repo.</li>
+<li>Manifest path validation rejects absolute paths and <code>..</code> escapes.</li>
+<li>Manifest writes create <code>.bak</code> backups before replacing existing files.</li>
+<li><code>workspace remote set/get</code> stores manifest remote configuration outside the manifest.</li>
+<li><code>workspace remote create local</code> creates a local bare Git manifest remote and sets it.</li>
+<li><code>workspace remote create github</code> has an explicit GitHub CLI path for creating hosted manifest repos.</li>
+<li><code>workspace push</code> clones the manifest repo cache, writes only <code>manifest.json</code>, commits changed manifests, pushes to the configured remote, and is idempotent with no changes.</li>
+<li><code>workspace pull</code> validates the remote manifest before replacement, localizes the workspace root, creates a manifest backup, and does not run apply automatically.</li>
+<li>Git-backed manifest pull works into a second workspace, after which plan/apply recreates placeholder folder structure.</li>
+<li>Hydration after Git-backed manifest pull works against local bare Git project remotes.</li>
+<li><code>plan</code> creates safe/skip actions and <code>plan --json</code> returns structured JSON.</li>
+<li><code>apply</code> uses the saved plan and rejects manifest drift.</li>
+<li><code>apply</code> creates only safe missing directories and skips non-empty destinations.</li>
+<li>Hydration works against a local bare Git repository with no network access.</li>
+<li>Hydration refuses missing remotes and non-empty destination folders.</li>
+<li>Dirty repos are detected and listed as skipped.</li>
+<li>Workspace paths and project paths with spaces work.</li>
+<li>Secret values remain encrypted at rest and masked in list output.</li>
+<li>Manifest sync refuses invalid JSON, path traversal, dirty manifest repo state, and local unpushed manifest changes.</li>
+<li>Missing manifest remotes get a purpose-built recovery message with local and GitHub create commands.</li>
+</ul>
+<h2 id="what-failed-29"><a class="heading-link" href="#what-failed-29" aria-label="Link to What Failed">#</a>What Failed</h2><ul>
+<li>Initial audit found a temporary compile break from partial path-hardening edits.</li>
+<li>The original hydrate path deleted placeholder directories before cloning.</li>
+<li>The original sync path recomputed actions during apply and had no saved plan hash.</li>
+<li>The original docs still described <code>workspace sync</code> as the primary flow.</li>
+</ul>
+<h2 id="what-was-fixed-30"><a class="heading-link" href="#what-was-fixed-30" aria-label="Link to What Was Fixed">#</a>What Was Fixed</h2><ul>
+<li>Replaced direct placeholder marker deletion with empty-directory placeholders.</li>
+<li>Added a saved plan file with manifest hash validation.</li>
+<li>Added top-level <code>scan</code>, <code>plan</code>, and <code>apply</code> commands for the requested workflow.</li>
+<li>Kept <code>workspace sync</code> only as a deprecated compatibility alias.</li>
+<li>Added atomic JSON writes with backups.</li>
+<li>Centralized workspace-relative path validation and used it at mutating call sites.</li>
+<li>Improved Git clone errors with remote and next-step guidance.</li>
+<li>Added regression tests for the hardening requirements and local two-machine simulation.</li>
+<li>Added Git-backed manifest sync commands and regression tests for local bare remotes, conflict handling, backups, paths with spaces, plan/apply after pull, and hydrate after pull.</li>
+<li>Updated README command examples, safety guarantees, troubleshooting, and roadmap.</li>
+</ul>
+<h2 id="known-limitations-31"><a class="heading-link" href="#known-limitations-31" aria-label="Link to Known Limitations">#</a>Known Limitations</h2><ul>
+<li>Manifest exchange between machines uses user-owned Git remotes only.</li>
+<li>There is no hosted sync, daemon, FUSE layer, partial clone, or sparse checkout.</li>
+<li>Secret profiles are local-only; there is no OS keychain integration, team sharing, backup, or rotation flow.</li>
+<li>Dependency/setup commands are detected only as hints and are never executed.</li>
+<li>The source package path is still <code>cmd/devdrop</code>, but the intended binary name is <code>devspace</code>.</li>
+</ul>
+<h2 id="remaining-risks-32"><a class="heading-link" href="#remaining-risks-32" aria-label="Link to Remaining Risks">#</a>Remaining Risks</h2><ul>
+<li>The local config/state directory is still named <code>.devdrop</code>; a future rename/migration may be useful if the product name stays <code>devspace</code>.</li>
+<li>Plan/apply is intentionally conservative and may require manual cleanup or explicit future flags for advanced cases.</li>
+<li>Manifest sync has no force flag or merge UI; conflicts intentionally require manual reconciliation.</li>
+<li>Git inspection still avoids mutating repos, so stale/outdated remote commit detection remains shallow.</li>
+<li>Encrypted <code>.env</code> generation overwrites the target <code>.env</code> only when explicitly requested via <code>env pull</code>.</li>
+</ul>
+<h2 id="recommended-next-feature-33"><a class="heading-link" href="#recommended-next-feature-33" aria-label="Link to Recommended Next Feature">#</a>Recommended Next Feature</h2><p>Manifest conflict reconciliation and clearer multi-machine history.</p>
+</div>
+            <div class="source"><pre># Release Readiness
+
+## What Was Tested
+
+- Full Go unit/regression suite with `go test ./...`.
+- Static checks with `go vet ./...`.
+- CLI build with `go build -o .tmp/devspace ./cmd/devdrop`.
+- Top-level command help for the `devspace` command surface.
+- Local two-machine simulation using temporary directories and a local bare Git remote.
+- Git-backed manifest push/pull using local bare Git remotes only.
+- Safety cases for path traversal, invalid JSON, non-empty destination folders, dirty repos, and missing Git.
+
+## What Passed
+
+- Repeated `init` preserves machine identity, existing config, existing manifest projects, and age identity.
+- Workspace scan ignores dependency folders and does not recurse into nested Git repos inside a parent repo.
+- Manifest path validation rejects absolute paths and `..` escapes.
+- Manifest writes create `.bak` backups before replacing existing files.
+- `workspace remote set/get` stores manifest remote configuration outside the manifest.
+- `workspace remote create local` creates a local bare Git manifest remote and sets it.
+- `workspace remote create github` has an explicit GitHub CLI path for creating hosted manifest repos.
+- `workspace push` clones the manifest repo cache, writes only `manifest.json`, commits changed manifests, pushes to the configured remote, and is idempotent with no changes.
+- `workspace pull` validates the remote manifest before replacement, localizes the workspace root, creates a manifest backup, and does not run apply automatically.
+- Git-backed manifest pull works into a second workspace, after which plan/apply recreates placeholder folder structure.
+- Hydration after Git-backed manifest pull works against local bare Git project remotes.
+- `plan` creates safe/skip actions and `plan --json` returns structured JSON.
+- `apply` uses the saved plan and rejects manifest drift.
+- `apply` creates only safe missing directories and skips non-empty destinations.
+- Hydration works against a local bare Git repository with no network access.
+- Hydration refuses missing remotes and non-empty destination folders.
+- Dirty repos are detected and listed as skipped.
+- Workspace paths and project paths with spaces work.
+- Secret values remain encrypted at rest and masked in list output.
+- Manifest sync refuses invalid JSON, path traversal, dirty manifest repo state, and local unpushed manifest changes.
+- Missing manifest remotes get a purpose-built recovery message with local and GitHub create commands.
+
+## What Failed
+
+- Initial audit found a temporary compile break from partial path-hardening edits.
+- The original hydrate path deleted placeholder directories before cloning.
+- The original sync path recomputed actions during apply and had no saved plan hash.
+- The original docs still described `workspace sync` as the primary flow.
+
+## What Was Fixed
+
+- Replaced direct placeholder marker deletion with empty-directory placeholders.
+- Added a saved plan file with manifest hash validation.
+- Added top-level `scan`, `plan`, and `apply` commands for the requested workflow.
+- Kept `workspace sync` only as a deprecated compatibility alias.
+- Added atomic JSON writes with backups.
+- Centralized workspace-relative path validation and used it at mutating call sites.
+- Improved Git clone errors with remote and next-step guidance.
+- Added regression tests for the hardening requirements and local two-machine simulation.
+- Added Git-backed manifest sync commands and regression tests for local bare remotes, conflict handling, backups, paths with spaces, plan/apply after pull, and hydrate after pull.
+- Updated README command examples, safety guarantees, troubleshooting, and roadmap.
+
+## Known Limitations
+
+- Manifest exchange between machines uses user-owned Git remotes only.
+- There is no hosted sync, daemon, FUSE layer, partial clone, or sparse checkout.
+- Secret profiles are local-only; there is no OS keychain integration, team sharing, backup, or rotation flow.
+- Dependency/setup commands are detected only as hints and are never executed.
+- The source package path is still `cmd/devdrop`, but the intended binary name is `devspace`.
+
+## Remaining Risks
+
+- The local config/state directory is still named `.devdrop`; a future rename/migration may be useful if the product name stays `devspace`.
+- Plan/apply is intentionally conservative and may require manual cleanup or explicit future flags for advanced cases.
+- Manifest sync has no force flag or merge UI; conflicts intentionally require manual reconciliation.
+- Git inspection still avoids mutating repos, so stale/outdated remote commit detection remains shallow.
+- Encrypted `.env` generation overwrites the target `.env` only when explicitly requested via `env pull`.
+
+## Recommended Next Feature
+
+Manifest conflict reconciliation and clearer multi-machine history.
+</pre></div>
+          </div>
+        </article>
+<article class="doc" id="doc-3" data-title="DevDrop Capstone Packet" data-path="docs/capstone/README.md" data-search="devdrop capstone packet docs/capstone/readme.md # devdrop capstone packet
+
+this packet maps devdrop to the liatrio forge module 5 capstone deliverables.
+devdrop is a local-first developer workspace recovery cli. it helps a developer
+recreate the shape of a working machine on a second machine without syncing
+source code, overwriting local work, or storing secrets in plaintext.
+
+## capstone thesis
+
+developers lose time rebuilding workspaces after machine changes, client
+rotations, or repo sprawl. devdrop proves a smaller, safer alternative to a
+hosted &quot;sync everything&quot; service: track workspace metadata, push the manifest to
+a user-owned git remote, hydrate projects on demand, and keep env values
+encrypted locally.
+
+## deliverable map
+
+| forge deliverable | devdrop artifact |
+| --- | --- |
+| capstone product | go cli built as `devspace`, with local manifest sync, plan/apply, hydration, and encrypted env profiles |
+| case study write-up | [case-study.md](case-study.md) |
+| proof artifacts | [proof-artifacts.md](proof-artifacts.md), `docs/release-readiness.md`, tests under `internal/devdrop/` |
+| final demo recording | [demo-script.md](demo-script.md) |
+| playbook contribution | [playbook-contribution.md](playbook-contribution.md), `docs/playbook.html`, and the enablement notes in [case-study.md](case-study.md) |
+| personal reflection | add final reflection after the recorded demo and panel feedback |
+
+## current product surface
+
+- `devspace init` creates local config, machine identity, age identity, and the
+  workspace manifest.
+- `devspace scan` discovers git projects, dirty state, env presence, and setup
+  hints.
+- `devspace plan` and `devspace apply` separate review from mutation.
+- `devspace workspace remote|push|pull` syncs only `manifest.json` through a
+  user-owned git repository.
+- `devspace project hydrate` clones placeholder git projects on demand.
+- `devspace env set|list|pull` stores encrypted profiles and writes local `.env`
+  files with `0600` permissions.
+
+## remaining module 5 work
+
+1. create a tagged release binary and attach it to a github release.
+2. record the demo using [demo-script.md](demo-script.md).
+3. capture final proof links in [proof-artifacts.md](proof-artifacts.md).
+4. add the personal reflection after demo feedback is received.
+5. decide whether to rename on-disk `.devdrop` paths before release or document
+   the name mismatch as an mvp limitation.
+">
+          <header class="doc-header">
+            <div>
+              <h2>DevDrop Capstone Packet</h2>
+              <div class="doc-path">docs/capstone/README.md</div>
+            </div>
+            <div class="doc-meta">
+              <span class="badge">325 words</span>
+              <span class="badge">0 code</span>
+              <span class="badge">1 tables</span>
+            </div>
+          </header>
+          <div class="doc-body">
+            <div class="rendered markdown"><h1 id="devdrop-capstone-packet-34"><a class="heading-link" href="#devdrop-capstone-packet-34" aria-label="Link to DevDrop Capstone Packet">#</a>DevDrop Capstone Packet</h1><p>This packet maps DevDrop to the Liatrio Forge Module 5 capstone deliverables.
+DevDrop is a local-first developer workspace recovery CLI. It helps a developer
+recreate the shape of a working machine on a second machine without syncing
+source code, overwriting local work, or storing secrets in plaintext.</p>
+<h2 id="capstone-thesis-35"><a class="heading-link" href="#capstone-thesis-35" aria-label="Link to Capstone Thesis">#</a>Capstone Thesis</h2><p>Developers lose time rebuilding workspaces after machine changes, client
+rotations, or repo sprawl. DevDrop proves a smaller, safer alternative to a
+hosted &quot;sync everything&quot; service: track workspace metadata, push the manifest to
+a user-owned Git remote, hydrate projects on demand, and keep env values
+encrypted locally.</p>
+<h2 id="deliverable-map-36"><a class="heading-link" href="#deliverable-map-36" aria-label="Link to Deliverable Map">#</a>Deliverable Map</h2><table>
+<thead>
+<tr>
+<th>Forge deliverable</th>
+<th>DevDrop artifact</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Capstone product</td>
+<td>Go CLI built as <code>devspace</code>, with local manifest sync, plan/apply, hydration, and encrypted env profiles</td>
+</tr>
+<tr>
+<td>Case study write-up</td>
+<td><a href="case-study.md">case-study.md</a></td>
+</tr>
+<tr>
+<td>Proof artifacts</td>
+<td><a href="proof-artifacts.md">proof-artifacts.md</a>, <code>docs/release-readiness.md</code>, tests under <code>internal/devdrop/</code></td>
+</tr>
+<tr>
+<td>Final demo recording</td>
+<td><a href="demo-script.md">demo-script.md</a></td>
+</tr>
+<tr>
+<td>Playbook contribution</td>
+<td><a href="playbook-contribution.md">playbook-contribution.md</a>, <code>docs/playbook.html</code>, and the enablement notes in <a href="case-study.md">case-study.md</a></td>
+</tr>
+<tr>
+<td>Personal reflection</td>
+<td>Add final reflection after the recorded demo and panel feedback</td>
+</tr>
+</tbody></table>
+<h2 id="current-product-surface-37"><a class="heading-link" href="#current-product-surface-37" aria-label="Link to Current Product Surface">#</a>Current Product Surface</h2><ul>
+<li><code>devspace init</code> creates local config, machine identity, age identity, and the
+workspace manifest.</li>
+<li><code>devspace scan</code> discovers Git projects, dirty state, env presence, and setup
+hints.</li>
+<li><code>devspace plan</code> and <code>devspace apply</code> separate review from mutation.</li>
+<li><code>devspace workspace remote|push|pull</code> syncs only <code>manifest.json</code> through a
+user-owned Git repository.</li>
+<li><code>devspace project hydrate</code> clones placeholder Git projects on demand.</li>
+<li><code>devspace env set|list|pull</code> stores encrypted profiles and writes local <code>.env</code>
+files with <code>0600</code> permissions.</li>
+</ul>
+<h2 id="remaining-module-5-work-38"><a class="heading-link" href="#remaining-module-5-work-38" aria-label="Link to Remaining Module 5 Work">#</a>Remaining Module 5 Work</h2><ol>
+<li>Create a tagged release binary and attach it to a GitHub release.</li>
+<li>Record the demo using <a href="demo-script.md">demo-script.md</a>.</li>
+<li>Capture final proof links in <a href="proof-artifacts.md">proof-artifacts.md</a>.</li>
+<li>Add the personal reflection after demo feedback is received.</li>
+<li>Decide whether to rename on-disk <code>.devdrop</code> paths before release or document
+the name mismatch as an MVP limitation.</li>
+</ol>
+</div>
+            <div class="source"><pre># DevDrop Capstone Packet
+
+This packet maps DevDrop to the Liatrio Forge Module 5 capstone deliverables.
+DevDrop is a local-first developer workspace recovery CLI. It helps a developer
+recreate the shape of a working machine on a second machine without syncing
+source code, overwriting local work, or storing secrets in plaintext.
+
+## Capstone Thesis
+
+Developers lose time rebuilding workspaces after machine changes, client
+rotations, or repo sprawl. DevDrop proves a smaller, safer alternative to a
+hosted &quot;sync everything&quot; service: track workspace metadata, push the manifest to
+a user-owned Git remote, hydrate projects on demand, and keep env values
+encrypted locally.
+
+## Deliverable Map
+
+| Forge deliverable | DevDrop artifact |
+| --- | --- |
+| Capstone product | Go CLI built as `devspace`, with local manifest sync, plan/apply, hydration, and encrypted env profiles |
+| Case study write-up | [case-study.md](case-study.md) |
+| Proof artifacts | [proof-artifacts.md](proof-artifacts.md), `docs/release-readiness.md`, tests under `internal/devdrop/` |
+| Final demo recording | [demo-script.md](demo-script.md) |
+| Playbook contribution | [playbook-contribution.md](playbook-contribution.md), `docs/playbook.html`, and the enablement notes in [case-study.md](case-study.md) |
+| Personal reflection | Add final reflection after the recorded demo and panel feedback |
+
+## Current Product Surface
+
+- `devspace init` creates local config, machine identity, age identity, and the
+  workspace manifest.
+- `devspace scan` discovers Git projects, dirty state, env presence, and setup
+  hints.
+- `devspace plan` and `devspace apply` separate review from mutation.
+- `devspace workspace remote|push|pull` syncs only `manifest.json` through a
+  user-owned Git repository.
+- `devspace project hydrate` clones placeholder Git projects on demand.
+- `devspace env set|list|pull` stores encrypted profiles and writes local `.env`
+  files with `0600` permissions.
+
+## Remaining Module 5 Work
+
+1. Create a tagged release binary and attach it to a GitHub release.
+2. Record the demo using [demo-script.md](demo-script.md).
+3. Capture final proof links in [proof-artifacts.md](proof-artifacts.md).
+4. Add the personal reflection after demo feedback is received.
+5. Decide whether to rename on-disk `.devdrop` paths before release or document
+   the name mismatch as an MVP limitation.
+</pre></div>
+          </div>
+        </article>
+<article class="doc" id="doc-4" data-title="Capstone Spec: DevDrop" data-path="docs/capstone/spec.md" data-search="capstone spec: devdrop docs/capstone/spec.md # capstone spec: devdrop
+
+## problem
+
+a developer&#39;s workspace is more than source code. it includes which projects are
+active, where those projects live, which remotes they came from, which repos are
+dirty, which `.env` files are expected, and which setup commands are likely
+needed. today that context is rebuilt manually after a new laptop, client
+rotation, or cleanup pass.
+
+the unsafe shortcut is to sync entire folders. that risks copying secrets,
+large dependency trees, generated files, and client source code. devdrop takes a
+metadata-first approach.
+
+## users
+
+- consultants who rotate across client projects and need predictable workspace
+  recovery.
+- developers with multiple machines who want the same project map everywhere.
+- team leads who need a teachable example of safe ai-assisted product delivery.
+
+## goal
+
+ship a local-first cli that can recreate workspace structure on another machine
+from a synced manifest while preserving local control over source code and
+secrets.
+
+## non-goals
+
+- hosted sync service.
+- filesystem daemon or watcher.
+- fuse or virtual filesystem.
+- full source-code syncing.
+- dependency installation automation.
+- team secret sharing or remote secret backup.
+- automatic git pull, merge, rebase, or conflict resolution for project repos.
+
+## user stories
+
+### initialize a workspace
+
+as a developer, i can run `devspace init --workspace ~/code` so devdrop creates
+local config, a machine identity, an age identity, and a workspace manifest.
+
+acceptance:
+
+- repeat runs do not rotate the machine id.
+- repeat runs do not rotate the age identity.
+- existing manifest projects are preserved.
+
+### discover workspace projects
+
+as a developer, i can run `devspace scan` so devdrop records project metadata
+without crawling dependency folders or nested repos inside a parent repo.
+
+acceptance:
+
+- git remotes, current branch, last commit, dirty state, `.env` presence, and
+  setup hints are captured.
+- default ignored folders include `node_modules`, `dist`, `build`, `.next`,
+  `turbo`, `target`, `vendor`, `coverage`, `.cache`, `.ds_store`, and `*.log`.
+- duplicate project basenames are disambiguated predictably.
+
+### review before writing
+
+as a developer, i can run `devspace plan` before `devspace apply` so filesystem
+changes are visible before they happen.
+
+acceptance:
+
+- `plan` saves a plan with the current manifest hash.
+- `plan --json` emits machine-readable plan output.
+- `apply` refuses to run if the manifest changed after the plan was generated.
+- safe actions create missing directories only.
+- skipped actions identify the reason.
+
+### sync workspace metadata through git
+
+as a developer, i can push and pull the manifest through a user-owned git remote
+so another machine can recreate the workspace shape.
+
+acceptance:
+
+- `workspace remote create local &lt;path&gt;` creates a local bare git remote.
+- `workspace remote create github &lt;owner/repo&gt; --private` uses the github cli.
+- `workspace push` writes only `manifest.json`.
+- synced manifests do not include machine-local workspace roots.
+- `workspace pull` validates remote json and manifest paths before replacing
+  the local manifest.
+- pull creates a `.bak` backup of the previous local manifest.
+- pull refuses to overwrite local manifest changes that have not been pushed or
+  reconciled.
+
+### hydrate projects on demand
+
+as a developer, i can run `devspace project hydrate &lt;project&gt;` so a placeholder
+git project becomes a real clone when i need it.
+
+acceptance:
+
+- hydration clones only into missing or empty directories.
+- hydration refuses non-empty destination folders.
+- hydration gives useful errors when a remote is missing or unreachable.
+- suggested setup commands are printed but not executed.
+
+### manage local encrypted env profiles
+
+as a developer, i can store env values locally with age encryption and generate
+`.env` files only when i explicitly request them.
+
+acceptance:
+
+- `env set` accepts stdin or a hidden prompt.
+- empty or invalid keys are rejected.
+- `env list` masks values.
+- secret profile files do not contain plaintext values.
+- `env pull` writes the local `.env` file with `0600` permissions.
+
+## quality bar
+
+- `go test ./...` passes.
+- `go vet ./...` passes before release.
+- `go build -o .tmp/devspace ./cmd/devdrop` produces the demo binary.
+- the release readiness document states tested workflows, known limitations,
+  and remaining risks.
+- the demo uses temporary directories and local bare remotes so it can run
+  without network access.
+">
+          <header class="doc-header">
+            <div>
+              <h2>Capstone Spec: DevDrop</h2>
+              <div class="doc-path">docs/capstone/spec.md</div>
+            </div>
+            <div class="doc-meta">
+              <span class="badge">688 words</span>
+              <span class="badge">0 code</span>
+              <span class="badge">0 tables</span>
+            </div>
+          </header>
+          <div class="doc-body">
+            <div class="rendered markdown"><h1 id="capstone-spec-devdrop-39"><a class="heading-link" href="#capstone-spec-devdrop-39" aria-label="Link to Capstone Spec: DevDrop">#</a>Capstone Spec: DevDrop</h1><h2 id="problem-40"><a class="heading-link" href="#problem-40" aria-label="Link to Problem">#</a>Problem</h2><p>A developer&#39;s workspace is more than source code. It includes which projects are
+active, where those projects live, which remotes they came from, which repos are
+dirty, which <code>.env</code> files are expected, and which setup commands are likely
+needed. Today that context is rebuilt manually after a new laptop, client
+rotation, or cleanup pass.</p>
+<p>The unsafe shortcut is to sync entire folders. That risks copying secrets,
+large dependency trees, generated files, and client source code. DevDrop takes a
+metadata-first approach.</p>
+<h2 id="users-41"><a class="heading-link" href="#users-41" aria-label="Link to Users">#</a>Users</h2><ul>
+<li>Consultants who rotate across client projects and need predictable workspace
+recovery.</li>
+<li>Developers with multiple machines who want the same project map everywhere.</li>
+<li>Team leads who need a teachable example of safe AI-assisted product delivery.</li>
+</ul>
+<h2 id="goal-42"><a class="heading-link" href="#goal-42" aria-label="Link to Goal">#</a>Goal</h2><p>Ship a local-first CLI that can recreate workspace structure on another machine
+from a synced manifest while preserving local control over source code and
+secrets.</p>
+<h2 id="non-goals-43"><a class="heading-link" href="#non-goals-43" aria-label="Link to Non-Goals">#</a>Non-Goals</h2><ul>
+<li>Hosted sync service.</li>
+<li>Filesystem daemon or watcher.</li>
+<li>FUSE or virtual filesystem.</li>
+<li>Full source-code syncing.</li>
+<li>Dependency installation automation.</li>
+<li>Team secret sharing or remote secret backup.</li>
+<li>Automatic Git pull, merge, rebase, or conflict resolution for project repos.</li>
+</ul>
+<h2 id="user-stories-44"><a class="heading-link" href="#user-stories-44" aria-label="Link to User Stories">#</a>User Stories</h2><h3 id="initialize-a-workspace-45"><a class="heading-link" href="#initialize-a-workspace-45" aria-label="Link to Initialize a workspace">#</a>Initialize a workspace</h3><p>As a developer, I can run <code>devspace init --workspace ~/code</code> so DevDrop creates
+local config, a machine identity, an age identity, and a workspace manifest.</p>
+<p>Acceptance:</p>
+<ul>
+<li>Repeat runs do not rotate the machine ID.</li>
+<li>Repeat runs do not rotate the age identity.</li>
+<li>Existing manifest projects are preserved.</li>
+</ul>
+<h3 id="discover-workspace-projects-46"><a class="heading-link" href="#discover-workspace-projects-46" aria-label="Link to Discover workspace projects">#</a>Discover workspace projects</h3><p>As a developer, I can run <code>devspace scan</code> so DevDrop records project metadata
+without crawling dependency folders or nested repos inside a parent repo.</p>
+<p>Acceptance:</p>
+<ul>
+<li>Git remotes, current branch, last commit, dirty state, <code>.env</code> presence, and
+setup hints are captured.</li>
+<li>Default ignored folders include <code>node_modules</code>, <code>dist</code>, <code>build</code>, <code>.next</code>,
+<code>turbo</code>, <code>target</code>, <code>vendor</code>, <code>coverage</code>, <code>.cache</code>, <code>.DS_Store</code>, and <code>*.log</code>.</li>
+<li>Duplicate project basenames are disambiguated predictably.</li>
+</ul>
+<h3 id="review-before-writing-47"><a class="heading-link" href="#review-before-writing-47" aria-label="Link to Review before writing">#</a>Review before writing</h3><p>As a developer, I can run <code>devspace plan</code> before <code>devspace apply</code> so filesystem
+changes are visible before they happen.</p>
+<p>Acceptance:</p>
+<ul>
+<li><code>plan</code> saves a plan with the current manifest hash.</li>
+<li><code>plan --json</code> emits machine-readable plan output.</li>
+<li><code>apply</code> refuses to run if the manifest changed after the plan was generated.</li>
+<li>Safe actions create missing directories only.</li>
+<li>Skipped actions identify the reason.</li>
+</ul>
+<h3 id="sync-workspace-metadata-through-git-48"><a class="heading-link" href="#sync-workspace-metadata-through-git-48" aria-label="Link to Sync workspace metadata through Git">#</a>Sync workspace metadata through Git</h3><p>As a developer, I can push and pull the manifest through a user-owned Git remote
+so another machine can recreate the workspace shape.</p>
+<p>Acceptance:</p>
+<ul>
+<li><code>workspace remote create local &lt;path&gt;</code> creates a local bare Git remote.</li>
+<li><code>workspace remote create github &lt;owner/repo&gt; --private</code> uses the GitHub CLI.</li>
+<li><code>workspace push</code> writes only <code>manifest.json</code>.</li>
+<li>Synced manifests do not include machine-local workspace roots.</li>
+<li><code>workspace pull</code> validates remote JSON and manifest paths before replacing
+the local manifest.</li>
+<li>Pull creates a <code>.bak</code> backup of the previous local manifest.</li>
+<li>Pull refuses to overwrite local manifest changes that have not been pushed or
+reconciled.</li>
+</ul>
+<h3 id="hydrate-projects-on-demand-49"><a class="heading-link" href="#hydrate-projects-on-demand-49" aria-label="Link to Hydrate projects on demand">#</a>Hydrate projects on demand</h3><p>As a developer, I can run <code>devspace project hydrate &lt;project&gt;</code> so a placeholder
+Git project becomes a real clone when I need it.</p>
+<p>Acceptance:</p>
+<ul>
+<li>Hydration clones only into missing or empty directories.</li>
+<li>Hydration refuses non-empty destination folders.</li>
+<li>Hydration gives useful errors when a remote is missing or unreachable.</li>
+<li>Suggested setup commands are printed but not executed.</li>
+</ul>
+<h3 id="manage-local-encrypted-env-profiles-50"><a class="heading-link" href="#manage-local-encrypted-env-profiles-50" aria-label="Link to Manage local encrypted env profiles">#</a>Manage local encrypted env profiles</h3><p>As a developer, I can store env values locally with age encryption and generate
+<code>.env</code> files only when I explicitly request them.</p>
+<p>Acceptance:</p>
+<ul>
+<li><code>env set</code> accepts stdin or a hidden prompt.</li>
+<li>Empty or invalid keys are rejected.</li>
+<li><code>env list</code> masks values.</li>
+<li>Secret profile files do not contain plaintext values.</li>
+<li><code>env pull</code> writes the local <code>.env</code> file with <code>0600</code> permissions.</li>
+</ul>
+<h2 id="quality-bar-51"><a class="heading-link" href="#quality-bar-51" aria-label="Link to Quality Bar">#</a>Quality Bar</h2><ul>
+<li><code>go test ./...</code> passes.</li>
+<li><code>go vet ./...</code> passes before release.</li>
+<li><code>go build -o .tmp/devspace ./cmd/devdrop</code> produces the demo binary.</li>
+<li>The release readiness document states tested workflows, known limitations,
+and remaining risks.</li>
+<li>The demo uses temporary directories and local bare remotes so it can run
+without network access.</li>
+</ul>
+</div>
+            <div class="source"><pre># Capstone Spec: DevDrop
+
+## Problem
+
+A developer&#39;s workspace is more than source code. It includes which projects are
+active, where those projects live, which remotes they came from, which repos are
+dirty, which `.env` files are expected, and which setup commands are likely
+needed. Today that context is rebuilt manually after a new laptop, client
+rotation, or cleanup pass.
+
+The unsafe shortcut is to sync entire folders. That risks copying secrets,
+large dependency trees, generated files, and client source code. DevDrop takes a
+metadata-first approach.
+
+## Users
+
+- Consultants who rotate across client projects and need predictable workspace
+  recovery.
+- Developers with multiple machines who want the same project map everywhere.
+- Team leads who need a teachable example of safe AI-assisted product delivery.
+
+## Goal
+
+Ship a local-first CLI that can recreate workspace structure on another machine
+from a synced manifest while preserving local control over source code and
+secrets.
+
+## Non-Goals
+
+- Hosted sync service.
+- Filesystem daemon or watcher.
+- FUSE or virtual filesystem.
+- Full source-code syncing.
+- Dependency installation automation.
+- Team secret sharing or remote secret backup.
+- Automatic Git pull, merge, rebase, or conflict resolution for project repos.
+
+## User Stories
+
+### Initialize a workspace
+
+As a developer, I can run `devspace init --workspace ~/code` so DevDrop creates
+local config, a machine identity, an age identity, and a workspace manifest.
+
+Acceptance:
+
+- Repeat runs do not rotate the machine ID.
+- Repeat runs do not rotate the age identity.
+- Existing manifest projects are preserved.
+
+### Discover workspace projects
+
+As a developer, I can run `devspace scan` so DevDrop records project metadata
+without crawling dependency folders or nested repos inside a parent repo.
+
+Acceptance:
+
+- Git remotes, current branch, last commit, dirty state, `.env` presence, and
+  setup hints are captured.
+- Default ignored folders include `node_modules`, `dist`, `build`, `.next`,
+  `turbo`, `target`, `vendor`, `coverage`, `.cache`, `.DS_Store`, and `*.log`.
+- Duplicate project basenames are disambiguated predictably.
+
+### Review before writing
+
+As a developer, I can run `devspace plan` before `devspace apply` so filesystem
+changes are visible before they happen.
+
+Acceptance:
+
+- `plan` saves a plan with the current manifest hash.
+- `plan --json` emits machine-readable plan output.
+- `apply` refuses to run if the manifest changed after the plan was generated.
+- Safe actions create missing directories only.
+- Skipped actions identify the reason.
+
+### Sync workspace metadata through Git
+
+As a developer, I can push and pull the manifest through a user-owned Git remote
+so another machine can recreate the workspace shape.
+
+Acceptance:
+
+- `workspace remote create local &lt;path&gt;` creates a local bare Git remote.
+- `workspace remote create github &lt;owner/repo&gt; --private` uses the GitHub CLI.
+- `workspace push` writes only `manifest.json`.
+- Synced manifests do not include machine-local workspace roots.
+- `workspace pull` validates remote JSON and manifest paths before replacing
+  the local manifest.
+- Pull creates a `.bak` backup of the previous local manifest.
+- Pull refuses to overwrite local manifest changes that have not been pushed or
+  reconciled.
+
+### Hydrate projects on demand
+
+As a developer, I can run `devspace project hydrate &lt;project&gt;` so a placeholder
+Git project becomes a real clone when I need it.
+
+Acceptance:
+
+- Hydration clones only into missing or empty directories.
+- Hydration refuses non-empty destination folders.
+- Hydration gives useful errors when a remote is missing or unreachable.
+- Suggested setup commands are printed but not executed.
+
+### Manage local encrypted env profiles
+
+As a developer, I can store env values locally with age encryption and generate
+`.env` files only when I explicitly request them.
+
+Acceptance:
+
+- `env set` accepts stdin or a hidden prompt.
+- Empty or invalid keys are rejected.
+- `env list` masks values.
+- Secret profile files do not contain plaintext values.
+- `env pull` writes the local `.env` file with `0600` permissions.
+
+## Quality Bar
+
+- `go test ./...` passes.
+- `go vet ./...` passes before release.
+- `go build -o .tmp/devspace ./cmd/devdrop` produces the demo binary.
+- The release readiness document states tested workflows, known limitations,
+  and remaining risks.
+- The demo uses temporary directories and local bare remotes so it can run
+  without network access.
+</pre></div>
+          </div>
+        </article>
+<article class="doc" id="doc-5" data-title="Proof Artifacts" data-path="docs/capstone/proof-artifacts.md" data-search="proof artifacts docs/capstone/proof-artifacts.md # proof artifacts
+
+use this file as the final evidence checklist for module 5. fill in permanent
+links as releases, prs, and recordings are created.
+
+## product evidence
+
+| artifact | status | evidence |
+| --- | --- | --- |
+| cli implementation | done | `cmd/devdrop/main.go`, `internal/devdrop/` |
+| manifest example | done | `examples/manifest.json` |
+| release readiness notes | done | `docs/release-readiness.md` |
+| capstone spec | done | `docs/capstone/spec.md` |
+| case study | drafted | `docs/capstone/case-study.md` |
+| demo script | drafted | `docs/capstone/demo-script.md` |
+| release binary | pending | add github release url |
+| final demo recording | pending | add recording url |
+| personal reflection | pending | add reflection file or section after feedback |
+
+## verification commands
+
+run these before final demo day:
+
+```bash
+go test ./...
+go vet ./...
+go build -o .tmp/devspace ./cmd/devdrop
+.tmp/devspace --help
+```
+
+expected current baseline:
+
+- `go test ./...` passes.
+- the build produces a local `devspace` binary.
+- `devspace --help` lists workspace, project, env, scan, plan, apply, status,
+  and version commands.
+
+## demo evidence to capture
+
+record a terminal walkthrough that shows:
+
+1. build the binary.
+2. create a temporary workspace and local bare git project remote.
+3. initialize workspace a.
+4. clone one project into workspace a and scan it.
+5. create a local bare manifest remote.
+6. push the manifest.
+7. initialize workspace b.
+8. pull the manifest into workspace b.
+9. run `plan` and `apply` to create placeholder structure.
+10. hydrate the placeholder git project.
+11. store, list, and pull an encrypted env value.
+12. show final `devspace status`.
+
+## safety proof points
+
+- path traversal is rejected by manifest validation and project add.
+- invalid remote manifest json is rejected before local replacement.
+- pull refuses to overwrite local unpushed manifest changes.
+- apply refuses stale saved plans when the manifest hash changes.
+- hydrate refuses non-empty destinations.
+- secret files are encrypted at rest and list output masks values.
+
+these are covered by tests in `internal/devdrop/hardening_test.go`,
+`internal/devdrop/workspace_sync_test.go`, and `internal/devdrop/devdrop_test.go`.
+
+## release gate
+
+before final submission, update this section with exact evidence:
+
+```text
+release tag:
+release url:
+commit sha:
+demo recording:
+case study reviewed by:
+final test command output:
+known limitation accepted:
+```
+">
+          <header class="doc-header">
+            <div>
+              <h2>Proof Artifacts</h2>
+              <div class="doc-path">docs/capstone/proof-artifacts.md</div>
+            </div>
+            <div class="doc-meta">
+              <span class="badge">378 words</span>
+              <span class="badge">2 code</span>
+              <span class="badge">1 tables</span>
+            </div>
+          </header>
+          <div class="doc-body">
+            <div class="rendered markdown"><h1 id="proof-artifacts-52"><a class="heading-link" href="#proof-artifacts-52" aria-label="Link to Proof Artifacts">#</a>Proof Artifacts</h1><p>Use this file as the final evidence checklist for Module 5. Fill in permanent
+links as releases, PRs, and recordings are created.</p>
+<h2 id="product-evidence-53"><a class="heading-link" href="#product-evidence-53" aria-label="Link to Product Evidence">#</a>Product Evidence</h2><table>
+<thead>
+<tr>
+<th>Artifact</th>
+<th>Status</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>CLI implementation</td>
+<td>Done</td>
+<td><code>cmd/devdrop/main.go</code>, <code>internal/devdrop/</code></td>
+</tr>
+<tr>
+<td>Manifest example</td>
+<td>Done</td>
+<td><code>examples/manifest.json</code></td>
+</tr>
+<tr>
+<td>Release readiness notes</td>
+<td>Done</td>
+<td><code>docs/release-readiness.md</code></td>
+</tr>
+<tr>
+<td>Capstone spec</td>
+<td>Done</td>
+<td><code>docs/capstone/spec.md</code></td>
+</tr>
+<tr>
+<td>Case study</td>
+<td>Drafted</td>
+<td><code>docs/capstone/case-study.md</code></td>
+</tr>
+<tr>
+<td>Demo script</td>
+<td>Drafted</td>
+<td><code>docs/capstone/demo-script.md</code></td>
+</tr>
+<tr>
+<td>Release binary</td>
+<td>Pending</td>
+<td>Add GitHub release URL</td>
+</tr>
+<tr>
+<td>Final demo recording</td>
+<td>Pending</td>
+<td>Add recording URL</td>
+</tr>
+<tr>
+<td>Personal reflection</td>
+<td>Pending</td>
+<td>Add reflection file or section after feedback</td>
+</tr>
+</tbody></table>
+<h2 id="verification-commands-54"><a class="heading-link" href="#verification-commands-54" aria-label="Link to Verification Commands">#</a>Verification Commands</h2><p>Run these before final demo day:</p>
+<figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-20">Copy</button>
+    </figcaption>
+    <div id="code-20" class="diff-render" data-code-b64="Z28gdGVzdCAuLy4uLgpnbyB2ZXQgLi8uLi4KZ28gYnVpbGQgLW8gLnRtcC9kZXZzcGFjZSAuL2NtZC9kZXZkcm9wCi50bXAvZGV2c3BhY2UgLS1oZWxw" data-lang="bash"></div>
+    <noscript><pre><code>go test ./...
+go vet ./...
+go build -o .tmp/devspace ./cmd/devdrop
+.tmp/devspace --help</code></pre></noscript>
+  </figure><p>Expected current baseline:</p>
+<ul>
+<li><code>go test ./...</code> passes.</li>
+<li>The build produces a local <code>devspace</code> binary.</li>
+<li><code>devspace --help</code> lists workspace, project, env, scan, plan, apply, status,
+and version commands.</li>
+</ul>
+<h2 id="demo-evidence-to-capture-55"><a class="heading-link" href="#demo-evidence-to-capture-55" aria-label="Link to Demo Evidence To Capture">#</a>Demo Evidence To Capture</h2><p>Record a terminal walkthrough that shows:</p>
+<ol>
+<li>Build the binary.</li>
+<li>Create a temporary workspace and local bare Git project remote.</li>
+<li>Initialize workspace A.</li>
+<li>Clone one project into workspace A and scan it.</li>
+<li>Create a local bare manifest remote.</li>
+<li>Push the manifest.</li>
+<li>Initialize workspace B.</li>
+<li>Pull the manifest into workspace B.</li>
+<li>Run <code>plan</code> and <code>apply</code> to create placeholder structure.</li>
+<li>Hydrate the placeholder Git project.</li>
+<li>Store, list, and pull an encrypted env value.</li>
+<li>Show final <code>devspace status</code>.</li>
+</ol>
+<h2 id="safety-proof-points-56"><a class="heading-link" href="#safety-proof-points-56" aria-label="Link to Safety Proof Points">#</a>Safety Proof Points</h2><ul>
+<li>Path traversal is rejected by manifest validation and project add.</li>
+<li>Invalid remote manifest JSON is rejected before local replacement.</li>
+<li>Pull refuses to overwrite local unpushed manifest changes.</li>
+<li>Apply refuses stale saved plans when the manifest hash changes.</li>
+<li>Hydrate refuses non-empty destinations.</li>
+<li>Secret files are encrypted at rest and list output masks values.</li>
+</ul>
+<p>These are covered by tests in <code>internal/devdrop/hardening_test.go</code>,
+<code>internal/devdrop/workspace_sync_test.go</code>, and <code>internal/devdrop/devdrop_test.go</code>.</p>
+<h2 id="release-gate-57"><a class="heading-link" href="#release-gate-57" aria-label="Link to Release Gate">#</a>Release Gate</h2><p>Before final submission, update this section with exact evidence:</p>
+<figure class="code-block" data-lang="text">
+    <figcaption>
+      <span>text</span>
+      <button class="copy-btn" type="button" data-copy-code="code-21">Copy</button>
+    </figcaption>
+    <div id="code-21" class="diff-render" data-code-b64="UmVsZWFzZSB0YWc6ClJlbGVhc2UgVVJMOgpDb21taXQgU0hBOgpEZW1vIHJlY29yZGluZzoKQ2FzZSBzdHVkeSByZXZpZXdlZCBieToKRmluYWwgdGVzdCBjb21tYW5kIG91dHB1dDoKS25vd24gbGltaXRhdGlvbiBhY2NlcHRlZDo=" data-lang="text"></div>
+    <noscript><pre><code>Release tag:
+Release URL:
+Commit SHA:
+Demo recording:
+Case study reviewed by:
+Final test command output:
+Known limitation accepted:</code></pre></noscript>
+  </figure></div>
+            <div class="source"><pre># Proof Artifacts
+
+Use this file as the final evidence checklist for Module 5. Fill in permanent
+links as releases, PRs, and recordings are created.
+
+## Product Evidence
+
+| Artifact | Status | Evidence |
+| --- | --- | --- |
+| CLI implementation | Done | `cmd/devdrop/main.go`, `internal/devdrop/` |
+| Manifest example | Done | `examples/manifest.json` |
+| Release readiness notes | Done | `docs/release-readiness.md` |
+| Capstone spec | Done | `docs/capstone/spec.md` |
+| Case study | Drafted | `docs/capstone/case-study.md` |
+| Demo script | Drafted | `docs/capstone/demo-script.md` |
+| Release binary | Pending | Add GitHub release URL |
+| Final demo recording | Pending | Add recording URL |
+| Personal reflection | Pending | Add reflection file or section after feedback |
+
+## Verification Commands
+
+Run these before final demo day:
+
+```bash
+go test ./...
+go vet ./...
+go build -o .tmp/devspace ./cmd/devdrop
+.tmp/devspace --help
+```
+
+Expected current baseline:
+
+- `go test ./...` passes.
+- The build produces a local `devspace` binary.
+- `devspace --help` lists workspace, project, env, scan, plan, apply, status,
+  and version commands.
+
+## Demo Evidence To Capture
+
+Record a terminal walkthrough that shows:
+
+1. Build the binary.
+2. Create a temporary workspace and local bare Git project remote.
+3. Initialize workspace A.
+4. Clone one project into workspace A and scan it.
+5. Create a local bare manifest remote.
+6. Push the manifest.
+7. Initialize workspace B.
+8. Pull the manifest into workspace B.
+9. Run `plan` and `apply` to create placeholder structure.
+10. Hydrate the placeholder Git project.
+11. Store, list, and pull an encrypted env value.
+12. Show final `devspace status`.
+
+## Safety Proof Points
+
+- Path traversal is rejected by manifest validation and project add.
+- Invalid remote manifest JSON is rejected before local replacement.
+- Pull refuses to overwrite local unpushed manifest changes.
+- Apply refuses stale saved plans when the manifest hash changes.
+- Hydrate refuses non-empty destinations.
+- Secret files are encrypted at rest and list output masks values.
+
+These are covered by tests in `internal/devdrop/hardening_test.go`,
+`internal/devdrop/workspace_sync_test.go`, and `internal/devdrop/devdrop_test.go`.
+
+## Release Gate
+
+Before final submission, update this section with exact evidence:
+
+```text
+Release tag:
+Release URL:
+Commit SHA:
+Demo recording:
+Case study reviewed by:
+Final test command output:
+Known limitation accepted:
+```
+</pre></div>
+          </div>
+        </article>
+<article class="doc" id="doc-6" data-title="Case Study: DevDrop" data-path="docs/capstone/case-study.md" data-search="case study: devdrop docs/capstone/case-study.md # case study: devdrop
+
+## client-friendly summary
+
+devdrop is a local-first workspace recovery cli for developers who move across
+machines, clients, and project sets. instead of syncing entire folders, it tracks
+safe workspace metadata: project paths, git remotes, setup hints, dirty state,
+placeholder folders, and encrypted env profiles.
+
+the result is a repeatable way to rebuild a developer workspace on a second
+machine without copying source code, dependency folders, generated files, or
+plaintext secrets.
+
+## problem
+
+developer onboarding and machine recovery often depend on tribal knowledge:
+which repos matter, where they live, which branch was active, which projects
+have env files, and which setup command should run first. copying a whole
+workspace is risky because it can move secrets, client code, large generated
+artifacts, and stale dependency folders.
+
+## solution
+
+devdrop separates workspace knowledge from workspace contents.
+
+- a local manifest records project metadata.
+- a git-backed sync flow moves only `manifest.json` through a user-owned remote.
+- a plan/apply workflow shows filesystem changes before creating placeholders.
+- git projects hydrate on demand with normal `git clone`.
+- env values are encrypted locally with age and only materialized into `.env`
+  files through an explicit command.
+
+## outcome
+
+the current mvp proves the core workflow:
+
+- initialize a workspace.
+- scan projects.
+- push workspace metadata to a git remote.
+- pull that metadata on a second machine.
+- recreate placeholder structure safely.
+- hydrate a project only when needed.
+- keep env values encrypted at rest.
+
+## why ai-native delivery mattered
+
+the capstone demonstrates an ai-assisted engineering workflow in a realistic
+product slice:
+
+- the product was defined around explicit safety boundaries before expanding
+  features.
+- tests captured destructive edge cases, not only the happy path.
+- the implementation stayed local-first, making demos and verification possible
+  without hosted infrastructure.
+- documentation records what was tested, what passed, what failed, and what
+  remains risky.
+
+the main lesson for client enablement is that ai acceleration works best when it
+is paired with small, explicit contracts: specs, acceptance criteria, safety
+tests, and release gates.
+
+## trade-offs
+
+- git-backed manifest sync is easy to inspect and host, but it does not provide
+  real-time collaboration or conflict resolution ui.
+- placeholder directories are safe and simple, but they do not provide lazy file
+  access like fuse or virtual filesystem designs.
+- env profiles are encrypted locally, but there is no team sharing, cloud
+  backup, or rotation flow.
+- setup commands are detected as hints, but devdrop does not install
+  dependencies because automatic execution would cross a safety boundary.
+
+## client enablement notes
+
+use devdrop as a teaching example for ai-native delivery:
+
+1. start with the unsafe default behavior and name it plainly.
+2. define what the tool will not do without permission.
+3. write acceptance criteria for safety cases before demo polish.
+4. keep proof artifacts close to the repo: tests, release notes, demo scripts,
+   and case study.
+5. show how ai helped compress delivery time while the specification preserved
+   control.
+
+## current limitations
+
+- no hosted sync service.
+- no background daemon or filesystem watcher.
+- no source-code syncing.
+- no team secret sharing.
+- the intended binary name is `devspace`, while some on-disk paths still use
+  `.devdrop`.
+">
+          <header class="doc-header">
+            <div>
+              <h2>Case Study: DevDrop</h2>
+              <div class="doc-path">docs/capstone/case-study.md</div>
+            </div>
+            <div class="doc-meta">
+              <span class="badge">533 words</span>
+              <span class="badge">0 code</span>
+              <span class="badge">0 tables</span>
+            </div>
+          </header>
+          <div class="doc-body">
+            <div class="rendered markdown"><h1 id="case-study-devdrop-58"><a class="heading-link" href="#case-study-devdrop-58" aria-label="Link to Case Study: DevDrop">#</a>Case Study: DevDrop</h1><h2 id="client-friendly-summary-59"><a class="heading-link" href="#client-friendly-summary-59" aria-label="Link to Client-Friendly Summary">#</a>Client-Friendly Summary</h2><p>DevDrop is a local-first workspace recovery CLI for developers who move across
+machines, clients, and project sets. Instead of syncing entire folders, it tracks
+safe workspace metadata: project paths, Git remotes, setup hints, dirty state,
+placeholder folders, and encrypted env profiles.</p>
+<p>The result is a repeatable way to rebuild a developer workspace on a second
+machine without copying source code, dependency folders, generated files, or
+plaintext secrets.</p>
+<h2 id="problem-60"><a class="heading-link" href="#problem-60" aria-label="Link to Problem">#</a>Problem</h2><p>Developer onboarding and machine recovery often depend on tribal knowledge:
+which repos matter, where they live, which branch was active, which projects
+have env files, and which setup command should run first. Copying a whole
+workspace is risky because it can move secrets, client code, large generated
+artifacts, and stale dependency folders.</p>
+<h2 id="solution-61"><a class="heading-link" href="#solution-61" aria-label="Link to Solution">#</a>Solution</h2><p>DevDrop separates workspace knowledge from workspace contents.</p>
+<ul>
+<li>A local manifest records project metadata.</li>
+<li>A Git-backed sync flow moves only <code>manifest.json</code> through a user-owned remote.</li>
+<li>A plan/apply workflow shows filesystem changes before creating placeholders.</li>
+<li>Git projects hydrate on demand with normal <code>git clone</code>.</li>
+<li>Env values are encrypted locally with age and only materialized into <code>.env</code>
+files through an explicit command.</li>
+</ul>
+<h2 id="outcome-62"><a class="heading-link" href="#outcome-62" aria-label="Link to Outcome">#</a>Outcome</h2><p>The current MVP proves the core workflow:</p>
+<ul>
+<li>Initialize a workspace.</li>
+<li>Scan projects.</li>
+<li>Push workspace metadata to a Git remote.</li>
+<li>Pull that metadata on a second machine.</li>
+<li>Recreate placeholder structure safely.</li>
+<li>Hydrate a project only when needed.</li>
+<li>Keep env values encrypted at rest.</li>
+</ul>
+<h2 id="why-ai-native-delivery-mattered-63"><a class="heading-link" href="#why-ai-native-delivery-mattered-63" aria-label="Link to Why AI-Native Delivery Mattered">#</a>Why AI-Native Delivery Mattered</h2><p>The capstone demonstrates an AI-assisted engineering workflow in a realistic
+product slice:</p>
+<ul>
+<li>The product was defined around explicit safety boundaries before expanding
+features.</li>
+<li>Tests captured destructive edge cases, not only the happy path.</li>
+<li>The implementation stayed local-first, making demos and verification possible
+without hosted infrastructure.</li>
+<li>Documentation records what was tested, what passed, what failed, and what
+remains risky.</li>
+</ul>
+<p>The main lesson for client enablement is that AI acceleration works best when it
+is paired with small, explicit contracts: specs, acceptance criteria, safety
+tests, and release gates.</p>
+<h2 id="trade-offs-64"><a class="heading-link" href="#trade-offs-64" aria-label="Link to Trade-Offs">#</a>Trade-Offs</h2><ul>
+<li>Git-backed manifest sync is easy to inspect and host, but it does not provide
+real-time collaboration or conflict resolution UI.</li>
+<li>Placeholder directories are safe and simple, but they do not provide lazy file
+access like FUSE or virtual filesystem designs.</li>
+<li>Env profiles are encrypted locally, but there is no team sharing, cloud
+backup, or rotation flow.</li>
+<li>Setup commands are detected as hints, but DevDrop does not install
+dependencies because automatic execution would cross a safety boundary.</li>
+</ul>
+<h2 id="client-enablement-notes-65"><a class="heading-link" href="#client-enablement-notes-65" aria-label="Link to Client Enablement Notes">#</a>Client Enablement Notes</h2><p>Use DevDrop as a teaching example for AI-native delivery:</p>
+<ol>
+<li>Start with the unsafe default behavior and name it plainly.</li>
+<li>Define what the tool will not do without permission.</li>
+<li>Write acceptance criteria for safety cases before demo polish.</li>
+<li>Keep proof artifacts close to the repo: tests, release notes, demo scripts,
+and case study.</li>
+<li>Show how AI helped compress delivery time while the specification preserved
+control.</li>
+</ol>
+<h2 id="current-limitations-66"><a class="heading-link" href="#current-limitations-66" aria-label="Link to Current Limitations">#</a>Current Limitations</h2><ul>
+<li>No hosted sync service.</li>
+<li>No background daemon or filesystem watcher.</li>
+<li>No source-code syncing.</li>
+<li>No team secret sharing.</li>
+<li>The intended binary name is <code>devspace</code>, while some on-disk paths still use
+<code>.devdrop</code>.</li>
+</ul>
+</div>
+            <div class="source"><pre># Case Study: DevDrop
+
+## Client-Friendly Summary
+
+DevDrop is a local-first workspace recovery CLI for developers who move across
+machines, clients, and project sets. Instead of syncing entire folders, it tracks
+safe workspace metadata: project paths, Git remotes, setup hints, dirty state,
+placeholder folders, and encrypted env profiles.
+
+The result is a repeatable way to rebuild a developer workspace on a second
+machine without copying source code, dependency folders, generated files, or
+plaintext secrets.
+
+## Problem
+
+Developer onboarding and machine recovery often depend on tribal knowledge:
+which repos matter, where they live, which branch was active, which projects
+have env files, and which setup command should run first. Copying a whole
+workspace is risky because it can move secrets, client code, large generated
+artifacts, and stale dependency folders.
+
+## Solution
+
+DevDrop separates workspace knowledge from workspace contents.
+
+- A local manifest records project metadata.
+- A Git-backed sync flow moves only `manifest.json` through a user-owned remote.
+- A plan/apply workflow shows filesystem changes before creating placeholders.
+- Git projects hydrate on demand with normal `git clone`.
+- Env values are encrypted locally with age and only materialized into `.env`
+  files through an explicit command.
+
+## Outcome
+
+The current MVP proves the core workflow:
+
+- Initialize a workspace.
+- Scan projects.
+- Push workspace metadata to a Git remote.
+- Pull that metadata on a second machine.
+- Recreate placeholder structure safely.
+- Hydrate a project only when needed.
+- Keep env values encrypted at rest.
+
+## Why AI-Native Delivery Mattered
+
+The capstone demonstrates an AI-assisted engineering workflow in a realistic
+product slice:
+
+- The product was defined around explicit safety boundaries before expanding
+  features.
+- Tests captured destructive edge cases, not only the happy path.
+- The implementation stayed local-first, making demos and verification possible
+  without hosted infrastructure.
+- Documentation records what was tested, what passed, what failed, and what
+  remains risky.
+
+The main lesson for client enablement is that AI acceleration works best when it
+is paired with small, explicit contracts: specs, acceptance criteria, safety
+tests, and release gates.
+
+## Trade-Offs
+
+- Git-backed manifest sync is easy to inspect and host, but it does not provide
+  real-time collaboration or conflict resolution UI.
+- Placeholder directories are safe and simple, but they do not provide lazy file
+  access like FUSE or virtual filesystem designs.
+- Env profiles are encrypted locally, but there is no team sharing, cloud
+  backup, or rotation flow.
+- Setup commands are detected as hints, but DevDrop does not install
+  dependencies because automatic execution would cross a safety boundary.
+
+## Client Enablement Notes
+
+Use DevDrop as a teaching example for AI-native delivery:
+
+1. Start with the unsafe default behavior and name it plainly.
+2. Define what the tool will not do without permission.
+3. Write acceptance criteria for safety cases before demo polish.
+4. Keep proof artifacts close to the repo: tests, release notes, demo scripts,
+   and case study.
+5. Show how AI helped compress delivery time while the specification preserved
+   control.
+
+## Current Limitations
+
+- No hosted sync service.
+- No background daemon or filesystem watcher.
+- No source-code syncing.
+- No team secret sharing.
+- The intended binary name is `devspace`, while some on-disk paths still use
+  `.devdrop`.
+</pre></div>
+          </div>
+        </article>
+<article class="doc" id="doc-7" data-title="Demo Script" data-path="docs/capstone/demo-script.md" data-search="demo script docs/capstone/demo-script.md # demo script
+
+this script is designed for the final module 5 recording. it uses temporary
+directories and local bare git remotes so the demo works without network access.
+
+## talk track
+
+devdrop solves workspace recovery without syncing everything. the demo shows one
+machine publishing safe workspace metadata, a second machine pulling that
+metadata, creating placeholders, hydrating a git project, and materializing an
+encrypted env value only when requested.
+
+## setup
+
+start from the repo root:
+
+```bash
+go build -o .tmp/devspace ./cmd/devdrop
+
+tmp=&quot;$(mktemp -d)&quot;
+workspace_a=&quot;$tmp/workspace-a&quot;
+workspace_b=&quot;$tmp/workspace-b&quot;
+remote_src=&quot;$tmp/remote-src&quot;
+project_remote=&quot;$tmp/client-a-api.git&quot;
+manifest_remote=&quot;$tmp/manifest-sync.git&quot;
+```
+
+create a demo project remote:
+
+```bash
+mkdir -p &quot;$remote_src&quot;
+git -c &quot;$remote_src&quot; init -b main
+git -c &quot;$remote_src&quot; config user.email demo@example.com
+git -c &quot;$remote_src&quot; config user.name &quot;demo user&quot;
+printf &#39;# client-a-api\n&#39; &gt; &quot;$remote_src/readme.md&quot;
+git -c &quot;$remote_src&quot; add readme.md
+git -c &quot;$remote_src&quot; commit -m &quot;initial&quot;
+git clone --bare &quot;$remote_src&quot; &quot;$project_remote&quot;
+```
+
+## machine a: publish workspace metadata
+
+```bash
+export dev_drop_home=&quot;$tmp/home-a&quot;
+.tmp/devspace init --workspace &quot;$workspace_a&quot;
+mkdir -p &quot;$workspace_a/work&quot;
+git clone &quot;$project_remote&quot; &quot;$workspace_a/work/client-a-api&quot;
+printf &#39;{&quot;scripts&quot;:{&quot;dev&quot;:&quot;vite&quot;}}\n&#39; &gt; &quot;$workspace_a/work/client-a-api/package.json&quot;
+.tmp/devspace scan
+.tmp/devspace workspace remote create local &quot;$manifest_remote&quot;
+.tmp/devspace workspace push
+.tmp/devspace status
+```
+
+narration:
+
+- the workspace contains a real git project on machine a.
+- `scan` captures metadata and setup hints.
+- `workspace push` sends only `manifest.json` to the manifest remote.
+
+## machine b: pull, plan, apply, hydrate
+
+```bash
+export dev_drop_home=&quot;$tmp/home-b&quot;
+.tmp/devspace init --workspace &quot;$workspace_b&quot;
+.tmp/devspace workspace remote set &quot;$manifest_remote&quot;
+.tmp/devspace workspace pull
+.tmp/devspace plan
+.tmp/devspace apply
+.tmp/devspace status
+.tmp/devspace project hydrate client-a-api
+.tmp/devspace status
+```
+
+narration:
+
+- pull localizes the workspace root for machine b.
+- `plan` shows safe placeholder actions before mutation.
+- `apply` creates structure only.
+- hydration uses normal git clone and refuses unsafe destinations.
+
+## encrypted env profile
+
+```bash
+printf &#39;postgres://demo\n&#39; | .tmp/devspace env set client-a-api database_url
+.tmp/devspace env list client-a-api
+.tmp/devspace env pull client-a-api
+ls -l &quot;$workspace_b/work/client-a-api/.env&quot;
+```
+
+narration:
+
+- env values are stored encrypted under the workspace `.devdrop/secrets`
+  directory.
+- `env list` masks values.
+- `env pull` writes the local `.env` file only on explicit request.
+- the generated `.env` has `0600` permissions.
+
+## close
+
+show the release-readiness file and proof checklist:
+
+```bash
+sed -n &#39;1,120p&#39; docs/release-readiness.md
+sed -n &#39;1,160p&#39; docs/capstone/proof-artifacts.md
+```
+
+closing line:
+
+devdrop is intentionally conservative. it does not delete projects, auto-run
+setup commands, sync source code, or upload secrets. the capstone value is the
+safe recovery workflow and the evidence that the destructive edges are guarded.
+">
+          <header class="doc-header">
+            <div>
+              <h2>Demo Script</h2>
+              <div class="doc-path">docs/capstone/demo-script.md</div>
+            </div>
+            <div class="doc-meta">
+              <span class="badge">392 words</span>
+              <span class="badge">6 code</span>
+              <span class="badge">0 tables</span>
+            </div>
+          </header>
+          <div class="doc-body">
+            <div class="rendered markdown"><h1 id="demo-script-67"><a class="heading-link" href="#demo-script-67" aria-label="Link to Demo Script">#</a>Demo Script</h1><p>This script is designed for the final Module 5 recording. It uses temporary
+directories and local bare Git remotes so the demo works without network access.</p>
+<h2 id="talk-track-68"><a class="heading-link" href="#talk-track-68" aria-label="Link to Talk Track">#</a>Talk Track</h2><p>DevDrop solves workspace recovery without syncing everything. The demo shows one
+machine publishing safe workspace metadata, a second machine pulling that
+metadata, creating placeholders, hydrating a Git project, and materializing an
+encrypted env value only when requested.</p>
+<h2 id="setup-69"><a class="heading-link" href="#setup-69" aria-label="Link to Setup">#</a>Setup</h2><p>Start from the repo root:</p>
+<figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-22">Copy</button>
+    </figcaption>
+    <div id="code-22" class="diff-render" data-code-b64="Z28gYnVpbGQgLW8gLnRtcC9kZXZzcGFjZSAuL2NtZC9kZXZkcm9wCgp0bXA9IiQobWt0ZW1wIC1kKSIKd29ya3NwYWNlX2E9IiR0bXAvd29ya3NwYWNlLWEiCndvcmtzcGFjZV9iPSIkdG1wL3dvcmtzcGFjZS1iIgpyZW1vdGVfc3JjPSIkdG1wL3JlbW90ZS1zcmMiCnByb2plY3RfcmVtb3RlPSIkdG1wL2NsaWVudC1hLWFwaS5naXQiCm1hbmlmZXN0X3JlbW90ZT0iJHRtcC9tYW5pZmVzdC1zeW5jLmdpdCI=" data-lang="bash"></div>
+    <noscript><pre><code>go build -o .tmp/devspace ./cmd/devdrop
+
+tmp=&quot;$(mktemp -d)&quot;
+workspace_a=&quot;$tmp/workspace-a&quot;
+workspace_b=&quot;$tmp/workspace-b&quot;
+remote_src=&quot;$tmp/remote-src&quot;
+project_remote=&quot;$tmp/client-a-api.git&quot;
+manifest_remote=&quot;$tmp/manifest-sync.git&quot;</code></pre></noscript>
+  </figure><p>Create a demo project remote:</p>
+<figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-23">Copy</button>
+    </figcaption>
+    <div id="code-23" class="diff-render" data-code-b64="bWtkaXIgLXAgIiRyZW1vdGVfc3JjIgpnaXQgLUMgIiRyZW1vdGVfc3JjIiBpbml0IC1iIG1haW4KZ2l0IC1DICIkcmVtb3RlX3NyYyIgY29uZmlnIHVzZXIuZW1haWwgZGVtb0BleGFtcGxlLmNvbQpnaXQgLUMgIiRyZW1vdGVfc3JjIiBjb25maWcgdXNlci5uYW1lICJEZW1vIFVzZXIiCnByaW50ZiAnIyBjbGllbnQtYS1hcGlcbicgPiAiJHJlbW90ZV9zcmMvUkVBRE1FLm1kIgpnaXQgLUMgIiRyZW1vdGVfc3JjIiBhZGQgUkVBRE1FLm1kCmdpdCAtQyAiJHJlbW90ZV9zcmMiIGNvbW1pdCAtbSAiaW5pdGlhbCIKZ2l0IGNsb25lIC0tYmFyZSAiJHJlbW90ZV9zcmMiICIkcHJvamVjdF9yZW1vdGUi" data-lang="bash"></div>
+    <noscript><pre><code>mkdir -p &quot;$remote_src&quot;
+git -C &quot;$remote_src&quot; init -b main
+git -C &quot;$remote_src&quot; config user.email demo@example.com
+git -C &quot;$remote_src&quot; config user.name &quot;Demo User&quot;
+printf &#39;# client-a-api\n&#39; &gt; &quot;$remote_src/README.md&quot;
+git -C &quot;$remote_src&quot; add README.md
+git -C &quot;$remote_src&quot; commit -m &quot;initial&quot;
+git clone --bare &quot;$remote_src&quot; &quot;$project_remote&quot;</code></pre></noscript>
+  </figure><h2 id="machine-a-publish-workspace-metadata-70"><a class="heading-link" href="#machine-a-publish-workspace-metadata-70" aria-label="Link to Machine A: Publish Workspace Metadata">#</a>Machine A: Publish Workspace Metadata</h2><figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-24">Copy</button>
+    </figcaption>
+    <div id="code-24" class="diff-render" data-code-b64="ZXhwb3J0IERFVl9EUk9QX0hPTUU9IiR0bXAvaG9tZS1hIgoudG1wL2RldnNwYWNlIGluaXQgLS13b3Jrc3BhY2UgIiR3b3Jrc3BhY2VfYSIKbWtkaXIgLXAgIiR3b3Jrc3BhY2VfYS93b3JrIgpnaXQgY2xvbmUgIiRwcm9qZWN0X3JlbW90ZSIgIiR3b3Jrc3BhY2VfYS93b3JrL2NsaWVudC1hLWFwaSIKcHJpbnRmICd7InNjcmlwdHMiOnsiZGV2Ijoidml0ZSJ9fVxuJyA+ICIkd29ya3NwYWNlX2Evd29yay9jbGllbnQtYS1hcGkvcGFja2FnZS5qc29uIgoudG1wL2RldnNwYWNlIHNjYW4KLnRtcC9kZXZzcGFjZSB3b3Jrc3BhY2UgcmVtb3RlIGNyZWF0ZSBsb2NhbCAiJG1hbmlmZXN0X3JlbW90ZSIKLnRtcC9kZXZzcGFjZSB3b3Jrc3BhY2UgcHVzaAoudG1wL2RldnNwYWNlIHN0YXR1cw==" data-lang="bash"></div>
+    <noscript><pre><code>export DEV_DROP_HOME=&quot;$tmp/home-a&quot;
+.tmp/devspace init --workspace &quot;$workspace_a&quot;
+mkdir -p &quot;$workspace_a/work&quot;
+git clone &quot;$project_remote&quot; &quot;$workspace_a/work/client-a-api&quot;
+printf &#39;{&quot;scripts&quot;:{&quot;dev&quot;:&quot;vite&quot;}}\n&#39; &gt; &quot;$workspace_a/work/client-a-api/package.json&quot;
+.tmp/devspace scan
+.tmp/devspace workspace remote create local &quot;$manifest_remote&quot;
+.tmp/devspace workspace push
+.tmp/devspace status</code></pre></noscript>
+  </figure><p>Narration:</p>
+<ul>
+<li>The workspace contains a real Git project on machine A.</li>
+<li><code>scan</code> captures metadata and setup hints.</li>
+<li><code>workspace push</code> sends only <code>manifest.json</code> to the manifest remote.</li>
+</ul>
+<h2 id="machine-b-pull-plan-apply-hydrate-71"><a class="heading-link" href="#machine-b-pull-plan-apply-hydrate-71" aria-label="Link to Machine B: Pull, Plan, Apply, Hydrate">#</a>Machine B: Pull, Plan, Apply, Hydrate</h2><figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-25">Copy</button>
+    </figcaption>
+    <div id="code-25" class="diff-render" data-code-b64="ZXhwb3J0IERFVl9EUk9QX0hPTUU9IiR0bXAvaG9tZS1iIgoudG1wL2RldnNwYWNlIGluaXQgLS13b3Jrc3BhY2UgIiR3b3Jrc3BhY2VfYiIKLnRtcC9kZXZzcGFjZSB3b3Jrc3BhY2UgcmVtb3RlIHNldCAiJG1hbmlmZXN0X3JlbW90ZSIKLnRtcC9kZXZzcGFjZSB3b3Jrc3BhY2UgcHVsbAoudG1wL2RldnNwYWNlIHBsYW4KLnRtcC9kZXZzcGFjZSBhcHBseQoudG1wL2RldnNwYWNlIHN0YXR1cwoudG1wL2RldnNwYWNlIHByb2plY3QgaHlkcmF0ZSBjbGllbnQtYS1hcGkKLnRtcC9kZXZzcGFjZSBzdGF0dXM=" data-lang="bash"></div>
+    <noscript><pre><code>export DEV_DROP_HOME=&quot;$tmp/home-b&quot;
+.tmp/devspace init --workspace &quot;$workspace_b&quot;
+.tmp/devspace workspace remote set &quot;$manifest_remote&quot;
+.tmp/devspace workspace pull
+.tmp/devspace plan
+.tmp/devspace apply
+.tmp/devspace status
+.tmp/devspace project hydrate client-a-api
+.tmp/devspace status</code></pre></noscript>
+  </figure><p>Narration:</p>
+<ul>
+<li>Pull localizes the workspace root for machine B.</li>
+<li><code>plan</code> shows safe placeholder actions before mutation.</li>
+<li><code>apply</code> creates structure only.</li>
+<li>Hydration uses normal Git clone and refuses unsafe destinations.</li>
+</ul>
+<h2 id="encrypted-env-profile-72"><a class="heading-link" href="#encrypted-env-profile-72" aria-label="Link to Encrypted Env Profile">#</a>Encrypted Env Profile</h2><figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-26">Copy</button>
+    </figcaption>
+    <div id="code-26" class="diff-render" data-code-b64="cHJpbnRmICdwb3N0Z3JlczovL2RlbW9cbicgfCAudG1wL2RldnNwYWNlIGVudiBzZXQgY2xpZW50LWEtYXBpIERBVEFCQVNFX1VSTAoudG1wL2RldnNwYWNlIGVudiBsaXN0IGNsaWVudC1hLWFwaQoudG1wL2RldnNwYWNlIGVudiBwdWxsIGNsaWVudC1hLWFwaQpscyAtbCAiJHdvcmtzcGFjZV9iL3dvcmsvY2xpZW50LWEtYXBpLy5lbnYi" data-lang="bash"></div>
+    <noscript><pre><code>printf &#39;postgres://demo\n&#39; | .tmp/devspace env set client-a-api DATABASE_URL
+.tmp/devspace env list client-a-api
+.tmp/devspace env pull client-a-api
+ls -l &quot;$workspace_b/work/client-a-api/.env&quot;</code></pre></noscript>
+  </figure><p>Narration:</p>
+<ul>
+<li>Env values are stored encrypted under the workspace <code>.devdrop/secrets</code>
+directory.</li>
+<li><code>env list</code> masks values.</li>
+<li><code>env pull</code> writes the local <code>.env</code> file only on explicit request.</li>
+<li>The generated <code>.env</code> has <code>0600</code> permissions.</li>
+</ul>
+<h2 id="close-73"><a class="heading-link" href="#close-73" aria-label="Link to Close">#</a>Close</h2><p>Show the release-readiness file and proof checklist:</p>
+<figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-27">Copy</button>
+    </figcaption>
+    <div id="code-27" class="diff-render" data-code-b64="c2VkIC1uICcxLDEyMHAnIGRvY3MvcmVsZWFzZS1yZWFkaW5lc3MubWQKc2VkIC1uICcxLDE2MHAnIGRvY3MvY2Fwc3RvbmUvcHJvb2YtYXJ0aWZhY3RzLm1k" data-lang="bash"></div>
+    <noscript><pre><code>sed -n &#39;1,120p&#39; docs/release-readiness.md
+sed -n &#39;1,160p&#39; docs/capstone/proof-artifacts.md</code></pre></noscript>
+  </figure><p>Closing line:</p>
+<p>DevDrop is intentionally conservative. It does not delete projects, auto-run
+setup commands, sync source code, or upload secrets. The capstone value is the
+safe recovery workflow and the evidence that the destructive edges are guarded.</p>
+</div>
+            <div class="source"><pre># Demo Script
+
+This script is designed for the final Module 5 recording. It uses temporary
+directories and local bare Git remotes so the demo works without network access.
+
+## Talk Track
+
+DevDrop solves workspace recovery without syncing everything. The demo shows one
+machine publishing safe workspace metadata, a second machine pulling that
+metadata, creating placeholders, hydrating a Git project, and materializing an
+encrypted env value only when requested.
+
+## Setup
+
+Start from the repo root:
+
+```bash
+go build -o .tmp/devspace ./cmd/devdrop
+
+tmp=&quot;$(mktemp -d)&quot;
+workspace_a=&quot;$tmp/workspace-a&quot;
+workspace_b=&quot;$tmp/workspace-b&quot;
+remote_src=&quot;$tmp/remote-src&quot;
+project_remote=&quot;$tmp/client-a-api.git&quot;
+manifest_remote=&quot;$tmp/manifest-sync.git&quot;
+```
+
+Create a demo project remote:
+
+```bash
+mkdir -p &quot;$remote_src&quot;
+git -C &quot;$remote_src&quot; init -b main
+git -C &quot;$remote_src&quot; config user.email demo@example.com
+git -C &quot;$remote_src&quot; config user.name &quot;Demo User&quot;
+printf &#39;# client-a-api\n&#39; &gt; &quot;$remote_src/README.md&quot;
+git -C &quot;$remote_src&quot; add README.md
+git -C &quot;$remote_src&quot; commit -m &quot;initial&quot;
+git clone --bare &quot;$remote_src&quot; &quot;$project_remote&quot;
+```
+
+## Machine A: Publish Workspace Metadata
+
+```bash
+export DEV_DROP_HOME=&quot;$tmp/home-a&quot;
+.tmp/devspace init --workspace &quot;$workspace_a&quot;
+mkdir -p &quot;$workspace_a/work&quot;
+git clone &quot;$project_remote&quot; &quot;$workspace_a/work/client-a-api&quot;
+printf &#39;{&quot;scripts&quot;:{&quot;dev&quot;:&quot;vite&quot;}}\n&#39; &gt; &quot;$workspace_a/work/client-a-api/package.json&quot;
+.tmp/devspace scan
+.tmp/devspace workspace remote create local &quot;$manifest_remote&quot;
+.tmp/devspace workspace push
+.tmp/devspace status
+```
+
+Narration:
+
+- The workspace contains a real Git project on machine A.
+- `scan` captures metadata and setup hints.
+- `workspace push` sends only `manifest.json` to the manifest remote.
+
+## Machine B: Pull, Plan, Apply, Hydrate
+
+```bash
+export DEV_DROP_HOME=&quot;$tmp/home-b&quot;
+.tmp/devspace init --workspace &quot;$workspace_b&quot;
+.tmp/devspace workspace remote set &quot;$manifest_remote&quot;
+.tmp/devspace workspace pull
+.tmp/devspace plan
+.tmp/devspace apply
+.tmp/devspace status
+.tmp/devspace project hydrate client-a-api
+.tmp/devspace status
+```
+
+Narration:
+
+- Pull localizes the workspace root for machine B.
+- `plan` shows safe placeholder actions before mutation.
+- `apply` creates structure only.
+- Hydration uses normal Git clone and refuses unsafe destinations.
+
+## Encrypted Env Profile
+
+```bash
+printf &#39;postgres://demo\n&#39; | .tmp/devspace env set client-a-api DATABASE_URL
+.tmp/devspace env list client-a-api
+.tmp/devspace env pull client-a-api
+ls -l &quot;$workspace_b/work/client-a-api/.env&quot;
+```
+
+Narration:
+
+- Env values are stored encrypted under the workspace `.devdrop/secrets`
+  directory.
+- `env list` masks values.
+- `env pull` writes the local `.env` file only on explicit request.
+- The generated `.env` has `0600` permissions.
+
+## Close
+
+Show the release-readiness file and proof checklist:
+
+```bash
+sed -n &#39;1,120p&#39; docs/release-readiness.md
+sed -n &#39;1,160p&#39; docs/capstone/proof-artifacts.md
+```
+
+Closing line:
+
+DevDrop is intentionally conservative. It does not delete projects, auto-run
+setup commands, sync source code, or upload secrets. The capstone value is the
+safe recovery workflow and the evidence that the destructive edges are guarded.
+</pre></div>
+          </div>
+        </article>
+<article class="doc" id="doc-8" data-title="Playbook Contribution: Client Enablement Lessons" data-path="docs/capstone/playbook-contribution.md" data-search="playbook contribution: client enablement lessons docs/capstone/playbook-contribution.md # playbook contribution: client enablement lessons
+
+## principle
+
+ai-native delivery works best when the team uses specs to narrow risk before
+agents write code. the point is not to make the agent faster at every possible
+task. the point is to make the desired behavior, forbidden behavior, and proof
+standard clear enough that fast code generation does not create hidden risk.
+
+## devdrop lessons
+
+1. name the dangerous default.
+
+   for devdrop, the dangerous default was &quot;sync the whole workspace.&quot; naming
+   that risk forced the product toward metadata sync, explicit hydration, and
+   local encrypted env profiles.
+
+2. put non-goals in the spec.
+
+   excluding hosted sync, source-code syncing, dependency auto-install, and team
+   secret sharing kept the mvp small enough to finish and safe enough to demo.
+
+3. make mutation two-step when trust matters.
+
+   `plan` and `apply` split review from write operations. this pattern is useful
+   for client tools that touch files, infrastructure, database records, or
+   production state.
+
+4. test the refusal paths.
+
+   the most important tests are not the happy path. they prove that invalid
+   manifests, path traversal, stale plans, non-empty hydrate destinations, and
+   local unpushed changes are rejected.
+
+5. keep demos offline when possible.
+
+   a local bare git remote makes the capstone demo repeatable without network
+   accounts, hosted infrastructure, or flaky external services.
+
+## how to introduce this workflow to a traditional team
+
+start with a small, bounded product slice. write the spec as a contract, not a
+brainstorm. include user stories, non-goals, safety boundaries, and acceptance
+tests. let agents implement against that contract, then review output through
+tests, diffs, and a release-readiness note.
+
+the adoption message is simple: ai can compress implementation time, but the
+team still owns the product contract and the evidence bar.
+">
+          <header class="doc-header">
+            <div>
+              <h2>Playbook Contribution: Client Enablement Lessons</h2>
+              <div class="doc-path">docs/capstone/playbook-contribution.md</div>
+            </div>
+            <div class="doc-meta">
+              <span class="badge">285 words</span>
+              <span class="badge">0 code</span>
+              <span class="badge">0 tables</span>
+            </div>
+          </header>
+          <div class="doc-body">
+            <div class="rendered markdown"><h1 id="playbook-contribution-client-enablement-lessons-74"><a class="heading-link" href="#playbook-contribution-client-enablement-lessons-74" aria-label="Link to Playbook Contribution: Client Enablement Lessons">#</a>Playbook Contribution: Client Enablement Lessons</h1><h2 id="principle-75"><a class="heading-link" href="#principle-75" aria-label="Link to Principle">#</a>Principle</h2><p>AI-native delivery works best when the team uses specs to narrow risk before
+agents write code. The point is not to make the agent faster at every possible
+task. The point is to make the desired behavior, forbidden behavior, and proof
+standard clear enough that fast code generation does not create hidden risk.</p>
+<h2 id="devdrop-lessons-76"><a class="heading-link" href="#devdrop-lessons-76" aria-label="Link to DevDrop Lessons">#</a>DevDrop Lessons</h2><ol>
+<li><p>Name the dangerous default.</p>
+<p>For DevDrop, the dangerous default was &quot;sync the whole workspace.&quot; Naming
+that risk forced the product toward metadata sync, explicit hydration, and
+local encrypted env profiles.</p>
+</li>
+<li><p>Put non-goals in the spec.</p>
+<p>Excluding hosted sync, source-code syncing, dependency auto-install, and team
+secret sharing kept the MVP small enough to finish and safe enough to demo.</p>
+</li>
+<li><p>Make mutation two-step when trust matters.</p>
+<p><code>plan</code> and <code>apply</code> split review from write operations. This pattern is useful
+for client tools that touch files, infrastructure, database records, or
+production state.</p>
+</li>
+<li><p>Test the refusal paths.</p>
+<p>The most important tests are not the happy path. They prove that invalid
+manifests, path traversal, stale plans, non-empty hydrate destinations, and
+local unpushed changes are rejected.</p>
+</li>
+<li><p>Keep demos offline when possible.</p>
+<p>A local bare Git remote makes the capstone demo repeatable without network
+accounts, hosted infrastructure, or flaky external services.</p>
+</li>
+</ol>
+<h2 id="how-to-introduce-this-workflow-to-a-traditional-team-77"><a class="heading-link" href="#how-to-introduce-this-workflow-to-a-traditional-team-77" aria-label="Link to How To Introduce This Workflow To A Traditional Team">#</a>How To Introduce This Workflow To A Traditional Team</h2><p>Start with a small, bounded product slice. Write the spec as a contract, not a
+brainstorm. Include user stories, non-goals, safety boundaries, and acceptance
+tests. Let agents implement against that contract, then review output through
+tests, diffs, and a release-readiness note.</p>
+<p>The adoption message is simple: AI can compress implementation time, but the
+team still owns the product contract and the evidence bar.</p>
+</div>
+            <div class="source"><pre># Playbook Contribution: Client Enablement Lessons
+
+## Principle
+
+AI-native delivery works best when the team uses specs to narrow risk before
+agents write code. The point is not to make the agent faster at every possible
+task. The point is to make the desired behavior, forbidden behavior, and proof
+standard clear enough that fast code generation does not create hidden risk.
+
+## DevDrop Lessons
+
+1. Name the dangerous default.
+
+   For DevDrop, the dangerous default was &quot;sync the whole workspace.&quot; Naming
+   that risk forced the product toward metadata sync, explicit hydration, and
+   local encrypted env profiles.
+
+2. Put non-goals in the spec.
+
+   Excluding hosted sync, source-code syncing, dependency auto-install, and team
+   secret sharing kept the MVP small enough to finish and safe enough to demo.
+
+3. Make mutation two-step when trust matters.
+
+   `plan` and `apply` split review from write operations. This pattern is useful
+   for client tools that touch files, infrastructure, database records, or
+   production state.
+
+4. Test the refusal paths.
+
+   The most important tests are not the happy path. They prove that invalid
+   manifests, path traversal, stale plans, non-empty hydrate destinations, and
+   local unpushed changes are rejected.
+
+5. Keep demos offline when possible.
+
+   A local bare Git remote makes the capstone demo repeatable without network
+   accounts, hosted infrastructure, or flaky external services.
+
+## How To Introduce This Workflow To A Traditional Team
+
+Start with a small, bounded product slice. Write the spec as a contract, not a
+brainstorm. Include user stories, non-goals, safety boundaries, and acceptance
+tests. Let agents implement against that contract, then review output through
+tests, diffs, and a release-readiness note.
+
+The adoption message is simple: AI can compress implementation time, but the
+team still owns the product contract and the evidence bar.
+</pre></div>
+          </div>
+        </article>
+<article class="doc" id="doc-9" data-title="DevDrop MVP Wave-Ship Prep" data-path="ops/wave-ship/README.md" data-search="devdrop mvp wave-ship prep ops/wave-ship/readme.md # devdrop mvp wave-ship prep
+
+## workflow
+
+use:
+
+```text
+/users/lecoqjacob/projects/personal/inkwell/.claude/workflows/wave-ship.js
+```
+
+the requested path with `inkwell.claude` was not present locally. the checked-in
+workflow path is under the `inkwell` repository&#39;s `.claude/workflows/` directory.
+
+## args
+
+pass `devdrop-mvp.args.json` as the workflow args json.
+
+the prepared run uses:
+
+- `repo`: `/users/lecoqjacob/projects/personal/devdrop`
+- `project`: `devdrop mvp`
+- `team`: `cypress ink labs`
+- `base`: `main`
+- `backend`: `orca`
+- `serializedmerge`: `true`
+- `autocontinue`: `false`
+- `maxconcurrent`: `3`
+- `engine`: `codex`
+
+## linear cards
+
+wave 1:
+
+- `cil-217` — devdrop: scaffold go cli and init command
+
+wave 2:
+
+- `cil-218` — devdrop: manifest model, workspace scan, and status
+- `cil-219` — devdrop: project add, workspace sync, and git hydration
+- `cil-220` — devdrop: encrypted env profile commands
+
+wave 3:
+
+- `cil-221` — devdrop: readme, examples, and end-to-end mvp verification
+
+## boundaries
+
+- workers open prs and do not merge.
+- `wave-ship` owns serialized merge and ticket closeout.
+- do not build hosted sync, fuse, a daemon, team secrets, editor settings sync,
+  or dependency auto-install in this run.
+- do not put real secrets in docs, fixtures, logs, or tests.
+
+">
+          <header class="doc-header">
+            <div>
+              <h2>DevDrop MVP Wave-Ship Prep</h2>
+              <div class="doc-path">ops/wave-ship/README.md</div>
+            </div>
+            <div class="doc-meta">
+              <span class="badge">182 words</span>
+              <span class="badge">1 code</span>
+              <span class="badge">0 tables</span>
+            </div>
+          </header>
+          <div class="doc-body">
+            <div class="rendered markdown"><h1 id="devdrop-mvp-wave-ship-prep-78"><a class="heading-link" href="#devdrop-mvp-wave-ship-prep-78" aria-label="Link to DevDrop MVP Wave-Ship Prep">#</a>DevDrop MVP Wave-Ship Prep</h1><h2 id="workflow-79"><a class="heading-link" href="#workflow-79" aria-label="Link to Workflow">#</a>Workflow</h2><p>Use:</p>
+<figure class="code-block" data-lang="text">
+    <figcaption>
+      <span>text</span>
+      <button class="copy-btn" type="button" data-copy-code="code-28">Copy</button>
+    </figcaption>
+    <div id="code-28" class="diff-render" data-code-b64="L1VzZXJzL2xlY29xamFjb2IvUHJvamVjdHMvcGVyc29uYWwvaW5rd2VsbC8uY2xhdWRlL3dvcmtmbG93cy93YXZlLXNoaXAuanM=" data-lang="text"></div>
+    <noscript><pre><code>/Users/lecoqjacob/Projects/personal/inkwell/.claude/workflows/wave-ship.js</code></pre></noscript>
+  </figure><p>The requested path with <code>inkwell.claude</code> was not present locally. The checked-in
+workflow path is under the <code>inkwell</code> repository&#39;s <code>.claude/workflows/</code> directory.</p>
+<h2 id="args-80"><a class="heading-link" href="#args-80" aria-label="Link to Args">#</a>Args</h2><p>Pass <code>devdrop-mvp.args.json</code> as the workflow args JSON.</p>
+<p>The prepared run uses:</p>
+<ul>
+<li><code>repo</code>: <code>/Users/lecoqjacob/Projects/personal/devdrop</code></li>
+<li><code>project</code>: <code>DevDrop MVP</code></li>
+<li><code>team</code>: <code>Cypress Ink Labs</code></li>
+<li><code>base</code>: <code>main</code></li>
+<li><code>backend</code>: <code>orca</code></li>
+<li><code>serializedMerge</code>: <code>true</code></li>
+<li><code>autoContinue</code>: <code>false</code></li>
+<li><code>maxConcurrent</code>: <code>3</code></li>
+<li><code>engine</code>: <code>codex</code></li>
+</ul>
+<h2 id="linear-cards-81"><a class="heading-link" href="#linear-cards-81" aria-label="Link to Linear Cards">#</a>Linear Cards</h2><p>Wave 1:</p>
+<ul>
+<li><code>CIL-217</code> — DevDrop: scaffold Go CLI and init command</li>
+</ul>
+<p>Wave 2:</p>
+<ul>
+<li><code>CIL-218</code> — DevDrop: manifest model, workspace scan, and status</li>
+<li><code>CIL-219</code> — DevDrop: project add, workspace sync, and Git hydration</li>
+<li><code>CIL-220</code> — DevDrop: encrypted env profile commands</li>
+</ul>
+<p>Wave 3:</p>
+<ul>
+<li><code>CIL-221</code> — DevDrop: README, examples, and end-to-end MVP verification</li>
+</ul>
+<h2 id="boundaries-82"><a class="heading-link" href="#boundaries-82" aria-label="Link to Boundaries">#</a>Boundaries</h2><ul>
+<li>Workers open PRs and do not merge.</li>
+<li><code>wave-ship</code> owns serialized merge and ticket closeout.</li>
+<li>Do not build hosted sync, FUSE, a daemon, team secrets, editor settings sync,
+or dependency auto-install in this run.</li>
+<li>Do not put real secrets in docs, fixtures, logs, or tests.</li>
+</ul>
+</div>
+            <div class="source"><pre># DevDrop MVP Wave-Ship Prep
+
+## Workflow
+
+Use:
+
+```text
+/Users/lecoqjacob/Projects/personal/inkwell/.claude/workflows/wave-ship.js
+```
+
+The requested path with `inkwell.claude` was not present locally. The checked-in
+workflow path is under the `inkwell` repository&#39;s `.claude/workflows/` directory.
+
+## Args
+
+Pass `devdrop-mvp.args.json` as the workflow args JSON.
+
+The prepared run uses:
+
+- `repo`: `/Users/lecoqjacob/Projects/personal/devdrop`
+- `project`: `DevDrop MVP`
+- `team`: `Cypress Ink Labs`
+- `base`: `main`
+- `backend`: `orca`
+- `serializedMerge`: `true`
+- `autoContinue`: `false`
+- `maxConcurrent`: `3`
+- `engine`: `codex`
+
+## Linear Cards
+
+Wave 1:
+
+- `CIL-217` — DevDrop: scaffold Go CLI and init command
+
+Wave 2:
+
+- `CIL-218` — DevDrop: manifest model, workspace scan, and status
+- `CIL-219` — DevDrop: project add, workspace sync, and Git hydration
+- `CIL-220` — DevDrop: encrypted env profile commands
+
+Wave 3:
+
+- `CIL-221` — DevDrop: README, examples, and end-to-end MVP verification
+
+## Boundaries
+
+- Workers open PRs and do not merge.
+- `wave-ship` owns serialized merge and ticket closeout.
+- Do not build hosted sync, FUSE, a daemon, team secrets, editor settings sync,
+  or dependency auto-install in this run.
+- Do not put real secrets in docs, fixtures, logs, or tests.
+
+</pre></div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <script id="doc-data" type="application/json">[{"id":"doc-1","title":"DevDrop","rel":"README.md"},{"id":"doc-2","title":"Release Readiness","rel":"docs/release-readiness.md"},{"id":"doc-3","title":"DevDrop Capstone Packet","rel":"docs/capstone/README.md"},{"id":"doc-4","title":"Capstone Spec: DevDrop","rel":"docs/capstone/spec.md"},{"id":"doc-5","title":"Proof Artifacts","rel":"docs/capstone/proof-artifacts.md"},{"id":"doc-6","title":"Case Study: DevDrop","rel":"docs/capstone/case-study.md"},{"id":"doc-7","title":"Demo Script","rel":"docs/capstone/demo-script.md"},{"id":"doc-8","title":"Playbook Contribution: Client Enablement Lessons","rel":"docs/capstone/playbook-contribution.md"},{"id":"doc-9","title":"DevDrop MVP Wave-Ship Prep","rel":"ops/wave-ship/README.md"}]</script>
+  <script type="module">
+    import { File } from "https://esm.sh/@pierre/diffs@1.2.10?bundle";
+
+    const docs = Array.from(document.querySelectorAll(".doc"));
+    const navButtons = Array.from(document.querySelectorAll("#nav button"));
+    const search = document.querySelector("#search");
+    const emptyState = document.querySelector("#emptyState");
+    const renderedBtn = document.querySelector("#renderedBtn");
+    const sourceBtn = document.querySelector("#sourceBtn");
+    const mobileToggle = document.querySelector("#mobileToggle");
+
+    function decodeBase64(value) {
+      const bytes = Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
+      return new TextDecoder().decode(bytes);
+    }
+
+    function renderCodeBlocks() {
+      const theme = { light: "github-light", dark: "github-dark" };
+      const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const options = { theme, themeType: prefersDark ? "dark" : "light", overflow: "wrap" };
+      document.querySelectorAll(".diff-render").forEach((container, index) => {
+        const code = decodeBase64(container.dataset.codeB64 || "");
+        const lang = container.dataset.lang || "text";
+        try {
+          new File(options).render({
+            containerWrapper: container,
+            file: { name: `snippet-${index + 1}.${lang}`, contents: code.endsWith("\n") ? code : code + "\n" },
+          });
+        } catch (error) {
+          container.innerHTML = "";
+          const pre = document.createElement("pre");
+          pre.className = "fallback-code";
+          pre.textContent = code;
+          container.appendChild(pre);
+        }
+      });
+    }
+
+    function setActive(id) {
+      docs.forEach((doc) => doc.classList.toggle("active", doc.id === id));
+      navButtons.forEach((button) => button.setAttribute("aria-selected", String(button.dataset.doc === id)));
+      document.body.classList.remove("nav-open");
+      history.replaceState(null, "", "#" + id);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function firstVisibleDoc() {
+      return docs.find((doc) => !doc.hidden);
+    }
+
+    function filterDocs() {
+      const query = search.value.trim().toLowerCase();
+      let visible = 0;
+      docs.forEach((doc) => {
+        const match = query === "" || doc.dataset.search.includes(query);
+        doc.hidden = !match;
+        if (match) visible += 1;
+      });
+      navButtons.forEach((button) => {
+        const doc = document.getElementById(button.dataset.doc);
+        button.hidden = doc ? doc.hidden : false;
+      });
+      emptyState.classList.toggle("visible", visible === 0);
+      const active = docs.find((doc) => doc.classList.contains("active"));
+      if (visible > 0 && (!active || active.hidden)) {
+        setActive(firstVisibleDoc().id);
+      }
+    }
+
+    navButtons.forEach((button) => {
+      button.addEventListener("click", () => setActive(button.dataset.doc));
+    });
+
+    search.addEventListener("input", filterDocs);
+    renderedBtn.addEventListener("click", () => {
+      document.body.classList.remove("show-source");
+      renderedBtn.setAttribute("aria-pressed", "true");
+      sourceBtn.setAttribute("aria-pressed", "false");
+    });
+    sourceBtn.addEventListener("click", () => {
+      document.body.classList.add("show-source");
+      renderedBtn.setAttribute("aria-pressed", "false");
+      sourceBtn.setAttribute("aria-pressed", "true");
+    });
+    mobileToggle.addEventListener("click", () => {
+      document.body.classList.toggle("nav-open");
+    });
+
+    document.addEventListener("click", async (event) => {
+      const button = event.target.closest("[data-copy-code]");
+      if (!button) return;
+      const target = document.getElementById(button.dataset.copyCode);
+      if (!target) return;
+      const code = decodeBase64(target.dataset.codeB64 || "");
+      await navigator.clipboard.writeText(code);
+      const previous = button.textContent;
+      button.textContent = "Copied";
+      setTimeout(() => { button.textContent = previous; }, 1000);
+    });
+
+    const hashId = location.hash.slice(1);
+    if (hashId && document.getElementById(hashId)?.classList.contains("doc")) {
+      setActive(hashId);
+    }
+    renderCodeBlocks();
+  </script>
+</body>
+</html>
