@@ -19,6 +19,20 @@ go test ./...
 go run ./cmd/devdrop --help
 ```
 
+## Release Packaging
+
+Repo-native release targets are available for the `devspace` CLI:
+
+```bash
+make verify
+make release
+```
+
+`make verify` runs tests, `go vet`, and a local build into `bin/devspace`.
+`make release` builds a current-platform archive under `dist/` and writes
+`dist/SHA256SUMS`. See [`docs/release.md`](docs/release.md) for install-from-source
+and GitHub Release assembly instructions.
+
 ## Current MVP Status
 
 This MVP is local-first. It proves the workflow before adding hosted sync,
