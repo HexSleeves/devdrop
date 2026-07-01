@@ -8,12 +8,32 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 )
 
 const syncedManifestName = "manifest.json"
+
+type ManifestDiff struct {
+	Added   []Project
+	Removed []Project
+	Changed []ProjectDiff
+}
+
+type ProjectDiff struct {
+	Local   Project
+	Remote  Project
+	Changes []FieldChange
+}
+
+type FieldChange struct {
+	Field  string
+	Local  string
+	Remote string
+}
 
 func SetManifestRemote(remote string) (Config, error) {
 	if strings.TrimSpace(remote) == "" {
@@ -192,6 +212,44 @@ func PullWorkspaceManifest() (bool, error) {
 		return false, err
 	}
 	return !bytes.Equal(before, after), nil
+}
+
+func DiffWorkspaceManifest() (ManifestDiff, error) {
+	cfg, err := syncConfig()
+	if err != nil {
+		return ManifestDiff{}, err
+	}
+	local, err := LoadManifest(cfg.WorkspaceRoot)
+	if err != nil {
+		return ManifestDiff{}, err
+	}
+	repo, err := ensureManifestRepo(cfg)
+	if err != nil {
+		return ManifestDiff{}, err
+	}
+	if err := ensureCleanManifestRepo(repo); err != nil {
+		return ManifestDiff{}, err
+	}
+	if err := pullManifestRepo(repo, cfg.ManifestRemote); err != nil {
+		return ManifestDiff{}, err
+	}
+	remote, err := loadSyncedManifest(repo)
+	if err != nil {
+		return ManifestDiff{}, err
+	}
+	localizedRemote := localizeSyncedManifest(remote, cfg)
+	if err := ValidateManifest(localizedRemote); err != nil {
+		return ManifestDiff{}, fmt.Errorf("remote manifest failed validation: %w", err)
+	}
+	localForDiff, err := manifestForComparison(local, cfg.WorkspaceRoot)
+	if err != nil {
+		return ManifestDiff{}, err
+	}
+	remoteForDiff, err := manifestForComparison(localizedRemote, cfg.WorkspaceRoot)
+	if err != nil {
+		return ManifestDiff{}, fmt.Errorf("remote manifest failed validation: %w", err)
+	}
+	return compareManifests(localForDiff, remoteForDiff), nil
 }
 
 func syncConfig() (Config, error) {
@@ -529,6 +587,93 @@ func localizeSyncedManifest(m Manifest, cfg Config) Manifest {
 	m.WorkspaceRoot = cfg.WorkspaceRoot
 	m.Machines = upsertMachine(nil, machineFromConfig(cfg))
 	return m
+}
+
+func manifestForComparison(m Manifest, workspace string) (Manifest, error) {
+	m.WorkspaceRoot = workspace
+	for i := range m.Projects {
+		_, clean, err := safeWorkspacePath(workspace, m.Projects[i].Path)
+		if err != nil {
+			return Manifest{}, err
+		}
+		m.Projects[i].Path = clean
+	}
+	if err := ValidateManifest(m); err != nil {
+		return Manifest{}, err
+	}
+	return m, nil
+}
+
+func compareManifests(local, remote Manifest) ManifestDiff {
+	localByID := map[string]Project{}
+	remoteByID := map[string]Project{}
+	for _, p := range local.Projects {
+		localByID[p.ID] = p
+	}
+	for _, p := range remote.Projects {
+		remoteByID[p.ID] = p
+	}
+
+	diff := ManifestDiff{}
+	for id, remoteProject := range remoteByID {
+		localProject, ok := localByID[id]
+		if !ok {
+			diff.Added = append(diff.Added, remoteProject)
+			continue
+		}
+		if changes := projectChanges(localProject, remoteProject); len(changes) > 0 {
+			diff.Changed = append(diff.Changed, ProjectDiff{Local: localProject, Remote: remoteProject, Changes: changes})
+		}
+	}
+	for id, localProject := range localByID {
+		if _, ok := remoteByID[id]; !ok {
+			diff.Removed = append(diff.Removed, localProject)
+		}
+	}
+
+	sort.Slice(diff.Added, func(i, j int) bool { return diff.Added[i].Path < diff.Added[j].Path })
+	sort.Slice(diff.Removed, func(i, j int) bool { return diff.Removed[i].Path < diff.Removed[j].Path })
+	sort.Slice(diff.Changed, func(i, j int) bool { return diff.Changed[i].Remote.Path < diff.Changed[j].Remote.Path })
+	return diff
+}
+
+func projectChanges(local, remote Project) []FieldChange {
+	var changes []FieldChange
+	addChange := func(field, localValue, remoteValue string) {
+		if localValue != remoteValue {
+			changes = append(changes, FieldChange{Field: field, Local: localValue, Remote: remoteValue})
+		}
+	}
+	addChange("name", local.Name, remote.Name)
+	addChange("path", local.Path, remote.Path)
+	addChange("type", local.Type, remote.Type)
+	addChange("remote", local.Remote, remote.Remote)
+	addChange("defaultBranch", local.DefaultBranch, remote.DefaultBranch)
+	addChange("hydrateMode", local.HydrateMode, remote.HydrateMode)
+	if !reflect.DeepEqual(local.EnvProfiles, remote.EnvProfiles) {
+		changes = append(changes, FieldChange{Field: "envProfiles", Local: strings.Join(local.EnvProfiles, ","), Remote: strings.Join(remote.EnvProfiles, ",")})
+	}
+	if !reflect.DeepEqual(local.Ignore, remote.Ignore) {
+		changes = append(changes, FieldChange{Field: "ignore", Local: strings.Join(local.Ignore, ","), Remote: strings.Join(remote.Ignore, ",")})
+	}
+	if !reflect.DeepEqual(local.Setup, remote.Setup) {
+		changes = append(changes, FieldChange{Field: "setup", Local: setupSummary(local.Setup), Remote: setupSummary(remote.Setup)})
+	}
+	return changes
+}
+
+func setupSummary(setup Setup) string {
+	parts := []string{}
+	if setup.PackageManager != "" {
+		parts = append(parts, "packageManager="+setup.PackageManager)
+	}
+	if setup.InstallCommand != "" {
+		parts = append(parts, "installCommand="+setup.InstallCommand)
+	}
+	if setup.DevCommand != "" {
+		parts = append(parts, "devCommand="+setup.DevCommand)
+	}
+	return strings.Join(parts, ",")
 }
 
 func localHasUnpushedManifestChanges(local, previousRemote Manifest, hasPreviousRemote bool, remote Manifest) bool {

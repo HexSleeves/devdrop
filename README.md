@@ -209,6 +209,18 @@ up the current local manifest, and atomically replaces it. It does not run
 `apply`, hydrate projects, pull project repos, install dependencies, or overwrite
 project contents.
 
+### `devspace workspace diff`
+
+```bash
+devspace workspace diff
+```
+
+Fetches the configured manifest repo cache, validates the remote
+`manifest.json`, localizes it to the current workspace, and reports projects
+that would be added, removed, or changed by a future pull. It does not replace
+the local manifest, apply plans, hydrate projects, pull source-code repos, or
+write to the manifest remote.
+
 ### `devspace project hydrate`
 
 ```bash

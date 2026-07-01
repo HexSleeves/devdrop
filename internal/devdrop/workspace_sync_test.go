@@ -391,6 +391,152 @@ func TestWorkspacePullAllowsFastForwardWhenLocalMatchesPreviousRemoteManifest(t 
 	}
 }
 
+func TestWorkspaceDiffReportsRemoteChangesWithoutReplacingLocalManifest(t *testing.T) {
+	root := t.TempDir()
+	manifestRemote := workspaceSyncBareRepo(t)
+	projectRemote := hardeningBareRepo(t)
+	workspaceA := filepath.Join(root, "machine-a", "code")
+	workspaceB := filepath.Join(root, "machine-b", "code")
+
+	t.Setenv(envHome, filepath.Join(root, "home-a"))
+	if _, err := InitWorkspace(workspaceA); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := SetManifestRemote(manifestRemote); err != nil {
+		t.Fatal(err)
+	}
+	remoteShared := hardeningProject("apps/shared", ProjectTypeGit, projectRemote)
+	if err := SaveManifest(workspaceA, Manifest{
+		Version:       ManifestVersion,
+		WorkspaceRoot: workspaceA,
+		Projects: []Project{
+			remoteShared,
+			hardeningProject("apps/remote-only", ProjectTypeLocal, ""),
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PushWorkspaceManifest(); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv(envHome, filepath.Join(root, "home-b"))
+	if _, err := InitWorkspace(workspaceB); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := SetManifestRemote(manifestRemote); err != nil {
+		t.Fatal(err)
+	}
+	localShared := hardeningProject("apps/shared", ProjectTypeLocal, "")
+	if err := SaveManifest(workspaceB, Manifest{
+		Version:       ManifestVersion,
+		WorkspaceRoot: workspaceB,
+		Projects: []Project{
+			localShared,
+			hardeningProject("apps/local-only", ProjectTypeLocal, ""),
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(manifestPath(workspaceB))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := NewRootCommand("test")
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetArgs([]string{"workspace", "diff"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	output := out.String()
+	for _, want := range []string{
+		"Added: 1",
+		"+ apps/remote-only",
+		"Removed: 1",
+		"- apps/local-only",
+		"Changed: 1",
+		"~ apps/shared",
+		"type: \"local\" -> \"git\"",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("diff output missing %q:\n%s", want, output)
+		}
+	}
+	after, err := os.ReadFile(manifestPath(workspaceB))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatal("workspace diff replaced the local manifest")
+	}
+}
+
+func TestWorkspaceDiffRefusesInvalidRemoteManifestBeforeReplacingLocalManifest(t *testing.T) {
+	workspace := hardeningInitWorkspace(t, "code")
+	remote, repo := workspaceSyncRemoteWithClone(t)
+	if _, err := SetManifestRemote(remote); err != nil {
+		t.Fatal(err)
+	}
+	original := Manifest{
+		Version:       ManifestVersion,
+		WorkspaceRoot: workspace,
+		Projects:      []Project{hardeningProject("apps/original", ProjectTypeLocal, "")},
+	}
+	if err := SaveManifest(workspace, original); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(manifestPath(workspace))
+	if err != nil {
+		t.Fatal(err)
+	}
+	hardeningWriteFile(t, filepath.Join(repo, syncedManifestName), "{not-json", 0o600)
+	workspaceSyncCommitAndPush(t, repo, "bad manifest")
+
+	_, err = DiffWorkspaceManifest()
+	if err == nil || !strings.Contains(err.Error(), "invalid JSON") {
+		t.Fatalf("diff invalid JSON error = %v", err)
+	}
+	after, err := os.ReadFile(manifestPath(workspace))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatal("workspace diff replaced the local manifest after invalid remote manifest")
+	}
+}
+
+func TestWorkspaceDiffRefusesInvalidRemoteProjectPath(t *testing.T) {
+	hardeningInitWorkspace(t, "code")
+	remote, repo := workspaceSyncRemoteWithClone(t)
+	if _, err := SetManifestRemote(remote); err != nil {
+		t.Fatal(err)
+	}
+	unsafe := Manifest{
+		Version:       ManifestVersion,
+		WorkspaceRoot: ".",
+		Projects: []Project{{
+			ID:          "bad",
+			Name:        "bad",
+			Path:        "../bad",
+			Type:        ProjectTypeLocal,
+			HydrateMode: HydrateManual,
+		}},
+	}
+	data, err := manifestBytes(unsafe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hardeningWriteFile(t, filepath.Join(repo, syncedManifestName), string(data), 0o600)
+	workspaceSyncCommitAndPush(t, repo, "unsafe manifest")
+
+	_, err = DiffWorkspaceManifest()
+	if err == nil || !strings.Contains(err.Error(), "escapes workspace") {
+		t.Fatalf("diff traversal error = %v", err)
+	}
+}
+
 func TestWorkspacePushRefusesDirtyManifestRepoState(t *testing.T) {
 	workspace := hardeningInitWorkspace(t, "code")
 	remote := workspaceSyncBareRepo(t)

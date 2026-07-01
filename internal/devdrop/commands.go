@@ -96,6 +96,19 @@ func newWorkspaceCommand() *cobra.Command {
 			return nil
 		},
 	})
+	cmd.AddCommand(&cobra.Command{
+		Use:   "diff",
+		Short: "Preview differences from the configured workspace manifest remote",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			diff, err := DiffWorkspaceManifest()
+			if err != nil {
+				return err
+			}
+			printManifestDiff(cmd.OutOrStdout(), diff)
+			return nil
+		},
+	})
 	var dryRun bool
 	syncCmd := &cobra.Command{
 		Use:        "sync",
@@ -249,6 +262,28 @@ func newApplyCommand() *cobra.Command {
 			printApply(cmd.OutOrStdout(), plan)
 			return nil
 		},
+	}
+}
+
+func printManifestDiff(out io.Writer, diff ManifestDiff) {
+	fmt.Fprintln(out, "Workspace manifest diff:")
+	fmt.Fprintf(out, "Added: %d\n", len(diff.Added))
+	for _, p := range diff.Added {
+		fmt.Fprintf(out, "  + %s (%s)\n", p.Path, p.Name)
+	}
+	fmt.Fprintf(out, "Removed: %d\n", len(diff.Removed))
+	for _, p := range diff.Removed {
+		fmt.Fprintf(out, "  - %s (%s)\n", p.Path, p.Name)
+	}
+	fmt.Fprintf(out, "Changed: %d\n", len(diff.Changed))
+	for _, changed := range diff.Changed {
+		fmt.Fprintf(out, "  ~ %s (%s)\n", changed.Remote.Path, changed.Remote.Name)
+		for _, field := range changed.Changes {
+			fmt.Fprintf(out, "    %s: %q -> %q\n", field.Field, field.Local, field.Remote)
+		}
+	}
+	if len(diff.Added) == 0 && len(diff.Removed) == 0 && len(diff.Changed) == 0 {
+		fmt.Fprintln(out, "No remote manifest differences.")
 	}
 }
 
