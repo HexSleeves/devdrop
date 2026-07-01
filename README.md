@@ -57,6 +57,8 @@ What works today:
 - Store encrypted per-project env profiles with native age encryption.
 - Generate local `.env` files with `0600` permissions.
 - Keep workspace metadata fresh with an event-driven `devspace watch` mode.
+- Preview a FUSE-backed lazy workspace mount prototype without requiring FUSE for
+  normal CLI workflows.
 
 ## Capstone Artifacts
 
@@ -162,6 +164,21 @@ reports config, workspace, manifest, Git, manifest remote/cache, saved plan, and
 tracked project path status. It exits non-zero only for hard failures that block
 core commands; stale plans, dirty repos, placeholders, and missing `.env` files
 are reported as warnings.
+
+### `devspace mount`
+
+```bash
+devspace mount ~/devspace-view
+devspace mount ~/devspace-view --preview
+```
+
+Prototype read-only FUSE workspace view. Manifest project paths appear as mount
+entries before they are hydrated, and accessing an on-demand Git project through
+the mount uses the same safe hydration checks as `devspace project hydrate`.
+`--preview` prints the projected entries without mounting and is the fallback for
+machines without macFUSE, `/dev/fuse`, or FUSE mount permissions. See
+[`docs/fuse-lazy-mount.md`](docs/fuse-lazy-mount.md) for platform requirements,
+library selection, and follow-up work.
 
 ### `devspace project add`
 

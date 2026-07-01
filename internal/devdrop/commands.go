@@ -39,6 +39,7 @@ func NewRootCommand(version string) *cobra.Command {
 	cmd.AddCommand(newStatusCommand())
 	cmd.AddCommand(newDoctorCommand())
 	cmd.AddCommand(newSetupCommand())
+	cmd.AddCommand(newMountCommand())
 	return cmd
 }
 
@@ -424,6 +425,44 @@ func newApplyCommand() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func newMountCommand() *cobra.Command {
+	var preview bool
+	var hydrateOnLookup bool
+	var debug bool
+	cmd := &cobra.Command{
+		Use:   "mount <mountpoint>",
+		Short: "Mount a prototype lazy workspace view",
+		Long: strings.Join([]string{
+			"Mount a read-only FUSE-backed prototype view of tracked workspace projects.",
+			"Tracked manifest paths appear as directories before they are hydrated.",
+			"Looking up an on-demand Git project through the mount runs the same safe hydration checks as `devspace project hydrate`.",
+			"Use --preview to inspect the projected mount entries without requiring FUSE.",
+		}, "\n\n"),
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if preview {
+				entries, err := BuildMountEntries()
+				if err != nil {
+					return err
+				}
+				PrintMountPreview(cmd.OutOrStdout(), entries)
+				return nil
+			}
+			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+			defer stop()
+			return MountWorkspace(ctx, args[0], WorkspaceMountOptions{
+				HydrateOnLookup: hydrateOnLookup,
+				Debug:           debug,
+				ErrOut:          cmd.ErrOrStderr(),
+			}, cmd.OutOrStdout())
+		},
+	}
+	cmd.Flags().BoolVar(&preview, "preview", false, "print manifest-backed mount entries without mounting FUSE")
+	cmd.Flags().BoolVar(&hydrateOnLookup, "hydrate-on-lookup", true, "hydrate on-demand Git projects when their mount entry is accessed")
+	cmd.Flags().BoolVar(&debug, "debug", false, "enable go-fuse debug logging")
+	return cmd
 }
 
 func printManifestDiff(out io.Writer, diff ManifestDiff) {
