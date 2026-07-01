@@ -73,8 +73,6 @@ Show the remote-agent delivery case study:
 
 ```bash
 sed -n '1,220p' docs/capstone/remote-agent-case-study.md
-sed -n '1,220p' ops/wave-ship/devdrop-mvp.args.json
-sed -n '1,220p' ops/wave-ship/devdrop-capstone.args.json
 ```
 
 Narration:

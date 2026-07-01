@@ -6,7 +6,6 @@ checked-in Claude workflow files:
 
 - `.claude/workflows/wave-ship.js`
 - `.claude/workflows/ship-card.js`
-- `ops/wave-ship/devdrop-mvp.args.json`
 
 ## Why This Matters
 
@@ -51,10 +50,7 @@ verification evidence or reports a blocker.
 
 ## DevDrop MVP Wave
 
-The initial prepared wave is stored in
-`ops/wave-ship/devdrop-mvp.args.json`.
-
-It uses:
+The initial prepared wave used the following `wave-ship.js` args:
 
 ```json
 {
@@ -78,10 +74,7 @@ The five cards map to the core MVP:
 
 ## Capstone Stretch Wave
 
-The next wave is stored in
-`ops/wave-ship/devdrop-capstone.args.json`.
-
-It pushes the MVP toward a stronger final demo without changing the product into
+The next wave args pushed the MVP toward a stronger final demo without changing the product into
 a vague product. The wave now deliberately includes the risky frontier areas:
 
 1. Release packaging and install docs.
@@ -114,12 +107,11 @@ keeps the risk controlled with these rules:
 
 Use the remote-agent system as the "how it was built" segment:
 
-1. Open `ops/wave-ship/devdrop-mvp.args.json`.
-2. Explain the dependency graph: init first, scan/hydrate/env in parallel, docs
+1. Explain the dependency graph: init first, scan/hydrate/env in parallel, docs
    and verification last.
-3. Open `.claude/workflows/wave-ship.js`.
-4. Point to `backend: "orca"`, `maxConcurrent`, and `serializedMerge`.
-5. Show the Linear/PR evidence for each card if available.
-6. Explain what failed or required human judgment.
-7. Tie it back to client enablement: agents work when the work is decomposed
+2. Open `.claude/workflows/wave-ship.js`.
+3. Point to `backend: "orca"`, `maxConcurrent`, and `serializedMerge`.
+4. Show the Linear/PR evidence for each card if available.
+5. Explain what failed or required human judgment.
+6. Tie it back to client enablement: agents work when the work is decomposed
    into explicit contracts with observable gates.

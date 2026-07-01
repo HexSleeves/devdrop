@@ -13,7 +13,6 @@ const docs = [
   "docs/capstone/remote-agent-case-study.md",
   "docs/capstone/demo-script.md",
   "docs/capstone/playbook-contribution.md",
-  "ops/wave-ship/README.md",
 ];
 
 function read(rel) {

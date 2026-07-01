@@ -14,8 +14,6 @@ links as releases, PRs, and recordings are created.
 | Case study | Drafted | `docs/capstone/case-study.md` |
 | Demo script | Done | `scripts/demo-check.sh`, `docs/capstone/demo-script.md` |
 | Remote-agent case study | Drafted | `docs/capstone/remote-agent-case-study.md` |
-| MVP wave args | Done | `ops/wave-ship/devdrop-mvp.args.json` |
-| Capstone stretch wave args | Drafted | `ops/wave-ship/devdrop-capstone.args.json` |
 | Frontier Linear cards | Drafted | `CIL-227` through `CIL-231` |
 | Release binary | Pending | Add GitHub release URL |
 | Final demo recording | Pending | Add recording URL |
@@ -67,9 +65,8 @@ Capture the command output and the generated
 11. Store, list, and pull an encrypted env value.
 12. Assert the generated `.env` mode is `0600`.
 13. Show final `devspace status` and `devspace project status`.
-14. Show the remote-agent delivery workflow: `.claude/workflows/wave-ship.js`,
-    `ops/wave-ship/devdrop-mvp.args.json`, and
-    `ops/wave-ship/devdrop-capstone.args.json`.
+14. Show the remote-agent delivery workflow: `.claude/workflows/wave-ship.js`
+    and `.claude/workflows/ship-card.js`.
 15. Show the frontier track: hosted sync, daemon/watch, FUSE, team secrets, and
     explicit dependency install.
 

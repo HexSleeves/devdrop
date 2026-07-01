@@ -25,7 +25,7 @@ encrypted locally.
 | Proof artifacts | [proof-artifacts.md](proof-artifacts.md), `docs/release-readiness.md`, tests under `internal/devdrop/` |
 | Final demo recording | [demo-script.md](demo-script.md) and `../../scripts/demo-check.sh` |
 | Playbook contribution | [playbook-contribution.md](playbook-contribution.md), `docs/playbook.html`, and the enablement notes in [case-study.md](case-study.md) |
-| Remote-agent delivery case study | [remote-agent-case-study.md](remote-agent-case-study.md), `.claude/workflows/wave-ship.js`, and `ops/wave-ship/` |
+| Remote-agent delivery case study | [remote-agent-case-study.md](remote-agent-case-study.md), `.claude/workflows/wave-ship.js`, and `.claude/workflows/ship-card.js` |
 | Personal reflection | Add final reflection after the recorded demo and panel feedback |
 
 ## Current Product Surface
@@ -44,8 +44,9 @@ encrypted locally.
 ## Remaining Module 5 Work
 
 1. Create a tagged release binary and attach it to a GitHub release.
-2. Run the capstone stretch wave in `ops/wave-ship/devdrop-capstone.args.json`
-   or execute the same cards manually.
+2. Execute the capstone stretch cards documented in
+   [remote-agent-case-study.md](remote-agent-case-study.md), whether via a
+   wave-ship run or manually.
 3. Push the frontier track: hosted sync, daemon/watch mode, FUSE lazy mount,
    team secret sharing, and explicit dependency install.
 4. Record the demo using [demo-script.md](demo-script.md).

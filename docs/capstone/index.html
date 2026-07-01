@@ -543,9 +543,9 @@
           </div>
         </div>
         <div class="stats" aria-label="Document stats">
-          <div class="stat"><strong>10</strong><span>files</span></div>
-          <div class="stat"><strong>6,421</strong><span>words</span></div>
-          <div class="stat"><strong>32</strong><span>snippets</span></div>
+          <div class="stat"><strong>9</strong><span>files</span></div>
+          <div class="stat"><strong>6,992</strong><span>words</span></div>
+          <div class="stat"><strong>35</strong><span>snippets</span></div>
         </div>
       </div>
 
@@ -594,10 +594,6 @@
           <span class="num">9</span>
           <span class="label"><span class="title">Playbook Contribution: Client Enablement Lessons</span><span class="path">docs/capstone/playbook-contribution.md</span></span>
         </button>
-<button type="button" data-doc="doc-10" aria-selected="false">
-          <span class="num">10</span>
-          <span class="label"><span class="title">DevDrop MVP Wave-Ship Prep</span><span class="path">ops/wave-ship/README.md</span></span>
-        </button>
       </nav>
     </aside>
 
@@ -609,9 +605,9 @@
           <p>Use the left navigation to switch files, search across converted content, and toggle raw Markdown under each rendered document when you need source-level review.</p>
         </div>
         <div class="badge-row">
-          <span class="badge">10 Markdown files</span>
+          <span class="badge">9 Markdown files</span>
           <span class="badge">3 tables</span>
-          <span class="badge">32 code blocks</span>
+          <span class="badge">35 code blocks</span>
         </div>
       </section>
 
@@ -638,10 +634,24 @@ go test ./...
 go run ./cmd/devdrop --help
 ```
 
+## release packaging
+
+repo-native release targets are available for the `devspace` cli:
+
+```bash
+make verify
+make release
+```
+
+`make verify` runs tests, `go vet`, and a local build into `bin/devspace`.
+`make release` builds a current-platform archive under `dist/` and writes
+`dist/sha256sums`. see [`docs/release.md`](docs/release.md) for install-from-source
+and github release assembly instructions.
+
 ## current mvp status
 
-this mvp is local-first. it proves the workflow before adding hosted sync,
-background daemons, or filesystem-level lazy loading.
+this mvp is local-first. it proves the workflow before adding filesystem-level
+lazy loading.
 
 what works today:
 
@@ -650,12 +660,20 @@ what works today:
 - scan existing projects for git metadata, `.env` presence, dependency files,
   and setup hints.
 - show workspace and project status.
+- diagnose local readiness before syncing, planning, applying, or hydrating.
 - add local projects to the manifest.
 - plan and apply safe missing project structure as empty placeholder folders.
 - hydrate placeholder git projects with normal `git clone`.
 - push and pull the workspace manifest through a user-owned git repository.
+- opt into a hosted manifest sync control-plane prototype with explicit
+  endpoint/token configuration.
+- review detected dependency install/dev commands and run them only through an
+  explicit setup command.
 - store encrypted per-project env profiles with native age encryption.
 - generate local `.env` files with `0600` permissions.
+- keep workspace metadata fresh with an event-driven `devspace watch` mode.
+- preview a fuse-backed lazy workspace mount prototype without requiring fuse for
+  normal cli workflows.
 
 ## capstone artifacts
 
@@ -714,6 +732,32 @@ coverage/
 *.log
 ```
 
+### `devspace watch`
+
+```bash
+devspace watch
+devspace watch --debounce 3s
+devspace watch --sync git
+devspace watch --sync hosted
+devspace watch --once
+```
+
+runs a long-lived workspace watcher that debounces filesystem events and refreshes
+the same manifest/state metadata as `devspace scan`. it watches the configured
+workspace root, skips `.devdrop/` and the existing dependency/build/cache ignore
+rules, and tracks manifest-relevant additions, removals, package marker changes,
+`.env` presence changes, and git branch/index/ref changes.
+
+default behavior is local-only: after each refresh, the watcher writes the local
+manifest and state files atomically and continues watching. `--sync git`
+explicitly pushes the refreshed
+manifest to the configured git-backed manifest remote after each refresh.
+`--sync hosted` explicitly pushes the normalized manifest to the configured
+hosted control-plane prototype after each refresh. watch mode never pulls remote
+manifests, applies saved plans, hydrates repositories, installs dependencies,
+runs setup commands, uploads secrets, or uploads source files. use `--once` for
+local smoke tests and demos that should perform one refresh and exit.
+
 ### `devspace status`
 
 ```bash
@@ -723,6 +767,33 @@ devspace project status client-a-api
 
 shows tracked projects, hydrated projects, placeholders, dirty repos, missing env
 files, stale/missing projects, and last scan/sync timestamps.
+
+### `devspace doctor`
+
+```bash
+devspace doctor
+```
+
+checks local readiness without changing files or contacting hosted services. it
+reports config, workspace, manifest, git, manifest remote/cache, saved plan, and
+tracked project path status. it exits non-zero only for hard failures that block
+core commands; stale plans, dirty repos, placeholders, and missing `.env` files
+are reported as warnings.
+
+### `devspace mount`
+
+```bash
+devspace mount ~/devspace-view
+devspace mount ~/devspace-view --preview
+```
+
+prototype read-only fuse workspace view. manifest project paths appear as mount
+entries before they are hydrated, and accessing an on-demand git project through
+the mount uses the same safe hydration checks as `devspace project hydrate`.
+`--preview` prints the projected entries without mounting and is the fallback for
+machines without macfuse, `/dev/fuse`, or fuse mount permissions. see
+[`docs/fuse-lazy-mount.md`](docs/fuse-lazy-mount.md) for platform requirements,
+library selection, and follow-up work.
 
 ### `devspace project add`
 
@@ -801,6 +872,66 @@ up the current local manifest, and atomically replaces it. it does not run
 `apply`, hydrate projects, pull project repos, install dependencies, or overwrite
 project contents.
 
+### `devspace workspace diff`
+
+```bash
+devspace workspace diff
+```
+
+fetches the configured manifest repo cache, validates the remote
+`manifest.json`, localizes it to the current workspace, and reports projects
+that would be added, removed, or changed by a future pull. it does not replace
+the local manifest, apply plans, hydrate projects, pull source-code repos, or
+write to the manifest remote.
+
+### `devspace hosted`
+
+hosted sync is opt-in and separate from git-backed sync. configure it only when
+you want the manifest copied to a hosted control plane:
+
+```bash
+devspace hosted serve --addr 127.0.0.1:8787 --store ~/.devdrop/hosted-control-plane --token dev-token
+devspace hosted config set http://127.0.0.1:8787 --token dev-token --workspace team-a
+devspace hosted push
+devspace hosted pull
+```
+
+the runnable prototype server exposes:
+
+```text
+get /v1/workspaces/{workspace}/manifest
+put /v1/workspaces/{workspace}/manifest
+authorization: bearer &lt;token&gt;
+```
+
+storage is one json envelope per hosted workspace under the server `--store`
+directory. each envelope contains the api version, hosted workspace id, monotonic
+sync version, manifest hash, update timestamp, and normalized `manifest.json`.
+the server does not receive source files, dependency folders, `.env` files,
+encrypted secret payloads, plaintext secrets, or local workspace roots.
+
+hosted `push` sends only the normalized manifest (`workspaceroot: &quot;.&quot;`, no
+machine-local paths) and records the returned hosted version/hash in local state.
+hosted `pull` localizes the manifest to the current workspace, writes the usual
+`.bak` backup, and then expects the operator to run `devspace plan &amp;&amp;
+devspace apply`.
+
+hosted conflict behavior is optimistic:
+
+- `put` requires the caller&#39;s expected hosted version; stale writes return 409.
+- `push` refuses when the hosted manifest changed since the last local hosted
+  sync.
+- `pull` refuses when the local manifest changed since the last local hosted
+  sync.
+- a first-time `pull` refuses to overwrite a non-empty local manifest that
+  differs from hosted.
+
+hosted path safety runs client-side and server-side. project paths must remain
+relative to the workspace and hosted sync rejects paths containing `.env`,
+`.git`, dependency, build, cache, coverage, or vendored directory components.
+git-backed `devspace workspace push/pull/diff` remains the fallback when hosted
+sync is not configured or unavailable.
+
 ### `devspace project hydrate`
 
 ```bash
@@ -810,6 +941,30 @@ devspace project hydrate client-a-api
 hydrates a placeholder git project with normal `git clone`. the placeholder is
 an empty directory; hydration refuses to clone into non-empty directories and
 does not delete files.
+
+### `devspace setup`
+
+```bash
+devspace setup plan
+devspace setup plan --json
+devspace setup run client-a-api --yes
+devspace setup run client-a-api --command dev --yes
+devspace setup apply --yes
+```
+
+`setup plan` reports dependency setup hints already captured by `scan`, including
+the detected package manager, install command, and dev command. it does not run
+anything.
+
+`setup run &lt;project&gt;` executes one reviewed command in the validated project
+directory. by default it runs the install command and prompts for confirmation;
+use `--command dev` to run a detected dev command, `--dry-run` to preview, or
+`--yes` for non-interactive execution after review.
+
+`setup apply` runs install commands for all detected projects after confirmation.
+known package managers are executed without a shell. unknown snippets require
+`--allow-unknown`, and commands that appear to install globally also require
+`--allow-global`.
 
 ### `devspace env`
 
@@ -905,13 +1060,19 @@ when the manifest includes its remote.
 - `apply` creates missing directories only; it skips non-empty destinations.
 - plan reports path, dirty-repo, and remote conflicts instead of overwriting local work.
 - hydration clones only into missing or empty directories.
+- `watch` refreshes manifest/state metadata only unless an explicit `--sync`
+  push mode is selected.
+- `watch --sync git` pushes only `manifest.json` through git-backed sync.
+- `watch --sync hosted` pushes only the normalized manifest envelope.
 - env values are encrypted at rest with age.
 - `env list` masks secret values.
 - `env pull` writes `.env` with `0600` permissions.
 - git-backed sync stores only `manifest.json`.
 - manifest sync strips machine-local workspace paths from the synced manifest
   and localizes the manifest on pull.
-- the mvp has no hosted control plane and no background process.
+- hosted sync is opt-in, stores only normalized manifest metadata, and never
+  uploads source code, dependency folders, `.env` files, or secret values.
+- the mvp has no background process.
 
 ## conflict behavior
 
@@ -925,28 +1086,33 @@ manifest sync stops with a clear error when:
 - the remote branch is newer or diverged.
 - the pulled manifest is invalid json or fails manifest validation.
 - pull would overwrite local manifest changes.
+- hosted push/pull would overwrite local or remote manifest changes without a
+  matching hosted version/hash baseline.
 
 ## what this tool will not do without permission
 
 - delete local projects, files, or directories.
 - overwrite existing project contents during apply or hydrate.
 - auto-pull, rebase, merge, or push project git repositories.
+- auto-pull git-backed or hosted workspace manifests from watch mode.
+- auto-apply plans or hydrate repositories from watch mode.
 - resolve git conflicts.
-- install dependencies or run project setup commands.
+- install dependencies or run project setup commands during scan, pull, apply,
+  hydrate, watch, daemon, or filesystem reads.
 - upload secrets, source code, or project files.
 - share env profiles with teammates.
 - rotate secrets or replace local `.env` values without an explicit command.
-- watch the filesystem in the background.
 - mount a fuse or virtual filesystem.
 
 ## known limitations
 
-- hosted manifest sync is not implemented.
+- hosted manifest sync is a local runnable prototype, not a managed deployment.
 - placeholder hydration uses full `git clone`; partial clone and sparse checkout
   are not implemented.
 - secret profiles are local to the workspace; there is no team sharing, os
   keychain integration, remote backup, or rotation flow.
-- setup hints are informational only and do not install dependencies.
+- setup hints are informational during scan and sync; installs only run through
+  explicit `devspace setup` commands.
 - editor settings, vs code extensions, devcontainers, nix, mise, and asdf are
   outside the mvp.
 - the command name is documented as `devspace`, while the current source package
@@ -975,14 +1141,13 @@ manifest sync stops with a clear error when:
 
 - manifest conflict resolution and force flags.
 - hosted api or cloud object storage.
-- background daemon and filesystem watchers.
+- daemon process management for running watch mode outside a terminal.
 - fuse or virtual filesystem lazy loading.
 - git partial clone or sparse checkout.
 - team/shared secret profiles.
 - os keychain integration.
 - secret rotation.
 - editor settings, devcontainer, nix, mise, or asdf sync.
-- optional dependency setup flows with explicit confirmation.
 - release-readiness checklist automation.
 
 ## manifest
@@ -1004,8 +1169,8 @@ parent-directory escapes are rejected.
               <div class="doc-path">README.md</div>
             </div>
             <div class="doc-meta">
-              <span class="badge">1,635 words</span>
-              <span class="badge">19 code</span>
+              <span class="badge">2,591 words</span>
+              <span class="badge">27 code</span>
               <span class="badge">0 tables</span>
             </div>
           </header>
@@ -1032,8 +1197,21 @@ from this repository:</p>
     <div id="code-2" class="diff-render" data-code-b64="Z28gdGVzdCAuLy4uLgpnbyBydW4gLi9jbWQvZGV2ZHJvcCAtLWhlbHA=" data-lang="bash"></div>
     <noscript><pre><code>go test ./...
 go run ./cmd/devdrop --help</code></pre></noscript>
-  </figure><h2 id="current-mvp-status-2"><a class="heading-link" href="#current-mvp-status-2" aria-label="Link to Current MVP Status">#</a>Current MVP Status</h2><p>This MVP is local-first. It proves the workflow before adding hosted sync,
-background daemons, or filesystem-level lazy loading.</p>
+  </figure><h2 id="release-packaging-2"><a class="heading-link" href="#release-packaging-2" aria-label="Link to Release Packaging">#</a>Release Packaging</h2><p>Repo-native release targets are available for the <code>devspace</code> CLI:</p>
+<figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-3">Copy</button>
+    </figcaption>
+    <div id="code-3" class="diff-render" data-code-b64="bWFrZSB2ZXJpZnkKbWFrZSByZWxlYXNl" data-lang="bash"></div>
+    <noscript><pre><code>make verify
+make release</code></pre></noscript>
+  </figure><p><code>make verify</code> runs tests, <code>go vet</code>, and a local build into <code>bin/devspace</code>.
+<code>make release</code> builds a current-platform archive under <code>dist/</code> and writes
+<code>dist/SHA256SUMS</code>. See <a href="docs/release.md"><code>docs/release.md</code></a> for install-from-source
+and GitHub Release assembly instructions.</p>
+<h2 id="current-mvp-status-3"><a class="heading-link" href="#current-mvp-status-3" aria-label="Link to Current MVP Status">#</a>Current MVP Status</h2><p>This MVP is local-first. It proves the workflow before adding filesystem-level
+lazy loading.</p>
 <p>What works today:</p>
 <ul>
 <li>Initialize a workspace and local machine identity.</li>
@@ -1041,24 +1219,32 @@ background daemons, or filesystem-level lazy loading.</p>
 <li>Scan existing projects for Git metadata, <code>.env</code> presence, dependency files,
 and setup hints.</li>
 <li>Show workspace and project status.</li>
+<li>Diagnose local readiness before syncing, planning, applying, or hydrating.</li>
 <li>Add local projects to the manifest.</li>
 <li>Plan and apply safe missing project structure as empty placeholder folders.</li>
 <li>Hydrate placeholder Git projects with normal <code>git clone</code>.</li>
 <li>Push and pull the workspace manifest through a user-owned Git repository.</li>
+<li>Opt into a hosted manifest sync control-plane prototype with explicit
+endpoint/token configuration.</li>
+<li>Review detected dependency install/dev commands and run them only through an
+explicit setup command.</li>
 <li>Store encrypted per-project env profiles with native age encryption.</li>
 <li>Generate local <code>.env</code> files with <code>0600</code> permissions.</li>
+<li>Keep workspace metadata fresh with an event-driven <code>devspace watch</code> mode.</li>
+<li>Preview a FUSE-backed lazy workspace mount prototype without requiring FUSE for
+normal CLI workflows.</li>
 </ul>
-<h2 id="capstone-artifacts-3"><a class="heading-link" href="#capstone-artifacts-3" aria-label="Link to Capstone Artifacts">#</a>Capstone Artifacts</h2><p>This repository is being prepared as a Liatrio Forge Module 5 capstone. See
+<h2 id="capstone-artifacts-4"><a class="heading-link" href="#capstone-artifacts-4" aria-label="Link to Capstone Artifacts">#</a>Capstone Artifacts</h2><p>This repository is being prepared as a Liatrio Forge Module 5 capstone. See
 <a href="docs/capstone/README.md"><code>docs/capstone/README.md</code></a> for the capstone spec,
 proof checklist, case study, demo script, and playbook contribution. Open
 <a href="docs/capstone/index.html"><code>docs/capstone/index.html</code></a> for an interactive HTML
 reader generated from the repository Markdown.</p>
-<h2 id="supported-commands-4"><a class="heading-link" href="#supported-commands-4" aria-label="Link to Supported Commands">#</a>Supported Commands</h2><h3 id="devspace-init-5"><a class="heading-link" href="#devspace-init-5" aria-label="Link to `devspace init`">#</a><code>devspace init</code></h3><figure class="code-block" data-lang="bash">
+<h2 id="supported-commands-5"><a class="heading-link" href="#supported-commands-5" aria-label="Link to Supported Commands">#</a>Supported Commands</h2><h3 id="devspace-init-6"><a class="heading-link" href="#devspace-init-6" aria-label="Link to `devspace init`">#</a><code>devspace init</code></h3><figure class="code-block" data-lang="bash">
     <figcaption>
       <span>bash</span>
-      <button class="copy-btn" type="button" data-copy-code="code-3">Copy</button>
+      <button class="copy-btn" type="button" data-copy-code="code-4">Copy</button>
     </figcaption>
-    <div id="code-3" class="diff-render" data-code-b64="ZGV2c3BhY2UgaW5pdCAtLXdvcmtzcGFjZSB+L2NvZGU=" data-lang="bash"></div>
+    <div id="code-4" class="diff-render" data-code-b64="ZGV2c3BhY2UgaW5pdCAtLXdvcmtzcGFjZSB+L2NvZGU=" data-lang="bash"></div>
     <noscript><pre><code>devspace init --workspace ~/code</code></pre></noscript>
   </figure><p>Creates:</p>
 <ul>
@@ -1069,12 +1255,12 @@ reader generated from the repository Markdown.</p>
 </ul>
 <p>The command is idempotent and does not rotate the machine ID or age identity on
 repeat runs.</p>
-<h3 id="devspace-scan-6"><a class="heading-link" href="#devspace-scan-6" aria-label="Link to `devspace scan`">#</a><code>devspace scan</code></h3><figure class="code-block" data-lang="bash">
+<h3 id="devspace-scan-7"><a class="heading-link" href="#devspace-scan-7" aria-label="Link to `devspace scan`">#</a><code>devspace scan</code></h3><figure class="code-block" data-lang="bash">
     <figcaption>
       <span>bash</span>
-      <button class="copy-btn" type="button" data-copy-code="code-4">Copy</button>
+      <button class="copy-btn" type="button" data-copy-code="code-5">Copy</button>
     </figcaption>
-    <div id="code-4" class="diff-render" data-code-b64="ZGV2c3BhY2Ugc2Nhbg==" data-lang="bash"></div>
+    <div id="code-5" class="diff-render" data-code-b64="ZGV2c3BhY2Ugc2Nhbg==" data-lang="bash"></div>
     <noscript><pre><code>devspace scan</code></pre></noscript>
   </figure><p>Scans the configured workspace and updates the manifest/state with:</p>
 <ul>
@@ -1089,9 +1275,9 @@ repeat runs.</p>
 <figure class="code-block" data-lang="text">
     <figcaption>
       <span>text</span>
-      <button class="copy-btn" type="button" data-copy-code="code-5">Copy</button>
+      <button class="copy-btn" type="button" data-copy-code="code-6">Copy</button>
     </figcaption>
-    <div id="code-5" class="diff-render" data-code-b64="bm9kZV9tb2R1bGVzLwpkaXN0LwpidWlsZC8KLm5leHQvCnR1cmJvLwp0YXJnZXQvCnZlbmRvci8KY292ZXJhZ2UvCi5jYWNoZS8KLkRTX1N0b3JlCioubG9n" data-lang="text"></div>
+    <div id="code-6" class="diff-render" data-code-b64="bm9kZV9tb2R1bGVzLwpkaXN0LwpidWlsZC8KLm5leHQvCnR1cmJvLwp0YXJnZXQvCnZlbmRvci8KY292ZXJhZ2UvCi5jYWNoZS8KLkRTX1N0b3JlCioubG9n" data-lang="text"></div>
     <noscript><pre><code>node_modules/
 dist/
 build/
@@ -1103,61 +1289,113 @@ coverage/
 .cache/
 .DS_Store
 *.log</code></pre></noscript>
-  </figure><h3 id="devspace-status-7"><a class="heading-link" href="#devspace-status-7" aria-label="Link to `devspace status`">#</a><code>devspace status</code></h3><figure class="code-block" data-lang="bash">
-    <figcaption>
-      <span>bash</span>
-      <button class="copy-btn" type="button" data-copy-code="code-6">Copy</button>
-    </figcaption>
-    <div id="code-6" class="diff-render" data-code-b64="ZGV2c3BhY2Ugc3RhdHVzCmRldnNwYWNlIHByb2plY3Qgc3RhdHVzIGNsaWVudC1hLWFwaQ==" data-lang="bash"></div>
-    <noscript><pre><code>devspace status
-devspace project status client-a-api</code></pre></noscript>
-  </figure><p>Shows tracked projects, hydrated projects, placeholders, dirty repos, missing env
-files, stale/missing projects, and last scan/sync timestamps.</p>
-<h3 id="devspace-project-add-8"><a class="heading-link" href="#devspace-project-add-8" aria-label="Link to `devspace project add`">#</a><code>devspace project add</code></h3><figure class="code-block" data-lang="bash">
+  </figure><h3 id="devspace-watch-8"><a class="heading-link" href="#devspace-watch-8" aria-label="Link to `devspace watch`">#</a><code>devspace watch</code></h3><figure class="code-block" data-lang="bash">
     <figcaption>
       <span>bash</span>
       <button class="copy-btn" type="button" data-copy-code="code-7">Copy</button>
     </figcaption>
-    <div id="code-7" class="diff-render" data-code-b64="ZGV2c3BhY2UgcHJvamVjdCBhZGQgd29yay9jbGllbnQtYS1hcGk=" data-lang="bash"></div>
-    <noscript><pre><code>devspace project add work/client-a-api</code></pre></noscript>
-  </figure><p>Adds a relative workspace path to the manifest. Existing Git repositories are
-recorded as Git projects; otherwise the project is tracked as local-only.</p>
-<h3 id="devspace-plan-9"><a class="heading-link" href="#devspace-plan-9" aria-label="Link to `devspace plan`">#</a><code>devspace plan</code></h3><figure class="code-block" data-lang="bash">
+    <div id="code-7" class="diff-render" data-code-b64="ZGV2c3BhY2Ugd2F0Y2gKZGV2c3BhY2Ugd2F0Y2ggLS1kZWJvdW5jZSAzcwpkZXZzcGFjZSB3YXRjaCAtLXN5bmMgZ2l0CmRldnNwYWNlIHdhdGNoIC0tc3luYyBob3N0ZWQKZGV2c3BhY2Ugd2F0Y2ggLS1vbmNl" data-lang="bash"></div>
+    <noscript><pre><code>devspace watch
+devspace watch --debounce 3s
+devspace watch --sync git
+devspace watch --sync hosted
+devspace watch --once</code></pre></noscript>
+  </figure><p>Runs a long-lived workspace watcher that debounces filesystem events and refreshes
+the same manifest/state metadata as <code>devspace scan</code>. It watches the configured
+workspace root, skips <code>.devdrop/</code> and the existing dependency/build/cache ignore
+rules, and tracks manifest-relevant additions, removals, package marker changes,
+<code>.env</code> presence changes, and Git branch/index/ref changes.</p>
+<p>Default behavior is local-only: after each refresh, the watcher writes the local
+manifest and state files atomically and continues watching. <code>--sync git</code>
+explicitly pushes the refreshed
+manifest to the configured Git-backed manifest remote after each refresh.
+<code>--sync hosted</code> explicitly pushes the normalized manifest to the configured
+hosted control-plane prototype after each refresh. Watch mode never pulls remote
+manifests, applies saved plans, hydrates repositories, installs dependencies,
+runs setup commands, uploads secrets, or uploads source files. Use <code>--once</code> for
+local smoke tests and demos that should perform one refresh and exit.</p>
+<h3 id="devspace-status-9"><a class="heading-link" href="#devspace-status-9" aria-label="Link to `devspace status`">#</a><code>devspace status</code></h3><figure class="code-block" data-lang="bash">
     <figcaption>
       <span>bash</span>
       <button class="copy-btn" type="button" data-copy-code="code-8">Copy</button>
     </figcaption>
-    <div id="code-8" class="diff-render" data-code-b64="ZGV2c3BhY2UgcGxhbgpkZXZzcGFjZSBwbGFuIC0tanNvbg==" data-lang="bash"></div>
+    <div id="code-8" class="diff-render" data-code-b64="ZGV2c3BhY2Ugc3RhdHVzCmRldnNwYWNlIHByb2plY3Qgc3RhdHVzIGNsaWVudC1hLWFwaQ==" data-lang="bash"></div>
+    <noscript><pre><code>devspace status
+devspace project status client-a-api</code></pre></noscript>
+  </figure><p>Shows tracked projects, hydrated projects, placeholders, dirty repos, missing env
+files, stale/missing projects, and last scan/sync timestamps.</p>
+<h3 id="devspace-doctor-10"><a class="heading-link" href="#devspace-doctor-10" aria-label="Link to `devspace doctor`">#</a><code>devspace doctor</code></h3><figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-9">Copy</button>
+    </figcaption>
+    <div id="code-9" class="diff-render" data-code-b64="ZGV2c3BhY2UgZG9jdG9y" data-lang="bash"></div>
+    <noscript><pre><code>devspace doctor</code></pre></noscript>
+  </figure><p>Checks local readiness without changing files or contacting hosted services. It
+reports config, workspace, manifest, Git, manifest remote/cache, saved plan, and
+tracked project path status. It exits non-zero only for hard failures that block
+core commands; stale plans, dirty repos, placeholders, and missing <code>.env</code> files
+are reported as warnings.</p>
+<h3 id="devspace-mount-11"><a class="heading-link" href="#devspace-mount-11" aria-label="Link to `devspace mount`">#</a><code>devspace mount</code></h3><figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-10">Copy</button>
+    </figcaption>
+    <div id="code-10" class="diff-render" data-code-b64="ZGV2c3BhY2UgbW91bnQgfi9kZXZzcGFjZS12aWV3CmRldnNwYWNlIG1vdW50IH4vZGV2c3BhY2UtdmlldyAtLXByZXZpZXc=" data-lang="bash"></div>
+    <noscript><pre><code>devspace mount ~/devspace-view
+devspace mount ~/devspace-view --preview</code></pre></noscript>
+  </figure><p>Prototype read-only FUSE workspace view. Manifest project paths appear as mount
+entries before they are hydrated, and accessing an on-demand Git project through
+the mount uses the same safe hydration checks as <code>devspace project hydrate</code>.
+<code>--preview</code> prints the projected entries without mounting and is the fallback for
+machines without macFUSE, <code>/dev/fuse</code>, or FUSE mount permissions. See
+<a href="docs/fuse-lazy-mount.md"><code>docs/fuse-lazy-mount.md</code></a> for platform requirements,
+library selection, and follow-up work.</p>
+<h3 id="devspace-project-add-12"><a class="heading-link" href="#devspace-project-add-12" aria-label="Link to `devspace project add`">#</a><code>devspace project add</code></h3><figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-11">Copy</button>
+    </figcaption>
+    <div id="code-11" class="diff-render" data-code-b64="ZGV2c3BhY2UgcHJvamVjdCBhZGQgd29yay9jbGllbnQtYS1hcGk=" data-lang="bash"></div>
+    <noscript><pre><code>devspace project add work/client-a-api</code></pre></noscript>
+  </figure><p>Adds a relative workspace path to the manifest. Existing Git repositories are
+recorded as Git projects; otherwise the project is tracked as local-only.</p>
+<h3 id="devspace-plan-13"><a class="heading-link" href="#devspace-plan-13" aria-label="Link to `devspace plan`">#</a><code>devspace plan</code></h3><figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-12">Copy</button>
+    </figcaption>
+    <div id="code-12" class="diff-render" data-code-b64="ZGV2c3BhY2UgcGxhbgpkZXZzcGFjZSBwbGFuIC0tanNvbg==" data-lang="bash"></div>
     <noscript><pre><code>devspace plan
 devspace plan --json</code></pre></noscript>
   </figure><p>Builds a deterministic plan of safe and skipped actions, saves it to
 <code>&lt;workspace&gt;/.devdrop/last-plan.json</code>, and prints a human-readable report.
 <code>--json</code> prints the same saved plan as structured JSON for automation.</p>
-<h3 id="devspace-apply-10"><a class="heading-link" href="#devspace-apply-10" aria-label="Link to `devspace apply`">#</a><code>devspace apply</code></h3><figure class="code-block" data-lang="bash">
+<h3 id="devspace-apply-14"><a class="heading-link" href="#devspace-apply-14" aria-label="Link to `devspace apply`">#</a><code>devspace apply</code></h3><figure class="code-block" data-lang="bash">
     <figcaption>
       <span>bash</span>
-      <button class="copy-btn" type="button" data-copy-code="code-9">Copy</button>
+      <button class="copy-btn" type="button" data-copy-code="code-13">Copy</button>
     </figcaption>
-    <div id="code-9" class="diff-render" data-code-b64="ZGV2c3BhY2UgYXBwbHk=" data-lang="bash"></div>
+    <div id="code-13" class="diff-render" data-code-b64="ZGV2c3BhY2UgYXBwbHk=" data-lang="bash"></div>
     <noscript><pre><code>devspace apply</code></pre></noscript>
   </figure><p>Applies the last saved plan only if the manifest hash still matches. If the
 manifest changed after <code>plan</code>, <code>apply</code> refuses to run and asks you to re-plan.
 Only safe actions are executed. Skipped actions remain listed and untouched.</p>
-<h3 id="devspace-workspace-sync-11"><a class="heading-link" href="#devspace-workspace-sync-11" aria-label="Link to `devspace workspace sync`">#</a><code>devspace workspace sync</code></h3><figure class="code-block" data-lang="bash">
+<h3 id="devspace-workspace-sync-15"><a class="heading-link" href="#devspace-workspace-sync-15" aria-label="Link to `devspace workspace sync`">#</a><code>devspace workspace sync</code></h3><figure class="code-block" data-lang="bash">
     <figcaption>
       <span>bash</span>
-      <button class="copy-btn" type="button" data-copy-code="code-10">Copy</button>
+      <button class="copy-btn" type="button" data-copy-code="code-14">Copy</button>
     </figcaption>
-    <div id="code-10" class="diff-render" data-code-b64="ZGV2c3BhY2Ugd29ya3NwYWNlIHN5bmMgLS1kcnktcnVuCmRldnNwYWNlIHdvcmtzcGFjZSBzeW5j" data-lang="bash"></div>
+    <div id="code-14" class="diff-render" data-code-b64="ZGV2c3BhY2Ugd29ya3NwYWNlIHN5bmMgLS1kcnktcnVuCmRldnNwYWNlIHdvcmtzcGFjZSBzeW5j" data-lang="bash"></div>
     <noscript><pre><code>devspace workspace sync --dry-run
 devspace workspace sync</code></pre></noscript>
   </figure><p>Compatibility alias. Prefer <code>devspace plan</code> and <code>devspace apply</code>.</p>
-<h3 id="devspace-workspace-remote-12"><a class="heading-link" href="#devspace-workspace-remote-12" aria-label="Link to `devspace workspace remote`">#</a><code>devspace workspace remote</code></h3><figure class="code-block" data-lang="bash">
+<h3 id="devspace-workspace-remote-16"><a class="heading-link" href="#devspace-workspace-remote-16" aria-label="Link to `devspace workspace remote`">#</a><code>devspace workspace remote</code></h3><figure class="code-block" data-lang="bash">
     <figcaption>
       <span>bash</span>
-      <button class="copy-btn" type="button" data-copy-code="code-11">Copy</button>
+      <button class="copy-btn" type="button" data-copy-code="code-15">Copy</button>
     </figcaption>
-    <div id="code-11" class="diff-render" data-code-b64="ZGV2c3BhY2Ugd29ya3NwYWNlIHJlbW90ZSBzZXQgPGdpdC11cmwtb3ItbG9jYWwtcGF0aD4KZGV2c3BhY2Ugd29ya3NwYWNlIHJlbW90ZSBjcmVhdGUgbG9jYWwgfi9Qcm9qZWN0cy9kZXZzcGFjZS1tYW5pZmVzdC5naXQKZGV2c3BhY2Ugd29ya3NwYWNlIHJlbW90ZSBjcmVhdGUgZ2l0aHViIEhleFNsZWV2ZXMvZGV2c3BhY2UtbWFuaWZlc3QgLS1wcml2YXRlCmRldnNwYWNlIHdvcmtzcGFjZSByZW1vdGUgZ2V0" data-lang="bash"></div>
+    <div id="code-15" class="diff-render" data-code-b64="ZGV2c3BhY2Ugd29ya3NwYWNlIHJlbW90ZSBzZXQgPGdpdC11cmwtb3ItbG9jYWwtcGF0aD4KZGV2c3BhY2Ugd29ya3NwYWNlIHJlbW90ZSBjcmVhdGUgbG9jYWwgfi9Qcm9qZWN0cy9kZXZzcGFjZS1tYW5pZmVzdC5naXQKZGV2c3BhY2Ugd29ya3NwYWNlIHJlbW90ZSBjcmVhdGUgZ2l0aHViIEhleFNsZWV2ZXMvZGV2c3BhY2UtbWFuaWZlc3QgLS1wcml2YXRlCmRldnNwYWNlIHdvcmtzcGFjZSByZW1vdGUgZ2V0" data-lang="bash"></div>
     <noscript><pre><code>devspace workspace remote set &lt;git-url-or-local-path&gt;
 devspace workspace remote create local ~/Projects/devspace-manifest.git
 devspace workspace remote create github HexSleeves/devspace-manifest --private
@@ -1166,23 +1404,23 @@ devspace workspace remote get</code></pre></noscript>
 is not written into the workspace manifest. <code>remote create local</code> initializes a
 local bare Git repository and sets it as the remote. <code>remote create github</code> uses
 the GitHub CLI (<code>gh</code>) to create the repository, then sets the SSH remote.</p>
-<h3 id="devspace-workspace-push-13"><a class="heading-link" href="#devspace-workspace-push-13" aria-label="Link to `devspace workspace push`">#</a><code>devspace workspace push</code></h3><figure class="code-block" data-lang="bash">
+<h3 id="devspace-workspace-push-17"><a class="heading-link" href="#devspace-workspace-push-17" aria-label="Link to `devspace workspace push`">#</a><code>devspace workspace push</code></h3><figure class="code-block" data-lang="bash">
     <figcaption>
       <span>bash</span>
-      <button class="copy-btn" type="button" data-copy-code="code-12">Copy</button>
+      <button class="copy-btn" type="button" data-copy-code="code-16">Copy</button>
     </figcaption>
-    <div id="code-12" class="diff-render" data-code-b64="ZGV2c3BhY2Ugd29ya3NwYWNlIHB1c2g=" data-lang="bash"></div>
+    <div id="code-16" class="diff-render" data-code-b64="ZGV2c3BhY2Ugd29ya3NwYWNlIHB1c2g=" data-lang="bash"></div>
     <noscript><pre><code>devspace workspace push</code></pre></noscript>
   </figure><p>Validates the local manifest, clones the manifest repo cache if needed, writes
 only <code>manifest.json</code>, commits only when the manifest changed, and pushes to the
 configured Git remote. If the manifest repo is dirty or the remote branch is
 newer/diverged, the command stops and asks you to pull or reconcile first.</p>
-<h3 id="devspace-workspace-pull-14"><a class="heading-link" href="#devspace-workspace-pull-14" aria-label="Link to `devspace workspace pull`">#</a><code>devspace workspace pull</code></h3><figure class="code-block" data-lang="bash">
+<h3 id="devspace-workspace-pull-18"><a class="heading-link" href="#devspace-workspace-pull-18" aria-label="Link to `devspace workspace pull`">#</a><code>devspace workspace pull</code></h3><figure class="code-block" data-lang="bash">
     <figcaption>
       <span>bash</span>
-      <button class="copy-btn" type="button" data-copy-code="code-13">Copy</button>
+      <button class="copy-btn" type="button" data-copy-code="code-17">Copy</button>
     </figcaption>
-    <div id="code-13" class="diff-render" data-code-b64="ZGV2c3BhY2Ugd29ya3NwYWNlIHB1bGwKZGV2c3BhY2UgcGxhbgpkZXZzcGFjZSBhcHBseQ==" data-lang="bash"></div>
+    <div id="code-17" class="diff-render" data-code-b64="ZGV2c3BhY2Ugd29ya3NwYWNlIHB1bGwKZGV2c3BhY2UgcGxhbgpkZXZzcGFjZSBhcHBseQ==" data-lang="bash"></div>
     <noscript><pre><code>devspace workspace pull
 devspace plan
 devspace apply</code></pre></noscript>
@@ -1190,22 +1428,102 @@ devspace apply</code></pre></noscript>
 up the current local manifest, and atomically replaces it. It does not run
 <code>apply</code>, hydrate projects, pull project repos, install dependencies, or overwrite
 project contents.</p>
-<h3 id="devspace-project-hydrate-15"><a class="heading-link" href="#devspace-project-hydrate-15" aria-label="Link to `devspace project hydrate`">#</a><code>devspace project hydrate</code></h3><figure class="code-block" data-lang="bash">
+<h3 id="devspace-workspace-diff-19"><a class="heading-link" href="#devspace-workspace-diff-19" aria-label="Link to `devspace workspace diff`">#</a><code>devspace workspace diff</code></h3><figure class="code-block" data-lang="bash">
     <figcaption>
       <span>bash</span>
-      <button class="copy-btn" type="button" data-copy-code="code-14">Copy</button>
+      <button class="copy-btn" type="button" data-copy-code="code-18">Copy</button>
     </figcaption>
-    <div id="code-14" class="diff-render" data-code-b64="ZGV2c3BhY2UgcHJvamVjdCBoeWRyYXRlIGNsaWVudC1hLWFwaQ==" data-lang="bash"></div>
+    <div id="code-18" class="diff-render" data-code-b64="ZGV2c3BhY2Ugd29ya3NwYWNlIGRpZmY=" data-lang="bash"></div>
+    <noscript><pre><code>devspace workspace diff</code></pre></noscript>
+  </figure><p>Fetches the configured manifest repo cache, validates the remote
+<code>manifest.json</code>, localizes it to the current workspace, and reports projects
+that would be added, removed, or changed by a future pull. It does not replace
+the local manifest, apply plans, hydrate projects, pull source-code repos, or
+write to the manifest remote.</p>
+<h3 id="devspace-hosted-20"><a class="heading-link" href="#devspace-hosted-20" aria-label="Link to `devspace hosted`">#</a><code>devspace hosted</code></h3><p>Hosted sync is opt-in and separate from Git-backed sync. Configure it only when
+you want the manifest copied to a hosted control plane:</p>
+<figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-19">Copy</button>
+    </figcaption>
+    <div id="code-19" class="diff-render" data-code-b64="ZGV2c3BhY2UgaG9zdGVkIHNlcnZlIC0tYWRkciAxMjcuMC4wLjE6ODc4NyAtLXN0b3JlIH4vLmRldmRyb3AvaG9zdGVkLWNvbnRyb2wtcGxhbmUgLS10b2tlbiBkZXYtdG9rZW4KZGV2c3BhY2UgaG9zdGVkIGNvbmZpZyBzZXQgaHR0cDovLzEyNy4wLjAuMTo4Nzg3IC0tdG9rZW4gZGV2LXRva2VuIC0td29ya3NwYWNlIHRlYW0tYQpkZXZzcGFjZSBob3N0ZWQgcHVzaApkZXZzcGFjZSBob3N0ZWQgcHVsbA==" data-lang="bash"></div>
+    <noscript><pre><code>devspace hosted serve --addr 127.0.0.1:8787 --store ~/.devdrop/hosted-control-plane --token dev-token
+devspace hosted config set http://127.0.0.1:8787 --token dev-token --workspace team-a
+devspace hosted push
+devspace hosted pull</code></pre></noscript>
+  </figure><p>The runnable prototype server exposes:</p>
+<figure class="code-block" data-lang="text">
+    <figcaption>
+      <span>text</span>
+      <button class="copy-btn" type="button" data-copy-code="code-20">Copy</button>
+    </figcaption>
+    <div id="code-20" class="diff-render" data-code-b64="R0VUIC92MS93b3Jrc3BhY2VzL3t3b3Jrc3BhY2V9L21hbmlmZXN0ClBVVCAvdjEvd29ya3NwYWNlcy97d29ya3NwYWNlfS9tYW5pZmVzdApBdXRob3JpemF0aW9uOiBCZWFyZXIgPHRva2VuPg==" data-lang="text"></div>
+    <noscript><pre><code>GET /v1/workspaces/{workspace}/manifest
+PUT /v1/workspaces/{workspace}/manifest
+Authorization: Bearer &lt;token&gt;</code></pre></noscript>
+  </figure><p>Storage is one JSON envelope per hosted workspace under the server <code>--store</code>
+directory. Each envelope contains the API version, hosted workspace id, monotonic
+sync version, manifest hash, update timestamp, and normalized <code>manifest.json</code>.
+The server does not receive source files, dependency folders, <code>.env</code> files,
+encrypted secret payloads, plaintext secrets, or local workspace roots.</p>
+<p>Hosted <code>push</code> sends only the normalized manifest (<code>workspaceRoot: &quot;.&quot;</code>, no
+machine-local paths) and records the returned hosted version/hash in local state.
+Hosted <code>pull</code> localizes the manifest to the current workspace, writes the usual
+<code>.bak</code> backup, and then expects the operator to run <code>devspace plan &amp;&amp; devspace apply</code>.</p>
+<p>Hosted conflict behavior is optimistic:</p>
+<ul>
+<li><code>PUT</code> requires the caller&#39;s expected hosted version; stale writes return 409.</li>
+<li><code>push</code> refuses when the hosted manifest changed since the last local hosted
+sync.</li>
+<li><code>pull</code> refuses when the local manifest changed since the last local hosted
+sync.</li>
+<li>A first-time <code>pull</code> refuses to overwrite a non-empty local manifest that
+differs from hosted.</li>
+</ul>
+<p>Hosted path safety runs client-side and server-side. Project paths must remain
+relative to the workspace and hosted sync rejects paths containing <code>.env</code>,
+<code>.git</code>, dependency, build, cache, coverage, or vendored directory components.
+Git-backed <code>devspace workspace push/pull/diff</code> remains the fallback when hosted
+sync is not configured or unavailable.</p>
+<h3 id="devspace-project-hydrate-21"><a class="heading-link" href="#devspace-project-hydrate-21" aria-label="Link to `devspace project hydrate`">#</a><code>devspace project hydrate</code></h3><figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-21">Copy</button>
+    </figcaption>
+    <div id="code-21" class="diff-render" data-code-b64="ZGV2c3BhY2UgcHJvamVjdCBoeWRyYXRlIGNsaWVudC1hLWFwaQ==" data-lang="bash"></div>
     <noscript><pre><code>devspace project hydrate client-a-api</code></pre></noscript>
   </figure><p>Hydrates a placeholder Git project with normal <code>git clone</code>. The placeholder is
 an empty directory; hydration refuses to clone into non-empty directories and
 does not delete files.</p>
-<h3 id="devspace-env-16"><a class="heading-link" href="#devspace-env-16" aria-label="Link to `devspace env`">#</a><code>devspace env</code></h3><figure class="code-block" data-lang="bash">
+<h3 id="devspace-setup-22"><a class="heading-link" href="#devspace-setup-22" aria-label="Link to `devspace setup`">#</a><code>devspace setup</code></h3><figure class="code-block" data-lang="bash">
     <figcaption>
       <span>bash</span>
-      <button class="copy-btn" type="button" data-copy-code="code-15">Copy</button>
+      <button class="copy-btn" type="button" data-copy-code="code-22">Copy</button>
     </figcaption>
-    <div id="code-15" class="diff-render" data-code-b64="cHJpbnRmICdwb3N0Z3JlczovL2xvY2FsXG4nIHwgZGV2c3BhY2UgZW52IHNldCBjbGllbnQtYS1hcGkgREFUQUJBU0VfVVJMCmRldnNwYWNlIGVudiBsaXN0IGNsaWVudC1hLWFwaQpkZXZzcGFjZSBlbnYgcHVsbCBjbGllbnQtYS1hcGk=" data-lang="bash"></div>
+    <div id="code-22" class="diff-render" data-code-b64="ZGV2c3BhY2Ugc2V0dXAgcGxhbgpkZXZzcGFjZSBzZXR1cCBwbGFuIC0tanNvbgpkZXZzcGFjZSBzZXR1cCBydW4gY2xpZW50LWEtYXBpIC0teWVzCmRldnNwYWNlIHNldHVwIHJ1biBjbGllbnQtYS1hcGkgLS1jb21tYW5kIGRldiAtLXllcwpkZXZzcGFjZSBzZXR1cCBhcHBseSAtLXllcw==" data-lang="bash"></div>
+    <noscript><pre><code>devspace setup plan
+devspace setup plan --json
+devspace setup run client-a-api --yes
+devspace setup run client-a-api --command dev --yes
+devspace setup apply --yes</code></pre></noscript>
+  </figure><p><code>setup plan</code> reports dependency setup hints already captured by <code>scan</code>, including
+the detected package manager, install command, and dev command. It does not run
+anything.</p>
+<p><code>setup run &lt;project&gt;</code> executes one reviewed command in the validated project
+directory. By default it runs the install command and prompts for confirmation;
+use <code>--command dev</code> to run a detected dev command, <code>--dry-run</code> to preview, or
+<code>--yes</code> for non-interactive execution after review.</p>
+<p><code>setup apply</code> runs install commands for all detected projects after confirmation.
+Known package managers are executed without a shell. Unknown snippets require
+<code>--allow-unknown</code>, and commands that appear to install globally also require
+<code>--allow-global</code>.</p>
+<h3 id="devspace-env-23"><a class="heading-link" href="#devspace-env-23" aria-label="Link to `devspace env`">#</a><code>devspace env</code></h3><figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-23">Copy</button>
+    </figcaption>
+    <div id="code-23" class="diff-render" data-code-b64="cHJpbnRmICdwb3N0Z3JlczovL2xvY2FsXG4nIHwgZGV2c3BhY2UgZW52IHNldCBjbGllbnQtYS1hcGkgREFUQUJBU0VfVVJMCmRldnNwYWNlIGVudiBsaXN0IGNsaWVudC1hLWFwaQpkZXZzcGFjZSBlbnYgcHVsbCBjbGllbnQtYS1hcGk=" data-lang="bash"></div>
     <noscript><pre><code>printf &#39;postgres://local\n&#39; | devspace env set client-a-api DATABASE_URL
 devspace env list client-a-api
 devspace env pull client-a-api</code></pre></noscript>
@@ -1216,18 +1534,18 @@ local project <code>.env</code> with <code>0600</code> permissions.</p>
 <figure class="code-block" data-lang="text">
     <figcaption>
       <span>text</span>
-      <button class="copy-btn" type="button" data-copy-code="code-16">Copy</button>
+      <button class="copy-btn" type="button" data-copy-code="code-24">Copy</button>
     </figcaption>
-    <div id="code-16" class="diff-render" data-code-b64="PHdvcmtzcGFjZT4vLmRldmRyb3Avc2VjcmV0cy88cHJvamVjdC1pZD4vPHByb2ZpbGU+LmFnZQ==" data-lang="text"></div>
+    <div id="code-24" class="diff-render" data-code-b64="PHdvcmtzcGFjZT4vLmRldmRyb3Avc2VjcmV0cy88cHJvamVjdC1pZD4vPHByb2ZpbGU+LmFnZQ==" data-lang="text"></div>
     <noscript><pre><code>&lt;workspace&gt;/.devdrop/secrets/&lt;project-id&gt;/&lt;profile&gt;.age</code></pre></noscript>
-  </figure><h2 id="example-local-workflow-17"><a class="heading-link" href="#example-local-workflow-17" aria-label="Link to Example Local Workflow">#</a>Example Local Workflow</h2><p>This workflow uses temporary directories and a local bare Git remote, so it does
+  </figure><h2 id="example-local-workflow-24"><a class="heading-link" href="#example-local-workflow-24" aria-label="Link to Example Local Workflow">#</a>Example Local Workflow</h2><p>This workflow uses temporary directories and a local bare Git remote, so it does
 not need network access.</p>
 <figure class="code-block" data-lang="bash">
     <figcaption>
       <span>bash</span>
-      <button class="copy-btn" type="button" data-copy-code="code-17">Copy</button>
+      <button class="copy-btn" type="button" data-copy-code="code-25">Copy</button>
     </figcaption>
-    <div id="code-17" class="diff-render" data-code-b64="Z28gYnVpbGQgLW8gYmluL2RldnNwYWNlIC4vY21kL2RldmRyb3AKCnRtcD0iJChta3RlbXAgLWQpIgpleHBvcnQgREVWX0RST1BfSE9NRT0iJHRtcC9ob21lIgp3b3Jrc3BhY2VfYT0iJHRtcC93b3Jrc3BhY2UtYSIKcmVtb3RlX3NyYz0iJHRtcC9yZW1vdGUtc3JjIgpyZW1vdGVfYmFyZT0iJHRtcC9jbGllbnQtYS1hcGkuZ2l0IgptYW5pZmVzdF9yZW1vdGU9IiR0bXAvbWFuaWZlc3Qtc3luYy5naXQiCgpta2RpciAtcCAiJHJlbW90ZV9zcmMiCmdpdCAtQyAiJHJlbW90ZV9zcmMiIGluaXQgLWIgbWFpbgpnaXQgLUMgIiRyZW1vdGVfc3JjIiBjb25maWcgdXNlci5lbWFpbCBkZW1vQGV4YW1wbGUuY29tCmdpdCAtQyAiJHJlbW90ZV9zcmMiIGNvbmZpZyB1c2VyLm5hbWUgIkRlbW8gVXNlciIKcHJpbnRmICcjIGNsaWVudC1hLWFwaVxuJyA+ICIkcmVtb3RlX3NyYy9SRUFETUUubWQiCmdpdCAtQyAiJHJlbW90ZV9zcmMiIGFkZCBSRUFETUUubWQKZ2l0IC1DICIkcmVtb3RlX3NyYyIgY29tbWl0IC1tICJpbml0aWFsIgpnaXQgY2xvbmUgLS1iYXJlICIkcmVtb3RlX3NyYyIgIiRyZW1vdGVfYmFyZSIKCmJpbi9kZXZzcGFjZSBpbml0IC0td29ya3NwYWNlICIkd29ya3NwYWNlX2EiCm1rZGlyIC1wICIkd29ya3NwYWNlX2Evd29yay9jbGllbnQtYS1hcGkiCmdpdCBjbG9uZSAiJHJlbW90ZV9iYXJlIiAiJHdvcmtzcGFjZV9hL3dvcmsvY2xpZW50LWEtYXBpIgpwcmludGYgJ3sic2NyaXB0cyI6eyJkZXYiOiJ2aXRlIn19XG4nID4gIiR3b3Jrc3BhY2VfYS93b3JrL2NsaWVudC1hLWFwaS9wYWNrYWdlLmpzb24iCmJpbi9kZXZzcGFjZSBzY2FuCmJpbi9kZXZzcGFjZSB3b3Jrc3BhY2UgcmVtb3RlIGNyZWF0ZSBsb2NhbCAiJG1hbmlmZXN0X3JlbW90ZSIKYmluL2RldnNwYWNlIHdvcmtzcGFjZSBwdXNoCmJpbi9kZXZzcGFjZSBwbGFuCmJpbi9kZXZzcGFjZSBhcHBseQpwcmludGYgJ3Bvc3RncmVzOi8vZGVtb1xuJyB8IGJpbi9kZXZzcGFjZSBlbnYgc2V0IGNsaWVudC1hLWFwaSBEQVRBQkFTRV9VUkwKYmluL2RldnNwYWNlIGVudiBsaXN0IGNsaWVudC1hLWFwaQpiaW4vZGV2c3BhY2UgZW52IHB1bGwgY2xpZW50LWEtYXBpCmJpbi9kZXZzcGFjZSBzdGF0dXM=" data-lang="bash"></div>
+    <div id="code-25" class="diff-render" data-code-b64="Z28gYnVpbGQgLW8gYmluL2RldnNwYWNlIC4vY21kL2RldmRyb3AKCnRtcD0iJChta3RlbXAgLWQpIgpleHBvcnQgREVWX0RST1BfSE9NRT0iJHRtcC9ob21lIgp3b3Jrc3BhY2VfYT0iJHRtcC93b3Jrc3BhY2UtYSIKcmVtb3RlX3NyYz0iJHRtcC9yZW1vdGUtc3JjIgpyZW1vdGVfYmFyZT0iJHRtcC9jbGllbnQtYS1hcGkuZ2l0IgptYW5pZmVzdF9yZW1vdGU9IiR0bXAvbWFuaWZlc3Qtc3luYy5naXQiCgpta2RpciAtcCAiJHJlbW90ZV9zcmMiCmdpdCAtQyAiJHJlbW90ZV9zcmMiIGluaXQgLWIgbWFpbgpnaXQgLUMgIiRyZW1vdGVfc3JjIiBjb25maWcgdXNlci5lbWFpbCBkZW1vQGV4YW1wbGUuY29tCmdpdCAtQyAiJHJlbW90ZV9zcmMiIGNvbmZpZyB1c2VyLm5hbWUgIkRlbW8gVXNlciIKcHJpbnRmICcjIGNsaWVudC1hLWFwaVxuJyA+ICIkcmVtb3RlX3NyYy9SRUFETUUubWQiCmdpdCAtQyAiJHJlbW90ZV9zcmMiIGFkZCBSRUFETUUubWQKZ2l0IC1DICIkcmVtb3RlX3NyYyIgY29tbWl0IC1tICJpbml0aWFsIgpnaXQgY2xvbmUgLS1iYXJlICIkcmVtb3RlX3NyYyIgIiRyZW1vdGVfYmFyZSIKCmJpbi9kZXZzcGFjZSBpbml0IC0td29ya3NwYWNlICIkd29ya3NwYWNlX2EiCm1rZGlyIC1wICIkd29ya3NwYWNlX2Evd29yay9jbGllbnQtYS1hcGkiCmdpdCBjbG9uZSAiJHJlbW90ZV9iYXJlIiAiJHdvcmtzcGFjZV9hL3dvcmsvY2xpZW50LWEtYXBpIgpwcmludGYgJ3sic2NyaXB0cyI6eyJkZXYiOiJ2aXRlIn19XG4nID4gIiR3b3Jrc3BhY2VfYS93b3JrL2NsaWVudC1hLWFwaS9wYWNrYWdlLmpzb24iCmJpbi9kZXZzcGFjZSBzY2FuCmJpbi9kZXZzcGFjZSB3b3Jrc3BhY2UgcmVtb3RlIGNyZWF0ZSBsb2NhbCAiJG1hbmlmZXN0X3JlbW90ZSIKYmluL2RldnNwYWNlIHdvcmtzcGFjZSBwdXNoCmJpbi9kZXZzcGFjZSBwbGFuCmJpbi9kZXZzcGFjZSBhcHBseQpwcmludGYgJ3Bvc3RncmVzOi8vZGVtb1xuJyB8IGJpbi9kZXZzcGFjZSBlbnYgc2V0IGNsaWVudC1hLWFwaSBEQVRBQkFTRV9VUkwKYmluL2RldnNwYWNlIGVudiBsaXN0IGNsaWVudC1hLWFwaQpiaW4vZGV2c3BhY2UgZW52IHB1bGwgY2xpZW50LWEtYXBpCmJpbi9kZXZzcGFjZSBzdGF0dXM=" data-lang="bash"></div>
     <noscript><pre><code>go build -o bin/devspace ./cmd/devdrop
 
 tmp=&quot;$(mktemp -d)&quot;
@@ -1259,13 +1577,13 @@ printf &#39;postgres://demo\n&#39; | bin/devspace env set client-a-api DATABASE_
 bin/devspace env list client-a-api
 bin/devspace env pull client-a-api
 bin/devspace status</code></pre></noscript>
-  </figure><h2 id="two-machine-git-sync-workflow-18"><a class="heading-link" href="#two-machine-git-sync-workflow-18" aria-label="Link to Two-Machine Git Sync Workflow">#</a>Two-Machine Git Sync Workflow</h2><p>To simulate a second machine, use a local bare Git repo for the manifest.</p>
+  </figure><h2 id="two-machine-git-sync-workflow-25"><a class="heading-link" href="#two-machine-git-sync-workflow-25" aria-label="Link to Two-Machine Git Sync Workflow">#</a>Two-Machine Git Sync Workflow</h2><p>To simulate a second machine, use a local bare Git repo for the manifest.</p>
 <figure class="code-block" data-lang="bash">
     <figcaption>
       <span>bash</span>
-      <button class="copy-btn" type="button" data-copy-code="code-18">Copy</button>
+      <button class="copy-btn" type="button" data-copy-code="code-26">Copy</button>
     </figcaption>
-    <div id="code-18" class="diff-render" data-code-b64="d29ya3NwYWNlX2I9IiR0bXAvd29ya3NwYWNlLWIiCm1hbmlmZXN0X3JlbW90ZT0iJHRtcC9tYW5pZmVzdC1zeW5jLmdpdCIKCmV4cG9ydCBERVZfRFJPUF9IT01FPSIkdG1wL2hvbWUtYSIKYmluL2RldnNwYWNlIGluaXQgLS13b3Jrc3BhY2UgIiR3b3Jrc3BhY2VfYSIKYmluL2RldnNwYWNlIHNjYW4KYmluL2RldnNwYWNlIHdvcmtzcGFjZSByZW1vdGUgY3JlYXRlIGxvY2FsICIkbWFuaWZlc3RfcmVtb3RlIgpiaW4vZGV2c3BhY2Ugd29ya3NwYWNlIHB1c2gKCmV4cG9ydCBERVZfRFJPUF9IT01FPSIkdG1wL2hvbWUtYiIKYmluL2RldnNwYWNlIGluaXQgLS13b3Jrc3BhY2UgIiR3b3Jrc3BhY2VfYiIKYmluL2RldnNwYWNlIHdvcmtzcGFjZSByZW1vdGUgc2V0ICIkbWFuaWZlc3RfcmVtb3RlIgpiaW4vZGV2c3BhY2Ugd29ya3NwYWNlIHB1bGwKYmluL2RldnNwYWNlIHBsYW4KYmluL2RldnNwYWNlIGFwcGx5CmJpbi9kZXZzcGFjZSBzdGF0dXM=" data-lang="bash"></div>
+    <div id="code-26" class="diff-render" data-code-b64="d29ya3NwYWNlX2I9IiR0bXAvd29ya3NwYWNlLWIiCm1hbmlmZXN0X3JlbW90ZT0iJHRtcC9tYW5pZmVzdC1zeW5jLmdpdCIKCmV4cG9ydCBERVZfRFJPUF9IT01FPSIkdG1wL2hvbWUtYSIKYmluL2RldnNwYWNlIGluaXQgLS13b3Jrc3BhY2UgIiR3b3Jrc3BhY2VfYSIKYmluL2RldnNwYWNlIHNjYW4KYmluL2RldnNwYWNlIHdvcmtzcGFjZSByZW1vdGUgY3JlYXRlIGxvY2FsICIkbWFuaWZlc3RfcmVtb3RlIgpiaW4vZGV2c3BhY2Ugd29ya3NwYWNlIHB1c2gKCmV4cG9ydCBERVZfRFJPUF9IT01FPSIkdG1wL2hvbWUtYiIKYmluL2RldnNwYWNlIGluaXQgLS13b3Jrc3BhY2UgIiR3b3Jrc3BhY2VfYiIKYmluL2RldnNwYWNlIHdvcmtzcGFjZSByZW1vdGUgc2V0ICIkbWFuaWZlc3RfcmVtb3RlIgpiaW4vZGV2c3BhY2Ugd29ya3NwYWNlIHB1bGwKYmluL2RldnNwYWNlIHBsYW4KYmluL2RldnNwYWNlIGFwcGx5CmJpbi9kZXZzcGFjZSBzdGF0dXM=" data-lang="bash"></div>
     <noscript><pre><code>workspace_b=&quot;$tmp/workspace-b&quot;
 manifest_remote=&quot;$tmp/manifest-sync.git&quot;
 
@@ -1285,7 +1603,7 @@ bin/devspace status</code></pre></noscript>
   </figure><p>The second workspace now contains placeholder directories for tracked projects.
 Run <code>bin/devspace project hydrate &lt;project&gt;</code> to clone a placeholder Git project
 when the manifest includes its remote.</p>
-<h2 id="safety-guarantees-19"><a class="heading-link" href="#safety-guarantees-19" aria-label="Link to Safety Guarantees">#</a>Safety Guarantees</h2><ul>
+<h2 id="safety-guarantees-26"><a class="heading-link" href="#safety-guarantees-26" aria-label="Link to Safety Guarantees">#</a>Safety Guarantees</h2><ul>
 <li>Project paths in the manifest are relative to the workspace root.</li>
 <li>Absolute paths and parent-directory escapes are rejected.</li>
 <li><code>plan</code> reports planned filesystem changes before writing anything.</li>
@@ -1294,15 +1612,21 @@ when the manifest includes its remote.</p>
 <li><code>apply</code> creates missing directories only; it skips non-empty destinations.</li>
 <li>Plan reports path, dirty-repo, and remote conflicts instead of overwriting local work.</li>
 <li>Hydration clones only into missing or empty directories.</li>
+<li><code>watch</code> refreshes manifest/state metadata only unless an explicit <code>--sync</code>
+push mode is selected.</li>
+<li><code>watch --sync git</code> pushes only <code>manifest.json</code> through Git-backed sync.</li>
+<li><code>watch --sync hosted</code> pushes only the normalized manifest envelope.</li>
 <li>Env values are encrypted at rest with age.</li>
 <li><code>env list</code> masks secret values.</li>
 <li><code>env pull</code> writes <code>.env</code> with <code>0600</code> permissions.</li>
 <li>Git-backed sync stores only <code>manifest.json</code>.</li>
 <li>Manifest sync strips machine-local workspace paths from the synced manifest
 and localizes the manifest on pull.</li>
-<li>The MVP has no hosted control plane and no background process.</li>
+<li>Hosted sync is opt-in, stores only normalized manifest metadata, and never
+uploads source code, dependency folders, <code>.env</code> files, or secret values.</li>
+<li>The MVP has no background process.</li>
 </ul>
-<h2 id="conflict-behavior-20"><a class="heading-link" href="#conflict-behavior-20" aria-label="Link to Conflict Behavior">#</a>Conflict Behavior</h2><p>Manifest sync stops with a clear error when:</p>
+<h2 id="conflict-behavior-27"><a class="heading-link" href="#conflict-behavior-27" aria-label="Link to Conflict Behavior">#</a>Conflict Behavior</h2><p>Manifest sync stops with a clear error when:</p>
 <ul>
 <li>No manifest remote is configured.</li>
 <li>Git is not installed.</li>
@@ -1312,32 +1636,37 @@ and localizes the manifest on pull.</li>
 <li>The remote branch is newer or diverged.</li>
 <li>The pulled manifest is invalid JSON or fails manifest validation.</li>
 <li>Pull would overwrite local manifest changes.</li>
+<li>Hosted push/pull would overwrite local or remote manifest changes without a
+matching hosted version/hash baseline.</li>
 </ul>
-<h2 id="what-this-tool-will-not-do-without-permission-21"><a class="heading-link" href="#what-this-tool-will-not-do-without-permission-21" aria-label="Link to What This Tool Will Not Do Without Permission">#</a>What This Tool Will Not Do Without Permission</h2><ul>
+<h2 id="what-this-tool-will-not-do-without-permission-28"><a class="heading-link" href="#what-this-tool-will-not-do-without-permission-28" aria-label="Link to What This Tool Will Not Do Without Permission">#</a>What This Tool Will Not Do Without Permission</h2><ul>
 <li>Delete local projects, files, or directories.</li>
 <li>Overwrite existing project contents during apply or hydrate.</li>
 <li>Auto-pull, rebase, merge, or push project Git repositories.</li>
+<li>Auto-pull Git-backed or hosted workspace manifests from watch mode.</li>
+<li>Auto-apply plans or hydrate repositories from watch mode.</li>
 <li>Resolve Git conflicts.</li>
-<li>Install dependencies or run project setup commands.</li>
+<li>Install dependencies or run project setup commands during scan, pull, apply,
+hydrate, watch, daemon, or filesystem reads.</li>
 <li>Upload secrets, source code, or project files.</li>
 <li>Share env profiles with teammates.</li>
 <li>Rotate secrets or replace local <code>.env</code> values without an explicit command.</li>
-<li>Watch the filesystem in the background.</li>
 <li>Mount a FUSE or virtual filesystem.</li>
 </ul>
-<h2 id="known-limitations-22"><a class="heading-link" href="#known-limitations-22" aria-label="Link to Known Limitations">#</a>Known Limitations</h2><ul>
-<li>Hosted manifest sync is not implemented.</li>
+<h2 id="known-limitations-29"><a class="heading-link" href="#known-limitations-29" aria-label="Link to Known Limitations">#</a>Known Limitations</h2><ul>
+<li>Hosted manifest sync is a local runnable prototype, not a managed deployment.</li>
 <li>Placeholder hydration uses full <code>git clone</code>; partial clone and sparse checkout
 are not implemented.</li>
 <li>Secret profiles are local to the workspace; there is no team sharing, OS
 keychain integration, remote backup, or rotation flow.</li>
-<li>Setup hints are informational only and do not install dependencies.</li>
+<li>Setup hints are informational during scan and sync; installs only run through
+explicit <code>devspace setup</code> commands.</li>
 <li>Editor settings, VS Code extensions, devcontainers, Nix, mise, and asdf are
 outside the MVP.</li>
 <li>The command name is documented as <code>devspace</code>, while the current source package
 still lives under <code>cmd/devdrop</code>.</li>
 </ul>
-<h2 id="troubleshooting-23"><a class="heading-link" href="#troubleshooting-23" aria-label="Link to Troubleshooting">#</a>Troubleshooting</h2><ul>
+<h2 id="troubleshooting-30"><a class="heading-link" href="#troubleshooting-30" aria-label="Link to Troubleshooting">#</a>Troubleshooting</h2><ul>
 <li>If <code>devspace</code> is not found, build it with
 <code>go build -o bin/devspace ./cmd/devdrop</code> and run <code>bin/devspace</code>.</li>
 <li>If <code>workspace push</code> says the manifest remote is not ready, create it first with
@@ -1355,27 +1684,26 @@ directory or symlink exists at <code>.env</code>.</li>
 <li>If secret values appear missing, run <code>devspace env list &lt;project&gt;</code> to verify
 the key exists before pulling.</li>
 </ul>
-<h2 id="roadmap-24"><a class="heading-link" href="#roadmap-24" aria-label="Link to Roadmap">#</a>Roadmap</h2><ul>
+<h2 id="roadmap-31"><a class="heading-link" href="#roadmap-31" aria-label="Link to Roadmap">#</a>Roadmap</h2><ul>
 <li>Manifest conflict resolution and force flags.</li>
 <li>Hosted API or cloud object storage.</li>
-<li>Background daemon and filesystem watchers.</li>
+<li>Daemon process management for running watch mode outside a terminal.</li>
 <li>FUSE or virtual filesystem lazy loading.</li>
 <li>Git partial clone or sparse checkout.</li>
 <li>Team/shared secret profiles.</li>
 <li>OS keychain integration.</li>
 <li>Secret rotation.</li>
 <li>Editor settings, devcontainer, Nix, mise, or asdf sync.</li>
-<li>Optional dependency setup flows with explicit confirmation.</li>
 <li>Release-readiness checklist automation.</li>
 </ul>
-<h2 id="manifest-25"><a class="heading-link" href="#manifest-25" aria-label="Link to Manifest">#</a>Manifest</h2><p>See <a href="examples/manifest.json"><code>examples/manifest.json</code></a>.</p>
+<h2 id="manifest-32"><a class="heading-link" href="#manifest-32" aria-label="Link to Manifest">#</a>Manifest</h2><p>See <a href="examples/manifest.json"><code>examples/manifest.json</code></a>.</p>
 <p>The manifest is a versioned JSON file at:</p>
 <figure class="code-block" data-lang="text">
     <figcaption>
       <span>text</span>
-      <button class="copy-btn" type="button" data-copy-code="code-19">Copy</button>
+      <button class="copy-btn" type="button" data-copy-code="code-27">Copy</button>
     </figcaption>
-    <div id="code-19" class="diff-render" data-code-b64="PHdvcmtzcGFjZT4vLmRldmRyb3AvbWFuaWZlc3QuanNvbg==" data-lang="text"></div>
+    <div id="code-27" class="diff-render" data-code-b64="PHdvcmtzcGFjZT4vLmRldmRyb3AvbWFuaWZlc3QuanNvbg==" data-lang="text"></div>
     <noscript><pre><code>&lt;workspace&gt;/.devdrop/manifest.json</code></pre></noscript>
   </figure><p>Project paths are always relative to the workspace root. Absolute paths and
 parent-directory escapes are rejected.</p>
@@ -1401,10 +1729,24 @@ go test ./...
 go run ./cmd/devdrop --help
 ```
 
+## Release Packaging
+
+Repo-native release targets are available for the `devspace` CLI:
+
+```bash
+make verify
+make release
+```
+
+`make verify` runs tests, `go vet`, and a local build into `bin/devspace`.
+`make release` builds a current-platform archive under `dist/` and writes
+`dist/SHA256SUMS`. See [`docs/release.md`](docs/release.md) for install-from-source
+and GitHub Release assembly instructions.
+
 ## Current MVP Status
 
-This MVP is local-first. It proves the workflow before adding hosted sync,
-background daemons, or filesystem-level lazy loading.
+This MVP is local-first. It proves the workflow before adding filesystem-level
+lazy loading.
 
 What works today:
 
@@ -1413,12 +1755,20 @@ What works today:
 - Scan existing projects for Git metadata, `.env` presence, dependency files,
   and setup hints.
 - Show workspace and project status.
+- Diagnose local readiness before syncing, planning, applying, or hydrating.
 - Add local projects to the manifest.
 - Plan and apply safe missing project structure as empty placeholder folders.
 - Hydrate placeholder Git projects with normal `git clone`.
 - Push and pull the workspace manifest through a user-owned Git repository.
+- Opt into a hosted manifest sync control-plane prototype with explicit
+  endpoint/token configuration.
+- Review detected dependency install/dev commands and run them only through an
+  explicit setup command.
 - Store encrypted per-project env profiles with native age encryption.
 - Generate local `.env` files with `0600` permissions.
+- Keep workspace metadata fresh with an event-driven `devspace watch` mode.
+- Preview a FUSE-backed lazy workspace mount prototype without requiring FUSE for
+  normal CLI workflows.
 
 ## Capstone Artifacts
 
@@ -1477,6 +1827,32 @@ coverage/
 *.log
 ```
 
+### `devspace watch`
+
+```bash
+devspace watch
+devspace watch --debounce 3s
+devspace watch --sync git
+devspace watch --sync hosted
+devspace watch --once
+```
+
+Runs a long-lived workspace watcher that debounces filesystem events and refreshes
+the same manifest/state metadata as `devspace scan`. It watches the configured
+workspace root, skips `.devdrop/` and the existing dependency/build/cache ignore
+rules, and tracks manifest-relevant additions, removals, package marker changes,
+`.env` presence changes, and Git branch/index/ref changes.
+
+Default behavior is local-only: after each refresh, the watcher writes the local
+manifest and state files atomically and continues watching. `--sync git`
+explicitly pushes the refreshed
+manifest to the configured Git-backed manifest remote after each refresh.
+`--sync hosted` explicitly pushes the normalized manifest to the configured
+hosted control-plane prototype after each refresh. Watch mode never pulls remote
+manifests, applies saved plans, hydrates repositories, installs dependencies,
+runs setup commands, uploads secrets, or uploads source files. Use `--once` for
+local smoke tests and demos that should perform one refresh and exit.
+
 ### `devspace status`
 
 ```bash
@@ -1486,6 +1862,33 @@ devspace project status client-a-api
 
 Shows tracked projects, hydrated projects, placeholders, dirty repos, missing env
 files, stale/missing projects, and last scan/sync timestamps.
+
+### `devspace doctor`
+
+```bash
+devspace doctor
+```
+
+Checks local readiness without changing files or contacting hosted services. It
+reports config, workspace, manifest, Git, manifest remote/cache, saved plan, and
+tracked project path status. It exits non-zero only for hard failures that block
+core commands; stale plans, dirty repos, placeholders, and missing `.env` files
+are reported as warnings.
+
+### `devspace mount`
+
+```bash
+devspace mount ~/devspace-view
+devspace mount ~/devspace-view --preview
+```
+
+Prototype read-only FUSE workspace view. Manifest project paths appear as mount
+entries before they are hydrated, and accessing an on-demand Git project through
+the mount uses the same safe hydration checks as `devspace project hydrate`.
+`--preview` prints the projected entries without mounting and is the fallback for
+machines without macFUSE, `/dev/fuse`, or FUSE mount permissions. See
+[`docs/fuse-lazy-mount.md`](docs/fuse-lazy-mount.md) for platform requirements,
+library selection, and follow-up work.
 
 ### `devspace project add`
 
@@ -1564,6 +1967,66 @@ up the current local manifest, and atomically replaces it. It does not run
 `apply`, hydrate projects, pull project repos, install dependencies, or overwrite
 project contents.
 
+### `devspace workspace diff`
+
+```bash
+devspace workspace diff
+```
+
+Fetches the configured manifest repo cache, validates the remote
+`manifest.json`, localizes it to the current workspace, and reports projects
+that would be added, removed, or changed by a future pull. It does not replace
+the local manifest, apply plans, hydrate projects, pull source-code repos, or
+write to the manifest remote.
+
+### `devspace hosted`
+
+Hosted sync is opt-in and separate from Git-backed sync. Configure it only when
+you want the manifest copied to a hosted control plane:
+
+```bash
+devspace hosted serve --addr 127.0.0.1:8787 --store ~/.devdrop/hosted-control-plane --token dev-token
+devspace hosted config set http://127.0.0.1:8787 --token dev-token --workspace team-a
+devspace hosted push
+devspace hosted pull
+```
+
+The runnable prototype server exposes:
+
+```text
+GET /v1/workspaces/{workspace}/manifest
+PUT /v1/workspaces/{workspace}/manifest
+Authorization: Bearer &lt;token&gt;
+```
+
+Storage is one JSON envelope per hosted workspace under the server `--store`
+directory. Each envelope contains the API version, hosted workspace id, monotonic
+sync version, manifest hash, update timestamp, and normalized `manifest.json`.
+The server does not receive source files, dependency folders, `.env` files,
+encrypted secret payloads, plaintext secrets, or local workspace roots.
+
+Hosted `push` sends only the normalized manifest (`workspaceRoot: &quot;.&quot;`, no
+machine-local paths) and records the returned hosted version/hash in local state.
+Hosted `pull` localizes the manifest to the current workspace, writes the usual
+`.bak` backup, and then expects the operator to run `devspace plan &amp;&amp;
+devspace apply`.
+
+Hosted conflict behavior is optimistic:
+
+- `PUT` requires the caller&#39;s expected hosted version; stale writes return 409.
+- `push` refuses when the hosted manifest changed since the last local hosted
+  sync.
+- `pull` refuses when the local manifest changed since the last local hosted
+  sync.
+- A first-time `pull` refuses to overwrite a non-empty local manifest that
+  differs from hosted.
+
+Hosted path safety runs client-side and server-side. Project paths must remain
+relative to the workspace and hosted sync rejects paths containing `.env`,
+`.git`, dependency, build, cache, coverage, or vendored directory components.
+Git-backed `devspace workspace push/pull/diff` remains the fallback when hosted
+sync is not configured or unavailable.
+
 ### `devspace project hydrate`
 
 ```bash
@@ -1573,6 +2036,30 @@ devspace project hydrate client-a-api
 Hydrates a placeholder Git project with normal `git clone`. The placeholder is
 an empty directory; hydration refuses to clone into non-empty directories and
 does not delete files.
+
+### `devspace setup`
+
+```bash
+devspace setup plan
+devspace setup plan --json
+devspace setup run client-a-api --yes
+devspace setup run client-a-api --command dev --yes
+devspace setup apply --yes
+```
+
+`setup plan` reports dependency setup hints already captured by `scan`, including
+the detected package manager, install command, and dev command. It does not run
+anything.
+
+`setup run &lt;project&gt;` executes one reviewed command in the validated project
+directory. By default it runs the install command and prompts for confirmation;
+use `--command dev` to run a detected dev command, `--dry-run` to preview, or
+`--yes` for non-interactive execution after review.
+
+`setup apply` runs install commands for all detected projects after confirmation.
+Known package managers are executed without a shell. Unknown snippets require
+`--allow-unknown`, and commands that appear to install globally also require
+`--allow-global`.
 
 ### `devspace env`
 
@@ -1668,13 +2155,19 @@ when the manifest includes its remote.
 - `apply` creates missing directories only; it skips non-empty destinations.
 - Plan reports path, dirty-repo, and remote conflicts instead of overwriting local work.
 - Hydration clones only into missing or empty directories.
+- `watch` refreshes manifest/state metadata only unless an explicit `--sync`
+  push mode is selected.
+- `watch --sync git` pushes only `manifest.json` through Git-backed sync.
+- `watch --sync hosted` pushes only the normalized manifest envelope.
 - Env values are encrypted at rest with age.
 - `env list` masks secret values.
 - `env pull` writes `.env` with `0600` permissions.
 - Git-backed sync stores only `manifest.json`.
 - Manifest sync strips machine-local workspace paths from the synced manifest
   and localizes the manifest on pull.
-- The MVP has no hosted control plane and no background process.
+- Hosted sync is opt-in, stores only normalized manifest metadata, and never
+  uploads source code, dependency folders, `.env` files, or secret values.
+- The MVP has no background process.
 
 ## Conflict Behavior
 
@@ -1688,28 +2181,33 @@ Manifest sync stops with a clear error when:
 - The remote branch is newer or diverged.
 - The pulled manifest is invalid JSON or fails manifest validation.
 - Pull would overwrite local manifest changes.
+- Hosted push/pull would overwrite local or remote manifest changes without a
+  matching hosted version/hash baseline.
 
 ## What This Tool Will Not Do Without Permission
 
 - Delete local projects, files, or directories.
 - Overwrite existing project contents during apply or hydrate.
 - Auto-pull, rebase, merge, or push project Git repositories.
+- Auto-pull Git-backed or hosted workspace manifests from watch mode.
+- Auto-apply plans or hydrate repositories from watch mode.
 - Resolve Git conflicts.
-- Install dependencies or run project setup commands.
+- Install dependencies or run project setup commands during scan, pull, apply,
+  hydrate, watch, daemon, or filesystem reads.
 - Upload secrets, source code, or project files.
 - Share env profiles with teammates.
 - Rotate secrets or replace local `.env` values without an explicit command.
-- Watch the filesystem in the background.
 - Mount a FUSE or virtual filesystem.
 
 ## Known Limitations
 
-- Hosted manifest sync is not implemented.
+- Hosted manifest sync is a local runnable prototype, not a managed deployment.
 - Placeholder hydration uses full `git clone`; partial clone and sparse checkout
   are not implemented.
 - Secret profiles are local to the workspace; there is no team sharing, OS
   keychain integration, remote backup, or rotation flow.
-- Setup hints are informational only and do not install dependencies.
+- Setup hints are informational during scan and sync; installs only run through
+  explicit `devspace setup` commands.
 - Editor settings, VS Code extensions, devcontainers, Nix, mise, and asdf are
   outside the MVP.
 - The command name is documented as `devspace`, while the current source package
@@ -1738,14 +2236,13 @@ Manifest sync stops with a clear error when:
 
 - Manifest conflict resolution and force flags.
 - Hosted API or cloud object storage.
-- Background daemon and filesystem watchers.
+- Daemon process management for running watch mode outside a terminal.
 - FUSE or virtual filesystem lazy loading.
 - Git partial clone or sparse checkout.
 - Team/shared secret profiles.
 - OS keychain integration.
 - Secret rotation.
 - Editor settings, devcontainer, Nix, mise, or asdf sync.
-- Optional dependency setup flows with explicit confirmation.
 - Release-readiness checklist automation.
 
 ## Manifest
@@ -1851,7 +2348,7 @@ manifest conflict reconciliation and clearer multi-machine history.
             </div>
           </header>
           <div class="doc-body">
-            <div class="rendered markdown"><h1 id="release-readiness-26"><a class="heading-link" href="#release-readiness-26" aria-label="Link to Release Readiness">#</a>Release Readiness</h1><h2 id="what-was-tested-27"><a class="heading-link" href="#what-was-tested-27" aria-label="Link to What Was Tested">#</a>What Was Tested</h2><ul>
+            <div class="rendered markdown"><h1 id="release-readiness-33"><a class="heading-link" href="#release-readiness-33" aria-label="Link to Release Readiness">#</a>Release Readiness</h1><h2 id="what-was-tested-34"><a class="heading-link" href="#what-was-tested-34" aria-label="Link to What Was Tested">#</a>What Was Tested</h2><ul>
 <li>Full Go unit/regression suite with <code>go test ./...</code>.</li>
 <li>Static checks with <code>go vet ./...</code>.</li>
 <li>CLI build with <code>go build -o .tmp/devspace ./cmd/devdrop</code>.</li>
@@ -1860,7 +2357,7 @@ manifest conflict reconciliation and clearer multi-machine history.
 <li>Git-backed manifest push/pull using local bare Git remotes only.</li>
 <li>Safety cases for path traversal, invalid JSON, non-empty destination folders, dirty repos, and missing Git.</li>
 </ul>
-<h2 id="what-passed-28"><a class="heading-link" href="#what-passed-28" aria-label="Link to What Passed">#</a>What Passed</h2><ul>
+<h2 id="what-passed-35"><a class="heading-link" href="#what-passed-35" aria-label="Link to What Passed">#</a>What Passed</h2><ul>
 <li>Repeated <code>init</code> preserves machine identity, existing config, existing manifest projects, and age identity.</li>
 <li>Workspace scan ignores dependency folders and does not recurse into nested Git repos inside a parent repo.</li>
 <li>Manifest path validation rejects absolute paths and <code>..</code> escapes.</li>
@@ -1883,13 +2380,13 @@ manifest conflict reconciliation and clearer multi-machine history.
 <li>Manifest sync refuses invalid JSON, path traversal, dirty manifest repo state, and local unpushed manifest changes.</li>
 <li>Missing manifest remotes get a purpose-built recovery message with local and GitHub create commands.</li>
 </ul>
-<h2 id="what-failed-29"><a class="heading-link" href="#what-failed-29" aria-label="Link to What Failed">#</a>What Failed</h2><ul>
+<h2 id="what-failed-36"><a class="heading-link" href="#what-failed-36" aria-label="Link to What Failed">#</a>What Failed</h2><ul>
 <li>Initial audit found a temporary compile break from partial path-hardening edits.</li>
 <li>The original hydrate path deleted placeholder directories before cloning.</li>
 <li>The original sync path recomputed actions during apply and had no saved plan hash.</li>
 <li>The original docs still described <code>workspace sync</code> as the primary flow.</li>
 </ul>
-<h2 id="what-was-fixed-30"><a class="heading-link" href="#what-was-fixed-30" aria-label="Link to What Was Fixed">#</a>What Was Fixed</h2><ul>
+<h2 id="what-was-fixed-37"><a class="heading-link" href="#what-was-fixed-37" aria-label="Link to What Was Fixed">#</a>What Was Fixed</h2><ul>
 <li>Replaced direct placeholder marker deletion with empty-directory placeholders.</li>
 <li>Added a saved plan file with manifest hash validation.</li>
 <li>Added top-level <code>scan</code>, <code>plan</code>, and <code>apply</code> commands for the requested workflow.</li>
@@ -1901,21 +2398,21 @@ manifest conflict reconciliation and clearer multi-machine history.
 <li>Added Git-backed manifest sync commands and regression tests for local bare remotes, conflict handling, backups, paths with spaces, plan/apply after pull, and hydrate after pull.</li>
 <li>Updated README command examples, safety guarantees, troubleshooting, and roadmap.</li>
 </ul>
-<h2 id="known-limitations-31"><a class="heading-link" href="#known-limitations-31" aria-label="Link to Known Limitations">#</a>Known Limitations</h2><ul>
+<h2 id="known-limitations-38"><a class="heading-link" href="#known-limitations-38" aria-label="Link to Known Limitations">#</a>Known Limitations</h2><ul>
 <li>Manifest exchange between machines uses user-owned Git remotes only.</li>
 <li>There is no hosted sync, daemon, FUSE layer, partial clone, or sparse checkout.</li>
 <li>Secret profiles are local-only; there is no OS keychain integration, team sharing, backup, or rotation flow.</li>
 <li>Dependency/setup commands are detected only as hints and are never executed.</li>
 <li>The source package path is still <code>cmd/devdrop</code>, but the intended binary name is <code>devspace</code>.</li>
 </ul>
-<h2 id="remaining-risks-32"><a class="heading-link" href="#remaining-risks-32" aria-label="Link to Remaining Risks">#</a>Remaining Risks</h2><ul>
+<h2 id="remaining-risks-39"><a class="heading-link" href="#remaining-risks-39" aria-label="Link to Remaining Risks">#</a>Remaining Risks</h2><ul>
 <li>The local config/state directory is still named <code>.devdrop</code>; a future rename/migration may be useful if the product name stays <code>devspace</code>.</li>
 <li>Plan/apply is intentionally conservative and may require manual cleanup or explicit future flags for advanced cases.</li>
 <li>Manifest sync has no force flag or merge UI; conflicts intentionally require manual reconciliation.</li>
 <li>Git inspection still avoids mutating repos, so stale/outdated remote commit detection remains shallow.</li>
 <li>Encrypted <code>.env</code> generation overwrites the target <code>.env</code> only when explicitly requested via <code>env pull</code>.</li>
 </ul>
-<h2 id="recommended-next-feature-33"><a class="heading-link" href="#recommended-next-feature-33" aria-label="Link to Recommended Next Feature">#</a>Recommended Next Feature</h2><p>Manifest conflict reconciliation and clearer multi-machine history.</p>
+<h2 id="recommended-next-feature-40"><a class="heading-link" href="#recommended-next-feature-40" aria-label="Link to Recommended Next Feature">#</a>Recommended Next Feature</h2><p>Manifest conflict reconciliation and clearer multi-machine history.</p>
 </div>
             <div class="source"><pre># Release Readiness
 
@@ -2020,9 +2517,9 @@ encrypted locally.
 | capstone product | go cli built as `devspace`, with local manifest sync, plan/apply, hydration, and encrypted env profiles |
 | case study write-up | [case-study.md](case-study.md) |
 | proof artifacts | [proof-artifacts.md](proof-artifacts.md), `docs/release-readiness.md`, tests under `internal/devdrop/` |
-| final demo recording | [demo-script.md](demo-script.md) |
+| final demo recording | [demo-script.md](demo-script.md) and `../../scripts/demo-check.sh` |
 | playbook contribution | [playbook-contribution.md](playbook-contribution.md), `docs/playbook.html`, and the enablement notes in [case-study.md](case-study.md) |
-| remote-agent delivery case study | [remote-agent-case-study.md](remote-agent-case-study.md), `.claude/workflows/wave-ship.js`, and `ops/wave-ship/` |
+| remote-agent delivery case study | [remote-agent-case-study.md](remote-agent-case-study.md), `.claude/workflows/wave-ship.js`, and `.claude/workflows/ship-card.js` |
 | personal reflection | add final reflection after the recorded demo and panel feedback |
 
 ## current product surface
@@ -2041,8 +2538,9 @@ encrypted locally.
 ## remaining module 5 work
 
 1. create a tagged release binary and attach it to a github release.
-2. run the capstone stretch wave in `ops/wave-ship/devdrop-capstone.args.json`
-   or execute the same cards manually.
+2. execute the capstone stretch cards documented in
+   [remote-agent-case-study.md](remote-agent-case-study.md), whether via a
+   wave-ship run or manually.
 3. push the frontier track: hosted sync, daemon/watch mode, fuse lazy mount,
    team secret sharing, and explicit dependency install.
 4. record the demo using [demo-script.md](demo-script.md).
@@ -2057,24 +2555,24 @@ encrypted locally.
               <div class="doc-path">docs/capstone/README.md</div>
             </div>
             <div class="doc-meta">
-              <span class="badge">380 words</span>
+              <span class="badge">384 words</span>
               <span class="badge">0 code</span>
               <span class="badge">1 tables</span>
             </div>
           </header>
           <div class="doc-body">
-            <div class="rendered markdown"><h1 id="devdrop-capstone-packet-34"><a class="heading-link" href="#devdrop-capstone-packet-34" aria-label="Link to DevDrop Capstone Packet">#</a>DevDrop Capstone Packet</h1><p>This packet maps DevDrop to the Liatrio Forge Module 5 capstone deliverables.
+            <div class="rendered markdown"><h1 id="devdrop-capstone-packet-41"><a class="heading-link" href="#devdrop-capstone-packet-41" aria-label="Link to DevDrop Capstone Packet">#</a>DevDrop Capstone Packet</h1><p>This packet maps DevDrop to the Liatrio Forge Module 5 capstone deliverables.
 DevDrop is a local-first developer workspace recovery CLI. It helps a developer
 recreate the shape of a working machine on a second machine without syncing
 source code, overwriting local work, or storing secrets in plaintext.</p>
 <p>For a browsable HTML version of the repo Markdown, open
 <a href="index.html"><code>index.html</code></a>.</p>
-<h2 id="capstone-thesis-35"><a class="heading-link" href="#capstone-thesis-35" aria-label="Link to Capstone Thesis">#</a>Capstone Thesis</h2><p>Developers lose time rebuilding workspaces after machine changes, client
+<h2 id="capstone-thesis-42"><a class="heading-link" href="#capstone-thesis-42" aria-label="Link to Capstone Thesis">#</a>Capstone Thesis</h2><p>Developers lose time rebuilding workspaces after machine changes, client
 rotations, or repo sprawl. DevDrop proves a smaller, safer alternative to a
 hosted &quot;sync everything&quot; service: track workspace metadata, push the manifest to
 a user-owned Git remote, hydrate projects on demand, and keep env values
 encrypted locally.</p>
-<h2 id="deliverable-map-36"><a class="heading-link" href="#deliverable-map-36" aria-label="Link to Deliverable Map">#</a>Deliverable Map</h2><table>
+<h2 id="deliverable-map-43"><a class="heading-link" href="#deliverable-map-43" aria-label="Link to Deliverable Map">#</a>Deliverable Map</h2><table>
 <thead>
 <tr>
 <th>Forge deliverable</th>
@@ -2095,7 +2593,7 @@ encrypted locally.</p>
 </tr>
 <tr>
 <td>Final demo recording</td>
-<td><a href="demo-script.md">demo-script.md</a></td>
+<td><a href="demo-script.md">demo-script.md</a> and <code>../../scripts/demo-check.sh</code></td>
 </tr>
 <tr>
 <td>Playbook contribution</td>
@@ -2103,14 +2601,14 @@ encrypted locally.</p>
 </tr>
 <tr>
 <td>Remote-agent delivery case study</td>
-<td><a href="remote-agent-case-study.md">remote-agent-case-study.md</a>, <code>.claude/workflows/wave-ship.js</code>, and <code>ops/wave-ship/</code></td>
+<td><a href="remote-agent-case-study.md">remote-agent-case-study.md</a>, <code>.claude/workflows/wave-ship.js</code>, and <code>.claude/workflows/ship-card.js</code></td>
 </tr>
 <tr>
 <td>Personal reflection</td>
 <td>Add final reflection after the recorded demo and panel feedback</td>
 </tr>
 </tbody></table>
-<h2 id="current-product-surface-37"><a class="heading-link" href="#current-product-surface-37" aria-label="Link to Current Product Surface">#</a>Current Product Surface</h2><ul>
+<h2 id="current-product-surface-44"><a class="heading-link" href="#current-product-surface-44" aria-label="Link to Current Product Surface">#</a>Current Product Surface</h2><ul>
 <li><code>devspace init</code> creates local config, machine identity, age identity, and the
 workspace manifest.</li>
 <li><code>devspace scan</code> discovers Git projects, dirty state, env presence, and setup
@@ -2122,10 +2620,11 @@ user-owned Git repository.</li>
 <li><code>devspace env set|list|pull</code> stores encrypted profiles and writes local <code>.env</code>
 files with <code>0600</code> permissions.</li>
 </ul>
-<h2 id="remaining-module-5-work-38"><a class="heading-link" href="#remaining-module-5-work-38" aria-label="Link to Remaining Module 5 Work">#</a>Remaining Module 5 Work</h2><ol>
+<h2 id="remaining-module-5-work-45"><a class="heading-link" href="#remaining-module-5-work-45" aria-label="Link to Remaining Module 5 Work">#</a>Remaining Module 5 Work</h2><ol>
 <li>Create a tagged release binary and attach it to a GitHub release.</li>
-<li>Run the capstone stretch wave in <code>ops/wave-ship/devdrop-capstone.args.json</code>
-or execute the same cards manually.</li>
+<li>Execute the capstone stretch cards documented in
+<a href="remote-agent-case-study.md">remote-agent-case-study.md</a>, whether via a
+wave-ship run or manually.</li>
 <li>Push the frontier track: hosted sync, daemon/watch mode, FUSE lazy mount,
 team secret sharing, and explicit dependency install.</li>
 <li>Record the demo using <a href="demo-script.md">demo-script.md</a>.</li>
@@ -2160,9 +2659,9 @@ encrypted locally.
 | Capstone product | Go CLI built as `devspace`, with local manifest sync, plan/apply, hydration, and encrypted env profiles |
 | Case study write-up | [case-study.md](case-study.md) |
 | Proof artifacts | [proof-artifacts.md](proof-artifacts.md), `docs/release-readiness.md`, tests under `internal/devdrop/` |
-| Final demo recording | [demo-script.md](demo-script.md) |
+| Final demo recording | [demo-script.md](demo-script.md) and `../../scripts/demo-check.sh` |
 | Playbook contribution | [playbook-contribution.md](playbook-contribution.md), `docs/playbook.html`, and the enablement notes in [case-study.md](case-study.md) |
-| Remote-agent delivery case study | [remote-agent-case-study.md](remote-agent-case-study.md), `.claude/workflows/wave-ship.js`, and `ops/wave-ship/` |
+| Remote-agent delivery case study | [remote-agent-case-study.md](remote-agent-case-study.md), `.claude/workflows/wave-ship.js`, and `.claude/workflows/ship-card.js` |
 | Personal reflection | Add final reflection after the recorded demo and panel feedback |
 
 ## Current Product Surface
@@ -2181,8 +2680,9 @@ encrypted locally.
 ## Remaining Module 5 Work
 
 1. Create a tagged release binary and attach it to a GitHub release.
-2. Run the capstone stretch wave in `ops/wave-ship/devdrop-capstone.args.json`
-   or execute the same cards manually.
+2. Execute the capstone stretch cards documented in
+   [remote-agent-case-study.md](remote-agent-case-study.md), whether via a
+   wave-ship run or manually.
 3. Push the frontier track: hosted sync, daemon/watch mode, FUSE lazy mount,
    team secret sharing, and explicit dependency install.
 4. Record the demo using [demo-script.md](demo-script.md).
@@ -2351,7 +2851,7 @@ acceptance:
             </div>
           </header>
           <div class="doc-body">
-            <div class="rendered markdown"><h1 id="capstone-spec-devdrop-39"><a class="heading-link" href="#capstone-spec-devdrop-39" aria-label="Link to Capstone Spec: DevDrop">#</a>Capstone Spec: DevDrop</h1><h2 id="problem-40"><a class="heading-link" href="#problem-40" aria-label="Link to Problem">#</a>Problem</h2><p>A developer&#39;s workspace is more than source code. It includes which projects are
+            <div class="rendered markdown"><h1 id="capstone-spec-devdrop-46"><a class="heading-link" href="#capstone-spec-devdrop-46" aria-label="Link to Capstone Spec: DevDrop">#</a>Capstone Spec: DevDrop</h1><h2 id="problem-47"><a class="heading-link" href="#problem-47" aria-label="Link to Problem">#</a>Problem</h2><p>A developer&#39;s workspace is more than source code. It includes which projects are
 active, where those projects live, which remotes they came from, which repos are
 dirty, which <code>.env</code> files are expected, and which setup commands are likely
 needed. Today that context is rebuilt manually after a new laptop, client
@@ -2359,20 +2859,20 @@ rotation, or cleanup pass.</p>
 <p>The unsafe shortcut is to sync entire folders. That risks copying secrets,
 large dependency trees, generated files, and client source code. DevDrop takes a
 metadata-first approach.</p>
-<h2 id="users-41"><a class="heading-link" href="#users-41" aria-label="Link to Users">#</a>Users</h2><ul>
+<h2 id="users-48"><a class="heading-link" href="#users-48" aria-label="Link to Users">#</a>Users</h2><ul>
 <li>Consultants who rotate across client projects and need predictable workspace
 recovery.</li>
 <li>Developers with multiple machines who want the same project map everywhere.</li>
 <li>Team leads who need a teachable example of safe AI-assisted product delivery.</li>
 </ul>
-<h2 id="goal-42"><a class="heading-link" href="#goal-42" aria-label="Link to Goal">#</a>Goal</h2><p>Ship a local-first CLI that can recreate workspace structure on another machine
+<h2 id="goal-49"><a class="heading-link" href="#goal-49" aria-label="Link to Goal">#</a>Goal</h2><p>Ship a local-first CLI that can recreate workspace structure on another machine
 from a synced manifest while preserving local control over source code and
 secrets.</p>
 <p>Use the delivery process itself as part of the capstone: demonstrate how
 remote/cloud agents can execute well-scoped cards through the checked-in
 <code>.claude/workflows/wave-ship.js</code> workflow, then include that evidence in the
 case study and final demo.</p>
-<h2 id="non-goals-43"><a class="heading-link" href="#non-goals-43" aria-label="Link to Non-Goals">#</a>Non-Goals</h2><p>These were non-goals for the first MVP slice, but they are now explicit capstone
+<h2 id="non-goals-50"><a class="heading-link" href="#non-goals-50" aria-label="Link to Non-Goals">#</a>Non-Goals</h2><p>These were non-goals for the first MVP slice, but they are now explicit capstone
 frontier work:</p>
 <ul>
 <li>Hosted sync service.</li>
@@ -2389,7 +2889,7 @@ frontier work:</p>
 <li>Hidden dependency installation during scan, pull, apply, hydrate, daemon, or
 FUSE reads.</li>
 </ul>
-<h2 id="user-stories-44"><a class="heading-link" href="#user-stories-44" aria-label="Link to User Stories">#</a>User Stories</h2><h3 id="initialize-a-workspace-45"><a class="heading-link" href="#initialize-a-workspace-45" aria-label="Link to Initialize a workspace">#</a>Initialize a workspace</h3><p>As a developer, I can run <code>devspace init --workspace ~/code</code> so DevDrop creates
+<h2 id="user-stories-51"><a class="heading-link" href="#user-stories-51" aria-label="Link to User Stories">#</a>User Stories</h2><h3 id="initialize-a-workspace-52"><a class="heading-link" href="#initialize-a-workspace-52" aria-label="Link to Initialize a workspace">#</a>Initialize a workspace</h3><p>As a developer, I can run <code>devspace init --workspace ~/code</code> so DevDrop creates
 local config, a machine identity, an age identity, and a workspace manifest.</p>
 <p>Acceptance:</p>
 <ul>
@@ -2397,7 +2897,7 @@ local config, a machine identity, an age identity, and a workspace manifest.</p>
 <li>Repeat runs do not rotate the age identity.</li>
 <li>Existing manifest projects are preserved.</li>
 </ul>
-<h3 id="discover-workspace-projects-46"><a class="heading-link" href="#discover-workspace-projects-46" aria-label="Link to Discover workspace projects">#</a>Discover workspace projects</h3><p>As a developer, I can run <code>devspace scan</code> so DevDrop records project metadata
+<h3 id="discover-workspace-projects-53"><a class="heading-link" href="#discover-workspace-projects-53" aria-label="Link to Discover workspace projects">#</a>Discover workspace projects</h3><p>As a developer, I can run <code>devspace scan</code> so DevDrop records project metadata
 without crawling dependency folders or nested repos inside a parent repo.</p>
 <p>Acceptance:</p>
 <ul>
@@ -2407,7 +2907,7 @@ setup hints are captured.</li>
 <code>turbo</code>, <code>target</code>, <code>vendor</code>, <code>coverage</code>, <code>.cache</code>, <code>.DS_Store</code>, and <code>*.log</code>.</li>
 <li>Duplicate project basenames are disambiguated predictably.</li>
 </ul>
-<h3 id="review-before-writing-47"><a class="heading-link" href="#review-before-writing-47" aria-label="Link to Review before writing">#</a>Review before writing</h3><p>As a developer, I can run <code>devspace plan</code> before <code>devspace apply</code> so filesystem
+<h3 id="review-before-writing-54"><a class="heading-link" href="#review-before-writing-54" aria-label="Link to Review before writing">#</a>Review before writing</h3><p>As a developer, I can run <code>devspace plan</code> before <code>devspace apply</code> so filesystem
 changes are visible before they happen.</p>
 <p>Acceptance:</p>
 <ul>
@@ -2417,7 +2917,7 @@ changes are visible before they happen.</p>
 <li>Safe actions create missing directories only.</li>
 <li>Skipped actions identify the reason.</li>
 </ul>
-<h3 id="sync-workspace-metadata-through-git-48"><a class="heading-link" href="#sync-workspace-metadata-through-git-48" aria-label="Link to Sync workspace metadata through Git">#</a>Sync workspace metadata through Git</h3><p>As a developer, I can push and pull the manifest through a user-owned Git remote
+<h3 id="sync-workspace-metadata-through-git-55"><a class="heading-link" href="#sync-workspace-metadata-through-git-55" aria-label="Link to Sync workspace metadata through Git">#</a>Sync workspace metadata through Git</h3><p>As a developer, I can push and pull the manifest through a user-owned Git remote
 so another machine can recreate the workspace shape.</p>
 <p>Acceptance:</p>
 <ul>
@@ -2431,7 +2931,7 @@ the local manifest.</li>
 <li>Pull refuses to overwrite local manifest changes that have not been pushed or
 reconciled.</li>
 </ul>
-<h3 id="hydrate-projects-on-demand-49"><a class="heading-link" href="#hydrate-projects-on-demand-49" aria-label="Link to Hydrate projects on demand">#</a>Hydrate projects on demand</h3><p>As a developer, I can run <code>devspace project hydrate &lt;project&gt;</code> so a placeholder
+<h3 id="hydrate-projects-on-demand-56"><a class="heading-link" href="#hydrate-projects-on-demand-56" aria-label="Link to Hydrate projects on demand">#</a>Hydrate projects on demand</h3><p>As a developer, I can run <code>devspace project hydrate &lt;project&gt;</code> so a placeholder
 Git project becomes a real clone when I need it.</p>
 <p>Acceptance:</p>
 <ul>
@@ -2440,7 +2940,7 @@ Git project becomes a real clone when I need it.</p>
 <li>Hydration gives useful errors when a remote is missing or unreachable.</li>
 <li>Suggested setup commands are printed but not executed.</li>
 </ul>
-<h3 id="manage-local-encrypted-env-profiles-50"><a class="heading-link" href="#manage-local-encrypted-env-profiles-50" aria-label="Link to Manage local encrypted env profiles">#</a>Manage local encrypted env profiles</h3><p>As a developer, I can store env values locally with age encryption and generate
+<h3 id="manage-local-encrypted-env-profiles-57"><a class="heading-link" href="#manage-local-encrypted-env-profiles-57" aria-label="Link to Manage local encrypted env profiles">#</a>Manage local encrypted env profiles</h3><p>As a developer, I can store env values locally with age encryption and generate
 <code>.env</code> files only when I explicitly request them.</p>
 <p>Acceptance:</p>
 <ul>
@@ -2450,7 +2950,7 @@ Git project becomes a real clone when I need it.</p>
 <li>Secret profile files do not contain plaintext values.</li>
 <li><code>env pull</code> writes the local <code>.env</code> file with <code>0600</code> permissions.</li>
 </ul>
-<h2 id="quality-bar-51"><a class="heading-link" href="#quality-bar-51" aria-label="Link to Quality Bar">#</a>Quality Bar</h2><ul>
+<h2 id="quality-bar-58"><a class="heading-link" href="#quality-bar-58" aria-label="Link to Quality Bar">#</a>Quality Bar</h2><ul>
 <li><code>go test ./...</code> passes.</li>
 <li><code>go vet ./...</code> passes before release.</li>
 <li><code>go build -o .tmp/devspace ./cmd/devdrop</code> produces the demo binary.</li>
@@ -2626,10 +3126,8 @@ links as releases, prs, and recordings are created.
 | release readiness notes | done | `docs/release-readiness.md` |
 | capstone spec | done | `docs/capstone/spec.md` |
 | case study | drafted | `docs/capstone/case-study.md` |
-| demo script | drafted | `docs/capstone/demo-script.md` |
+| demo script | done | `scripts/demo-check.sh`, `docs/capstone/demo-script.md` |
 | remote-agent case study | drafted | `docs/capstone/remote-agent-case-study.md` |
-| mvp wave args | done | `ops/wave-ship/devdrop-mvp.args.json` |
-| capstone stretch wave args | drafted | `ops/wave-ship/devdrop-capstone.args.json` |
 | frontier linear cards | drafted | `cil-227` through `cil-231` |
 | release binary | pending | add github release url |
 | final demo recording | pending | add recording url |
@@ -2644,21 +3142,32 @@ go test ./...
 go vet ./...
 go build -o .tmp/devspace ./cmd/devdrop
 .tmp/devspace --help
+scripts/demo-check.sh
 ```
 
 expected current baseline:
 
 - `go test ./...` passes.
 - the build produces a local `devspace` binary.
-- `devspace --help` lists workspace, project, env, scan, plan, apply, status,
-  and version commands.
+- `devspace --help` lists init, workspace, project, env, scan, plan, apply,
+  status, and version commands.
+- `scripts/demo-check.sh` passes without network access, github auth, linear
+  auth, or real secrets.
 
 ## demo evidence to capture
 
-record a terminal walkthrough that shows:
+run the executable walkthrough:
+
+```bash
+proof_dir=&quot;$(mktemp -d /tmp/devdrop-demo-proof.xxxxxx)&quot;
+scripts/demo-check.sh --output-dir &quot;$proof_dir&quot;
+```
+
+capture the command output and the generated
+`$proof_dir/demo-check-summary.txt`. the walkthrough proves:
 
 1. build the binary.
-2. create a temporary workspace and local bare git project remote.
+2. create temporary workspaces and local bare git remotes.
 3. initialize workspace a.
 4. clone one project into workspace a and scan it.
 5. create a local bare manifest remote.
@@ -2668,11 +3177,11 @@ record a terminal walkthrough that shows:
 9. run `plan` and `apply` to create placeholder structure.
 10. hydrate the placeholder git project.
 11. store, list, and pull an encrypted env value.
-12. show final `devspace status`.
-13. show the remote-agent delivery workflow: `.claude/workflows/wave-ship.js`,
-    `ops/wave-ship/devdrop-mvp.args.json`, and
-    `ops/wave-ship/devdrop-capstone.args.json`.
-14. show the frontier track: hosted sync, daemon/watch, fuse, team secrets, and
+12. assert the generated `.env` mode is `0600`.
+13. show final `devspace status` and `devspace project status`.
+14. show the remote-agent delivery workflow: `.claude/workflows/wave-ship.js`
+    and `.claude/workflows/ship-card.js`.
+15. show the frontier track: hosted sync, daemon/watch, fuse, team secrets, and
     explicit dependency install.
 
 ## safety proof points
@@ -2710,15 +3219,15 @@ known limitation accepted:
               <div class="doc-path">docs/capstone/proof-artifacts.md</div>
             </div>
             <div class="doc-meta">
-              <span class="badge">448 words</span>
-              <span class="badge">2 code</span>
+              <span class="badge">471 words</span>
+              <span class="badge">3 code</span>
               <span class="badge">1 tables</span>
             </div>
           </header>
           <div class="doc-body">
-            <div class="rendered markdown"><h1 id="proof-artifacts-52"><a class="heading-link" href="#proof-artifacts-52" aria-label="Link to Proof Artifacts">#</a>Proof Artifacts</h1><p>Use this file as the final evidence checklist for Module 5. Fill in permanent
+            <div class="rendered markdown"><h1 id="proof-artifacts-59"><a class="heading-link" href="#proof-artifacts-59" aria-label="Link to Proof Artifacts">#</a>Proof Artifacts</h1><p>Use this file as the final evidence checklist for Module 5. Fill in permanent
 links as releases, PRs, and recordings are created.</p>
-<h2 id="product-evidence-53"><a class="heading-link" href="#product-evidence-53" aria-label="Link to Product Evidence">#</a>Product Evidence</h2><table>
+<h2 id="product-evidence-60"><a class="heading-link" href="#product-evidence-60" aria-label="Link to Product Evidence">#</a>Product Evidence</h2><table>
 <thead>
 <tr>
 <th>Artifact</th>
@@ -2753,23 +3262,13 @@ links as releases, PRs, and recordings are created.</p>
 </tr>
 <tr>
 <td>Demo script</td>
-<td>Drafted</td>
-<td><code>docs/capstone/demo-script.md</code></td>
+<td>Done</td>
+<td><code>scripts/demo-check.sh</code>, <code>docs/capstone/demo-script.md</code></td>
 </tr>
 <tr>
 <td>Remote-agent case study</td>
 <td>Drafted</td>
 <td><code>docs/capstone/remote-agent-case-study.md</code></td>
-</tr>
-<tr>
-<td>MVP wave args</td>
-<td>Done</td>
-<td><code>ops/wave-ship/devdrop-mvp.args.json</code></td>
-</tr>
-<tr>
-<td>Capstone stretch wave args</td>
-<td>Drafted</td>
-<td><code>ops/wave-ship/devdrop-capstone.args.json</code></td>
 </tr>
 <tr>
 <td>Frontier Linear cards</td>
@@ -2792,28 +3291,41 @@ links as releases, PRs, and recordings are created.</p>
 <td>Add reflection file or section after feedback</td>
 </tr>
 </tbody></table>
-<h2 id="verification-commands-54"><a class="heading-link" href="#verification-commands-54" aria-label="Link to Verification Commands">#</a>Verification Commands</h2><p>Run these before final demo day:</p>
+<h2 id="verification-commands-61"><a class="heading-link" href="#verification-commands-61" aria-label="Link to Verification Commands">#</a>Verification Commands</h2><p>Run these before final demo day:</p>
 <figure class="code-block" data-lang="bash">
     <figcaption>
       <span>bash</span>
-      <button class="copy-btn" type="button" data-copy-code="code-20">Copy</button>
+      <button class="copy-btn" type="button" data-copy-code="code-28">Copy</button>
     </figcaption>
-    <div id="code-20" class="diff-render" data-code-b64="Z28gdGVzdCAuLy4uLgpnbyB2ZXQgLi8uLi4KZ28gYnVpbGQgLW8gLnRtcC9kZXZzcGFjZSAuL2NtZC9kZXZkcm9wCi50bXAvZGV2c3BhY2UgLS1oZWxw" data-lang="bash"></div>
+    <div id="code-28" class="diff-render" data-code-b64="Z28gdGVzdCAuLy4uLgpnbyB2ZXQgLi8uLi4KZ28gYnVpbGQgLW8gLnRtcC9kZXZzcGFjZSAuL2NtZC9kZXZkcm9wCi50bXAvZGV2c3BhY2UgLS1oZWxwCnNjcmlwdHMvZGVtby1jaGVjay5zaA==" data-lang="bash"></div>
     <noscript><pre><code>go test ./...
 go vet ./...
 go build -o .tmp/devspace ./cmd/devdrop
-.tmp/devspace --help</code></pre></noscript>
+.tmp/devspace --help
+scripts/demo-check.sh</code></pre></noscript>
   </figure><p>Expected current baseline:</p>
 <ul>
 <li><code>go test ./...</code> passes.</li>
 <li>The build produces a local <code>devspace</code> binary.</li>
-<li><code>devspace --help</code> lists workspace, project, env, scan, plan, apply, status,
-and version commands.</li>
+<li><code>devspace --help</code> lists init, workspace, project, env, scan, plan, apply,
+status, and version commands.</li>
+<li><code>scripts/demo-check.sh</code> passes without network access, GitHub auth, Linear
+auth, or real secrets.</li>
 </ul>
-<h2 id="demo-evidence-to-capture-55"><a class="heading-link" href="#demo-evidence-to-capture-55" aria-label="Link to Demo Evidence To Capture">#</a>Demo Evidence To Capture</h2><p>Record a terminal walkthrough that shows:</p>
+<h2 id="demo-evidence-to-capture-62"><a class="heading-link" href="#demo-evidence-to-capture-62" aria-label="Link to Demo Evidence To Capture">#</a>Demo Evidence To Capture</h2><p>Run the executable walkthrough:</p>
+<figure class="code-block" data-lang="bash">
+    <figcaption>
+      <span>bash</span>
+      <button class="copy-btn" type="button" data-copy-code="code-29">Copy</button>
+    </figcaption>
+    <div id="code-29" class="diff-render" data-code-b64="cHJvb2ZfZGlyPSIkKG1rdGVtcCAtZCAvdG1wL2RldmRyb3AtZGVtby1wcm9vZi5YWFhYWFgpIgpzY3JpcHRzL2RlbW8tY2hlY2suc2ggLS1vdXRwdXQtZGlyICIkcHJvb2ZfZGlyIg==" data-lang="bash"></div>
+    <noscript><pre><code>proof_dir=&quot;$(mktemp -d /tmp/devdrop-demo-proof.XXXXXX)&quot;
+scripts/demo-check.sh --output-dir &quot;$proof_dir&quot;</code></pre></noscript>
+  </figure><p>Capture the command output and the generated
+<code>$proof_dir/demo-check-summary.txt</code>. The walkthrough proves:</p>
 <ol>
 <li>Build the binary.</li>
-<li>Create a temporary workspace and local bare Git project remote.</li>
+<li>Create temporary workspaces and local bare Git remotes.</li>
 <li>Initialize workspace A.</li>
 <li>Clone one project into workspace A and scan it.</li>
 <li>Create a local bare manifest remote.</li>
@@ -2823,14 +3335,14 @@ and version commands.</li>
 <li>Run <code>plan</code> and <code>apply</code> to create placeholder structure.</li>
 <li>Hydrate the placeholder Git project.</li>
 <li>Store, list, and pull an encrypted env value.</li>
-<li>Show final <code>devspace status</code>.</li>
-<li>Show the remote-agent delivery workflow: <code>.claude/workflows/wave-ship.js</code>,
-<code>ops/wave-ship/devdrop-mvp.args.json</code>, and
-<code>ops/wave-ship/devdrop-capstone.args.json</code>.</li>
+<li>Assert the generated <code>.env</code> mode is <code>0600</code>.</li>
+<li>Show final <code>devspace status</code> and <code>devspace project status</code>.</li>
+<li>Show the remote-agent delivery workflow: <code>.claude/workflows/wave-ship.js</code>
+and <code>.claude/workflows/ship-card.js</code>.</li>
 <li>Show the frontier track: hosted sync, daemon/watch, FUSE, team secrets, and
 explicit dependency install.</li>
 </ol>
-<h2 id="safety-proof-points-56"><a class="heading-link" href="#safety-proof-points-56" aria-label="Link to Safety Proof Points">#</a>Safety Proof Points</h2><ul>
+<h2 id="safety-proof-points-63"><a class="heading-link" href="#safety-proof-points-63" aria-label="Link to Safety Proof Points">#</a>Safety Proof Points</h2><ul>
 <li>Path traversal is rejected by manifest validation and project add.</li>
 <li>Invalid remote manifest JSON is rejected before local replacement.</li>
 <li>Pull refuses to overwrite local unpushed manifest changes.</li>
@@ -2840,13 +3352,13 @@ explicit dependency install.</li>
 </ul>
 <p>These are covered by tests in <code>internal/devdrop/hardening_test.go</code>,
 <code>internal/devdrop/workspace_sync_test.go</code>, and <code>internal/devdrop/devdrop_test.go</code>.</p>
-<h2 id="release-gate-57"><a class="heading-link" href="#release-gate-57" aria-label="Link to Release Gate">#</a>Release Gate</h2><p>Before final submission, update this section with exact evidence:</p>
+<h2 id="release-gate-64"><a class="heading-link" href="#release-gate-64" aria-label="Link to Release Gate">#</a>Release Gate</h2><p>Before final submission, update this section with exact evidence:</p>
 <figure class="code-block" data-lang="text">
     <figcaption>
       <span>text</span>
-      <button class="copy-btn" type="button" data-copy-code="code-21">Copy</button>
+      <button class="copy-btn" type="button" data-copy-code="code-30">Copy</button>
     </figcaption>
-    <div id="code-21" class="diff-render" data-code-b64="UmVsZWFzZSB0YWc6ClJlbGVhc2UgVVJMOgpDb21taXQgU0hBOgpEZW1vIHJlY29yZGluZzoKUmVtb3RlLWFnZW50IHJ1bjoKV2F2ZSBjYXJkczoKUFIgZXZpZGVuY2U6CkNhc2Ugc3R1ZHkgcmV2aWV3ZWQgYnk6CkZpbmFsIHRlc3QgY29tbWFuZCBvdXRwdXQ6Cktub3duIGxpbWl0YXRpb24gYWNjZXB0ZWQ6" data-lang="text"></div>
+    <div id="code-30" class="diff-render" data-code-b64="UmVsZWFzZSB0YWc6ClJlbGVhc2UgVVJMOgpDb21taXQgU0hBOgpEZW1vIHJlY29yZGluZzoKUmVtb3RlLWFnZW50IHJ1bjoKV2F2ZSBjYXJkczoKUFIgZXZpZGVuY2U6CkNhc2Ugc3R1ZHkgcmV2aWV3ZWQgYnk6CkZpbmFsIHRlc3QgY29tbWFuZCBvdXRwdXQ6Cktub3duIGxpbWl0YXRpb24gYWNjZXB0ZWQ6" data-lang="text"></div>
     <noscript><pre><code>Release tag:
 Release URL:
 Commit SHA:
@@ -2872,10 +3384,8 @@ links as releases, PRs, and recordings are created.
 | Release readiness notes | Done | `docs/release-readiness.md` |
 | Capstone spec | Done | `docs/capstone/spec.md` |
 | Case study | Drafted | `docs/capstone/case-study.md` |
-| Demo script | Drafted | `docs/capstone/demo-script.md` |
+| Demo script | Done | `scripts/demo-check.sh`, `docs/capstone/demo-script.md` |
 | Remote-agent case study | Drafted | `docs/capstone/remote-agent-case-study.md` |
-| MVP wave args | Done | `ops/wave-ship/devdrop-mvp.args.json` |
-| Capstone stretch wave args | Drafted | `ops/wave-ship/devdrop-capstone.args.json` |
 | Frontier Linear cards | Drafted | `CIL-227` through `CIL-231` |
 | Release binary | Pending | Add GitHub release URL |
 | Final demo recording | Pending | Add recording URL |
@@ -2890,21 +3400,32 @@ go test ./...
 go vet ./...
 go build -o .tmp/devspace ./cmd/devdrop
 .tmp/devspace --help
+scripts/demo-check.sh
 ```
 
 Expected current baseline:
 
 - `go test ./...` passes.
 - The build produces a local `devspace` binary.
-- `devspace --help` lists workspace, project, env, scan, plan, apply, status,
-  and version commands.
+- `devspace --help` lists init, workspace, project, env, scan, plan, apply,
+  status, and version commands.
+- `scripts/demo-check.sh` passes without network access, GitHub auth, Linear
+  auth, or real secrets.
 
 ## Demo Evidence To Capture
 
-Record a terminal walkthrough that shows:
+Run the executable walkthrough:
+
+```bash
+proof_dir=&quot;$(mktemp -d /tmp/devdrop-demo-proof.XXXXXX)&quot;
+scripts/demo-check.sh --output-dir &quot;$proof_dir&quot;
+```
+
+Capture the command output and the generated
+`$proof_dir/demo-check-summary.txt`. The walkthrough proves:
 
 1. Build the binary.
-2. Create a temporary workspace and local bare Git project remote.
+2. Create temporary workspaces and local bare Git remotes.
 3. Initialize workspace A.
 4. Clone one project into workspace A and scan it.
 5. Create a local bare manifest remote.
@@ -2914,11 +3435,11 @@ Record a terminal walkthrough that shows:
 9. Run `plan` and `apply` to create placeholder structure.
 10. Hydrate the placeholder Git project.
 11. Store, list, and pull an encrypted env value.
-12. Show final `devspace status`.
-13. Show the remote-agent delivery workflow: `.claude/workflows/wave-ship.js`,
-    `ops/wave-ship/devdrop-mvp.args.json`, and
-    `ops/wave-ship/devdrop-capstone.args.json`.
-14. Show the frontier track: hosted sync, daemon/watch, FUSE, team secrets, and
+12. Assert the generated `.env` mode is `0600`.
+13. Show final `devspace status` and `devspace project status`.
+14. Show the remote-agent delivery workflow: `.claude/workflows/wave-ship.js`
+    and `.claude/workflows/ship-card.js`.
+15. Show the frontier track: hosted sync, daemon/watch, FUSE, team secrets, and
     explicit dependency install.
 
 ## Safety Proof Points
@@ -3072,19 +3593,19 @@ use devdrop as a teaching example for ai-native delivery:
             </div>
           </header>
           <div class="doc-body">
-            <div class="rendered markdown"><h1 id="case-study-devdrop-58"><a class="heading-link" href="#case-study-devdrop-58" aria-label="Link to Case Study: DevDrop">#</a>Case Study: DevDrop</h1><h2 id="client-friendly-summary-59"><a class="heading-link" href="#client-friendly-summary-59" aria-label="Link to Client-Friendly Summary">#</a>Client-Friendly Summary</h2><p>DevDrop is a local-first workspace recovery CLI for developers who move across
+            <div class="rendered markdown"><h1 id="case-study-devdrop-65"><a class="heading-link" href="#case-study-devdrop-65" aria-label="Link to Case Study: DevDrop">#</a>Case Study: DevDrop</h1><h2 id="client-friendly-summary-66"><a class="heading-link" href="#client-friendly-summary-66" aria-label="Link to Client-Friendly Summary">#</a>Client-Friendly Summary</h2><p>DevDrop is a local-first workspace recovery CLI for developers who move across
 machines, clients, and project sets. Instead of syncing entire folders, it tracks
 safe workspace metadata: project paths, Git remotes, setup hints, dirty state,
 placeholder folders, and encrypted env profiles.</p>
 <p>The result is a repeatable way to rebuild a developer workspace on a second
 machine without copying source code, dependency folders, generated files, or
 plaintext secrets.</p>
-<h2 id="problem-60"><a class="heading-link" href="#problem-60" aria-label="Link to Problem">#</a>Problem</h2><p>Developer onboarding and machine recovery often depend on tribal knowledge:
+<h2 id="problem-67"><a class="heading-link" href="#problem-67" aria-label="Link to Problem">#</a>Problem</h2><p>Developer onboarding and machine recovery often depend on tribal knowledge:
 which repos matter, where they live, which branch was active, which projects
 have env files, and which setup command should run first. Copying a whole
 workspace is risky because it can move secrets, client code, large generated
 artifacts, and stale dependency folders.</p>
-<h2 id="solution-61"><a class="heading-link" href="#solution-61" aria-label="Link to Solution">#</a>Solution</h2><p>DevDrop separates workspace knowledge from workspace contents.</p>
+<h2 id="solution-68"><a class="heading-link" href="#solution-68" aria-label="Link to Solution">#</a>Solution</h2><p>DevDrop separates workspace knowledge from workspace contents.</p>
 <ul>
 <li>A local manifest records project metadata.</li>
 <li>A Git-backed sync flow moves only <code>manifest.json</code> through a user-owned remote.</li>
@@ -3093,7 +3614,7 @@ artifacts, and stale dependency folders.</p>
 <li>Env values are encrypted locally with age and only materialized into <code>.env</code>
 files through an explicit command.</li>
 </ul>
-<h2 id="outcome-62"><a class="heading-link" href="#outcome-62" aria-label="Link to Outcome">#</a>Outcome</h2><p>The current MVP proves the core workflow:</p>
+<h2 id="outcome-69"><a class="heading-link" href="#outcome-69" aria-label="Link to Outcome">#</a>Outcome</h2><p>The current MVP proves the core workflow:</p>
 <ul>
 <li>Initialize a workspace.</li>
 <li>Scan projects.</li>
@@ -3103,7 +3624,7 @@ files through an explicit command.</li>
 <li>Hydrate a project only when needed.</li>
 <li>Keep env values encrypted at rest.</li>
 </ul>
-<h2 id="why-ai-native-delivery-mattered-63"><a class="heading-link" href="#why-ai-native-delivery-mattered-63" aria-label="Link to Why AI-Native Delivery Mattered">#</a>Why AI-Native Delivery Mattered</h2><p>The capstone demonstrates an AI-assisted engineering workflow in a realistic
+<h2 id="why-ai-native-delivery-mattered-70"><a class="heading-link" href="#why-ai-native-delivery-mattered-70" aria-label="Link to Why AI-Native Delivery Mattered">#</a>Why AI-Native Delivery Mattered</h2><p>The capstone demonstrates an AI-assisted engineering workflow in a realistic
 product slice:</p>
 <ul>
 <li>The product was defined around explicit safety boundaries before expanding
@@ -3120,7 +3641,7 @@ agent orchestration rather than a generic claim about AI usage.</li>
 <p>The main lesson for client enablement is that AI acceleration works best when it
 is paired with small, explicit contracts: specs, acceptance criteria, safety
 tests, and release gates.</p>
-<h2 id="delivery-case-study-64"><a class="heading-link" href="#delivery-case-study-64" aria-label="Link to Delivery Case Study">#</a>Delivery Case Study</h2><p>DevDrop uses the checked-in <code>wave-ship</code> workflow as a second capstone artifact.
+<h2 id="delivery-case-study-71"><a class="heading-link" href="#delivery-case-study-71" aria-label="Link to Delivery Case Study">#</a>Delivery Case Study</h2><p>DevDrop uses the checked-in <code>wave-ship</code> workflow as a second capstone artifact.
 The workflow decomposes a product goal into Linear-backed cards, dispatches work
 to isolated agent workers, opens PRs, watches CI/review feedback, and merges
 serially through the coordinator.</p>
@@ -3128,7 +3649,7 @@ serially through the coordinator.</p>
 scope, dependencies, PR evidence, verification commands, and blockers are all
 visible. The capstone demo should show both the product and the delivery system
 that produced it.</p>
-<h2 id="trade-offs-65"><a class="heading-link" href="#trade-offs-65" aria-label="Link to Trade-Offs">#</a>Trade-Offs</h2><ul>
+<h2 id="trade-offs-72"><a class="heading-link" href="#trade-offs-72" aria-label="Link to Trade-Offs">#</a>Trade-Offs</h2><ul>
 <li>Git-backed manifest sync is easy to inspect and host, but it does not provide
 real-time collaboration or conflict resolution UI.</li>
 <li>Placeholder directories are safe and simple, but they do not provide lazy file
@@ -3138,7 +3659,7 @@ backup, or rotation flow.</li>
 <li>Setup commands are detected as hints, but DevDrop does not install
 dependencies because automatic execution would cross a safety boundary.</li>
 </ul>
-<h2 id="client-enablement-notes-66"><a class="heading-link" href="#client-enablement-notes-66" aria-label="Link to Client Enablement Notes">#</a>Client Enablement Notes</h2><p>Use DevDrop as a teaching example for AI-native delivery:</p>
+<h2 id="client-enablement-notes-73"><a class="heading-link" href="#client-enablement-notes-73" aria-label="Link to Client Enablement Notes">#</a>Client Enablement Notes</h2><p>Use DevDrop as a teaching example for AI-native delivery:</p>
 <ol>
 <li>Start with the unsafe default behavior and name it plainly.</li>
 <li>Define what the tool will not do without permission.</li>
@@ -3148,7 +3669,7 @@ and case study.</li>
 <li>Show how AI helped compress delivery time while the specification preserved
 control.</li>
 </ol>
-<h2 id="current-limitations-67"><a class="heading-link" href="#current-limitations-67" aria-label="Link to Current Limitations">#</a>Current Limitations</h2><ul>
+<h2 id="current-limitations-74"><a class="heading-link" href="#current-limitations-74" aria-label="Link to Current Limitations">#</a>Current Limitations</h2><ul>
 <li>Hosted sync, daemon/watch mode, FUSE lazy mounting, team secret sharing, and
 explicit dependency install are capstone frontier work, not part of the
 completed local-first MVP baseline.</li>
@@ -3275,7 +3796,6 @@ checked-in claude workflow files:
 
 - `.claude/workflows/wave-ship.js`
 - `.claude/workflows/ship-card.js`
-- `ops/wave-ship/devdrop-mvp.args.json`
 
 ## why this matters
 
@@ -3320,10 +3840,7 @@ verification evidence or reports a blocker.
 
 ## devdrop mvp wave
 
-the initial prepared wave is stored in
-`ops/wave-ship/devdrop-mvp.args.json`.
-
-it uses:
+the initial prepared wave used the following `wave-ship.js` args:
 
 ```json
 {
@@ -3347,10 +3864,7 @@ the five cards map to the core mvp:
 
 ## capstone stretch wave
 
-the next wave is stored in
-`ops/wave-ship/devdrop-capstone.args.json`.
-
-it pushes the mvp toward a stronger final demo without changing the product into
+the next wave args pushed the mvp toward a stronger final demo without changing the product into
 a vague product. the wave now deliberately includes the risky frontier areas:
 
 1. release packaging and install docs.
@@ -3383,14 +3897,13 @@ keeps the risk controlled with these rules:
 
 use the remote-agent system as the &quot;how it was built&quot; segment:
 
-1. open `ops/wave-ship/devdrop-mvp.args.json`.
-2. explain the dependency graph: init first, scan/hydrate/env in parallel, docs
+1. explain the dependency graph: init first, scan/hydrate/env in parallel, docs
    and verification last.
-3. open `.claude/workflows/wave-ship.js`.
-4. point to `backend: &quot;orca&quot;`, `maxconcurrent`, and `serializedmerge`.
-5. show the linear/pr evidence for each card if available.
-6. explain what failed or required human judgment.
-7. tie it back to client enablement: agents work when the work is decomposed
+2. open `.claude/workflows/wave-ship.js`.
+3. point to `backend: &quot;orca&quot;`, `maxconcurrent`, and `serializedmerge`.
+4. show the linear/pr evidence for each card if available.
+5. explain what failed or required human judgment.
+6. tie it back to client enablement: agents work when the work is decomposed
    into explicit contracts with observable gates.
 ">
           <header class="doc-header">
@@ -3399,21 +3912,20 @@ use the remote-agent system as the &quot;how it was built&quot; segment:
               <div class="doc-path">docs/capstone/remote-agent-case-study.md</div>
             </div>
             <div class="doc-meta">
-              <span class="badge">644 words</span>
+              <span class="badge">634 words</span>
               <span class="badge">1 code</span>
               <span class="badge">1 tables</span>
             </div>
           </header>
           <div class="doc-body">
-            <div class="rendered markdown"><h1 id="remote-agent-case-study-68"><a class="heading-link" href="#remote-agent-case-study-68" aria-label="Link to Remote Agent Case Study">#</a>Remote Agent Case Study</h1><p>DevDrop is also a case study in agent-orchestrated delivery. The MVP was planned
+            <div class="rendered markdown"><h1 id="remote-agent-case-study-75"><a class="heading-link" href="#remote-agent-case-study-75" aria-label="Link to Remote Agent Case Study">#</a>Remote Agent Case Study</h1><p>DevDrop is also a case study in agent-orchestrated delivery. The MVP was planned
 as a set of independently shippable cards and prepared for execution through the
 checked-in Claude workflow files:</p>
 <ul>
 <li><code>.claude/workflows/wave-ship.js</code></li>
 <li><code>.claude/workflows/ship-card.js</code></li>
-<li><code>ops/wave-ship/devdrop-mvp.args.json</code></li>
 </ul>
-<h2 id="why-this-matters-69"><a class="heading-link" href="#why-this-matters-69" aria-label="Link to Why This Matters">#</a>Why This Matters</h2><p>The capstone is not only &quot;we built a CLI.&quot; The stronger claim is that a small
+<h2 id="why-this-matters-76"><a class="heading-link" href="#why-this-matters-76" aria-label="Link to Why This Matters">#</a>Why This Matters</h2><p>The capstone is not only &quot;we built a CLI.&quot; The stronger claim is that a small
 team can use AI agents as a delivery system when the work is decomposed into
 clear, testable, file-scoped cards.</p>
 <p>For DevDrop, the workflow turns a product goal into:</p>
@@ -3427,7 +3939,7 @@ clear, testable, file-scoped cards.</p>
 </ol>
 <p>That makes the agent system inspectable. Each worker either produces a PR with
 verification evidence or reports a blocker.</p>
-<h2 id="workflow-shape-70"><a class="heading-link" href="#workflow-shape-70" aria-label="Link to Workflow Shape">#</a>Workflow Shape</h2><p><code>wave-ship.js</code> owns the portfolio-level loop:</p>
+<h2 id="workflow-shape-77"><a class="heading-link" href="#workflow-shape-77" aria-label="Link to Workflow Shape">#</a>Workflow Shape</h2><p><code>wave-ship.js</code> owns the portfolio-level loop:</p>
 <ul>
 <li>Accepts a goal, plan, cards, or waves.</li>
 <li>Builds a dependency graph from card <code>dependsOn</code> values.</li>
@@ -3448,15 +3960,13 @@ verification evidence or reports a blocker.</p>
 <li>Pushes fixes until the PR is clean or blocked.</li>
 <li>Lands the work or returns <code>merge-ready</code> to the coordinator.</li>
 </ul>
-<h2 id="devdrop-mvp-wave-71"><a class="heading-link" href="#devdrop-mvp-wave-71" aria-label="Link to DevDrop MVP Wave">#</a>DevDrop MVP Wave</h2><p>The initial prepared wave is stored in
-<code>ops/wave-ship/devdrop-mvp.args.json</code>.</p>
-<p>It uses:</p>
+<h2 id="devdrop-mvp-wave-78"><a class="heading-link" href="#devdrop-mvp-wave-78" aria-label="Link to DevDrop MVP Wave">#</a>DevDrop MVP Wave</h2><p>The initial prepared wave used the following <code>wave-ship.js</code> args:</p>
 <figure class="code-block" data-lang="json">
     <figcaption>
       <span>json</span>
-      <button class="copy-btn" type="button" data-copy-code="code-22">Copy</button>
+      <button class="copy-btn" type="button" data-copy-code="code-31">Copy</button>
     </figcaption>
-    <div id="code-22" class="diff-render" data-code-b64="ewogICJiYWNrZW5kIjogIm9yY2EiLAogICJzZXJpYWxpemVkTWVyZ2UiOiB0cnVlLAogICJhdXRvQ29udGludWUiOiBmYWxzZSwKICAibWF4Q29uY3VycmVudCI6IDMsCiAgImVuZ2luZSI6ICJjb2RleCIKfQ==" data-lang="json"></div>
+    <div id="code-31" class="diff-render" data-code-b64="ewogICJiYWNrZW5kIjogIm9yY2EiLAogICJzZXJpYWxpemVkTWVyZ2UiOiB0cnVlLAogICJhdXRvQ29udGludWUiOiBmYWxzZSwKICAibWF4Q29uY3VycmVudCI6IDMsCiAgImVuZ2luZSI6ICJjb2RleCIKfQ==" data-lang="json"></div>
     <noscript><pre><code>{
   &quot;backend&quot;: &quot;orca&quot;,
   &quot;serializedMerge&quot;: true,
@@ -3493,9 +4003,7 @@ verification evidence or reports a blocker.</p>
 <td>README, examples, and end-to-end MVP verification</td>
 </tr>
 </tbody></table>
-<h2 id="capstone-stretch-wave-72"><a class="heading-link" href="#capstone-stretch-wave-72" aria-label="Link to Capstone Stretch Wave">#</a>Capstone Stretch Wave</h2><p>The next wave is stored in
-<code>ops/wave-ship/devdrop-capstone.args.json</code>.</p>
-<p>It pushes the MVP toward a stronger final demo without changing the product into
+<h2 id="capstone-stretch-wave-79"><a class="heading-link" href="#capstone-stretch-wave-79" aria-label="Link to Capstone Stretch Wave">#</a>Capstone Stretch Wave</h2><p>The next wave args pushed the MVP toward a stronger final demo without changing the product into
 a vague product. The wave now deliberately includes the risky frontier areas:</p>
 <ol>
 <li>Release packaging and install docs.</li>
@@ -3509,7 +4017,7 @@ a vague product. The wave now deliberately includes the risky frontier areas:</p
 <li>Explicit dependency install workflow.</li>
 <li>Final capstone evidence, reflection, and demo readiness.</li>
 </ol>
-<h2 id="guardrails-73"><a class="heading-link" href="#guardrails-73" aria-label="Link to Guardrails">#</a>Guardrails</h2><p>The workflow is powerful enough to create risk if the cards are vague. DevDrop
+<h2 id="guardrails-80"><a class="heading-link" href="#guardrails-80" aria-label="Link to Guardrails">#</a>Guardrails</h2><p>The workflow is powerful enough to create risk if the cards are vague. DevDrop
 keeps the risk controlled with these rules:</p>
 <ul>
 <li>Every card declares scope and explicit non-goals.</li>
@@ -3522,9 +4030,8 @@ logs, or hidden local state.</li>
 <li>Frontier cards must fail safe: hosted sync is opt-in, dependency install is
 explicit, FUSE is optional, and team secrets never upload plaintext values.</li>
 </ul>
-<h2 id="what-to-show-in-the-final-demo-74"><a class="heading-link" href="#what-to-show-in-the-final-demo-74" aria-label="Link to What To Show In The Final Demo">#</a>What To Show In The Final Demo</h2><p>Use the remote-agent system as the &quot;how it was built&quot; segment:</p>
+<h2 id="what-to-show-in-the-final-demo-81"><a class="heading-link" href="#what-to-show-in-the-final-demo-81" aria-label="Link to What To Show In The Final Demo">#</a>What To Show In The Final Demo</h2><p>Use the remote-agent system as the &quot;how it was built&quot; segment:</p>
 <ol>
-<li>Open <code>ops/wave-ship/devdrop-mvp.args.json</code>.</li>
 <li>Explain the dependency graph: init first, scan/hydrate/env in parallel, docs
 and verification last.</li>
 <li>Open <code>.claude/workflows/wave-ship.js</code>.</li>
@@ -3543,7 +4050,6 @@ checked-in Claude workflow files:
 
 - `.claude/workflows/wave-ship.js`
 - `.claude/workflows/ship-card.js`
-- `ops/wave-ship/devdrop-mvp.args.json`
 
 ## Why This Matters
 
@@ -3588,10 +4094,7 @@ verification evidence or reports a blocker.
 
 ## DevDrop MVP Wave
 
-The initial prepared wave is stored in
-`ops/wave-ship/devdrop-mvp.args.json`.
-
-It uses:
+The initial prepared wave used the following `wave-ship.js` args:
 
 ```json
 {
@@ -3615,10 +4118,7 @@ The five cards map to the core MVP:
 
 ## Capstone Stretch Wave
 
-The next wave is stored in
-`ops/wave-ship/devdrop-capstone.args.json`.
-
-It pushes the MVP toward a stronger final demo without changing the product into
+The next wave args pushed the MVP toward a stronger final demo without changing the product into
 a vague product. The wave now deliberately includes the risky frontier areas:
 
 1. Release packaging and install docs.
@@ -3651,22 +4151,22 @@ keeps the risk controlled with these rules:
 
 Use the remote-agent system as the &quot;how it was built&quot; segment:
 
-1. Open `ops/wave-ship/devdrop-mvp.args.json`.
-2. Explain the dependency graph: init first, scan/hydrate/env in parallel, docs
+1. Explain the dependency graph: init first, scan/hydrate/env in parallel, docs
    and verification last.
-3. Open `.claude/workflows/wave-ship.js`.
-4. Point to `backend: &quot;orca&quot;`, `maxConcurrent`, and `serializedMerge`.
-5. Show the Linear/PR evidence for each card if available.
-6. Explain what failed or required human judgment.
-7. Tie it back to client enablement: agents work when the work is decomposed
+2. Open `.claude/workflows/wave-ship.js`.
+3. Point to `backend: &quot;orca&quot;`, `maxConcurrent`, and `serializedMerge`.
+4. Show the Linear/PR evidence for each card if available.
+5. Explain what failed or required human judgment.
+6. Tie it back to client enablement: agents work when the work is decomposed
    into explicit contracts with observable gates.
 </pre></div>
           </div>
         </article>
 <article class="doc" id="doc-8" data-title="Demo Script" data-path="docs/capstone/demo-script.md" data-search="demo script docs/capstone/demo-script.md # demo script
 
-this script is designed for the final module 5 recording. it uses temporary
-directories and local bare git remotes so the demo works without network access.
+this script is designed for the final module 5 recording. the executable version
+is checked in as `scripts/demo-check.sh`; it uses temporary directories and local
+bare git remotes so the demo works without network access.
 
 ## talk track
 
@@ -3675,47 +4175,28 @@ machine publishing safe workspace metadata, a second machine pulling that
 metadata, creating placeholders, hydrating a git project, and materializing an
 encrypted env value only when requested.
 
-## setup
+## run the demo check
 
 start from the repo root:
 
 ```bash
-go build -o .tmp/devspace ./cmd/devdrop
-
-tmp=&quot;$(mktemp -d)&quot;
-workspace_a=&quot;$tmp/workspace-a&quot;
-workspace_b=&quot;$tmp/workspace-b&quot;
-remote_src=&quot;$tmp/remote-src&quot;
-project_remote=&quot;$tmp/client-a-api.git&quot;
-manifest_remote=&quot;$tmp/manifest-sync.git&quot;
+scripts/demo-check.sh
 ```
 
-create a demo project remote:
+for proof capture, keep the generated workspaces, local bare remotes, pushed
+manifest, and summary file outside the repo with an explicit output directory:
 
 ```bash
-mkdir -p &quot;$remote_src&quot;
-git -c &quot;$remote_src&quot; init -b main
-git -c &quot;$remote_src&quot; config user.email demo@example.com
-git -c &quot;$remote_src&quot; config user.name &quot;demo user&quot;
-printf &#39;# client-a-api\n&#39; &gt; &quot;$remote_src/readme.md&quot;
-git -c &quot;$remote_src&quot; add readme.md
-git -c &quot;$remote_src&quot; commit -m &quot;initial&quot;
-git clone --bare &quot;$remote_src&quot; &quot;$project_remote&quot;
+proof_dir=&quot;$(mktemp -d /tmp/devdrop-demo-proof.xxxxxx)&quot;
+scripts/demo-check.sh --output-dir &quot;$proof_dir&quot;
 ```
+
+the script builds `devspace`, creates two temporary machine homes, creates a
+local bare project remote and a local bare manifest remote, runs the full
+workflow, asserts the generated `.env` mode is `0600`, and prints
+`devdrop demo-check passed.` on success.
 
 ## machine a: publish workspace metadata
-
-```bash
-export dev_drop_home=&quot;$tmp/home-a&quot;
-.tmp/devspace init --workspace &quot;$workspace_a&quot;
-mkdir -p &quot;$workspace_a/work&quot;
-git clone &quot;$project_remote&quot; &quot;$workspace_a/work/client-a-api&quot;
-printf &#39;{&quot;scripts&quot;:{&quot;dev&quot;:&quot;vite&quot;}}\n&#39; &gt; &quot;$workspace_a/work/client-a-api/package.json&quot;
-.tmp/devspace scan
-.tmp/devspace workspace remote create local &quot;$manifest_remote&quot;
-.tmp/devspace workspace push
-.tmp/devspace status
-```
 
 narration:
 
@@ -3724,18 +4205,6 @@ narration:
 - `workspace push` sends only `manifest.json` to the manifest remote.
 
 ## machine b: pull, plan, apply, hydrate
-
-```bash
-export dev_drop_home=&quot;$tmp/home-b&quot;
-.tmp/devspace init --workspace &quot;$workspace_b&quot;
-.tmp/devspace workspace remote set &quot;$manifest_remote&quot;
-.tmp/devspace workspace pull
-.tmp/devspace plan
-.tmp/devspace apply
-.tmp/devspace status
-.tmp/devspace project hydrate client-a-api
-.tmp/devspace status
-```
 
 narration:
 
@@ -3746,13 +4215,6 @@ narration:
 
 ## encrypted env profile
 
-```bash
-printf &#39;postgres://demo\n&#39; | .tmp/devspace env set client-a-api database_url
-.tmp/devspace env list client-a-api
-.tmp/devspace env pull client-a-api
-ls -l &quot;$workspace_b/work/client-a-api/.env&quot;
-```
-
 narration:
 
 - env values are stored encrypted under the workspace `.devdrop/secrets`
@@ -3760,6 +4222,7 @@ narration:
 - `env list` masks values.
 - `env pull` writes the local `.env` file only on explicit request.
 - the generated `.env` has `0600` permissions.
+- `scripts/demo-check.sh` enforces the `0600` assertion automatically.
 
 ## close
 
@@ -3774,8 +4237,6 @@ show the remote-agent delivery case study:
 
 ```bash
 sed -n &#39;1,220p&#39; docs/capstone/remote-agent-case-study.md
-sed -n &#39;1,220p&#39; ops/wave-ship/devdrop-mvp.args.json
-sed -n &#39;1,220p&#39; ops/wave-ship/devdrop-capstone.args.json
 ```
 
 narration:
@@ -3801,128 +4262,80 @@ agent-delivery process that made the work auditable.
               <div class="doc-path">docs/capstone/demo-script.md</div>
             </div>
             <div class="doc-meta">
-              <span class="badge">492 words</span>
-              <span class="badge">7 code</span>
+              <span class="badge">430 words</span>
+              <span class="badge">4 code</span>
               <span class="badge">0 tables</span>
             </div>
           </header>
           <div class="doc-body">
-            <div class="rendered markdown"><h1 id="demo-script-75"><a class="heading-link" href="#demo-script-75" aria-label="Link to Demo Script">#</a>Demo Script</h1><p>This script is designed for the final Module 5 recording. It uses temporary
-directories and local bare Git remotes so the demo works without network access.</p>
-<h2 id="talk-track-76"><a class="heading-link" href="#talk-track-76" aria-label="Link to Talk Track">#</a>Talk Track</h2><p>DevDrop solves workspace recovery without syncing everything. The demo shows one
+            <div class="rendered markdown"><h1 id="demo-script-82"><a class="heading-link" href="#demo-script-82" aria-label="Link to Demo Script">#</a>Demo Script</h1><p>This script is designed for the final Module 5 recording. The executable version
+is checked in as <code>scripts/demo-check.sh</code>; it uses temporary directories and local
+bare Git remotes so the demo works without network access.</p>
+<h2 id="talk-track-83"><a class="heading-link" href="#talk-track-83" aria-label="Link to Talk Track">#</a>Talk Track</h2><p>DevDrop solves workspace recovery without syncing everything. The demo shows one
 machine publishing safe workspace metadata, a second machine pulling that
 metadata, creating placeholders, hydrating a Git project, and materializing an
 encrypted env value only when requested.</p>
-<h2 id="setup-77"><a class="heading-link" href="#setup-77" aria-label="Link to Setup">#</a>Setup</h2><p>Start from the repo root:</p>
+<h2 id="run-the-demo-check-84"><a class="heading-link" href="#run-the-demo-check-84" aria-label="Link to Run The Demo Check">#</a>Run The Demo Check</h2><p>Start from the repo root:</p>
 <figure class="code-block" data-lang="bash">
     <figcaption>
       <span>bash</span>
-      <button class="copy-btn" type="button" data-copy-code="code-23">Copy</button>
+      <button class="copy-btn" type="button" data-copy-code="code-32">Copy</button>
     </figcaption>
-    <div id="code-23" class="diff-render" data-code-b64="Z28gYnVpbGQgLW8gLnRtcC9kZXZzcGFjZSAuL2NtZC9kZXZkcm9wCgp0bXA9IiQobWt0ZW1wIC1kKSIKd29ya3NwYWNlX2E9IiR0bXAvd29ya3NwYWNlLWEiCndvcmtzcGFjZV9iPSIkdG1wL3dvcmtzcGFjZS1iIgpyZW1vdGVfc3JjPSIkdG1wL3JlbW90ZS1zcmMiCnByb2plY3RfcmVtb3RlPSIkdG1wL2NsaWVudC1hLWFwaS5naXQiCm1hbmlmZXN0X3JlbW90ZT0iJHRtcC9tYW5pZmVzdC1zeW5jLmdpdCI=" data-lang="bash"></div>
-    <noscript><pre><code>go build -o .tmp/devspace ./cmd/devdrop
-
-tmp=&quot;$(mktemp -d)&quot;
-workspace_a=&quot;$tmp/workspace-a&quot;
-workspace_b=&quot;$tmp/workspace-b&quot;
-remote_src=&quot;$tmp/remote-src&quot;
-project_remote=&quot;$tmp/client-a-api.git&quot;
-manifest_remote=&quot;$tmp/manifest-sync.git&quot;</code></pre></noscript>
-  </figure><p>Create a demo project remote:</p>
+    <div id="code-32" class="diff-render" data-code-b64="c2NyaXB0cy9kZW1vLWNoZWNrLnNo" data-lang="bash"></div>
+    <noscript><pre><code>scripts/demo-check.sh</code></pre></noscript>
+  </figure><p>For proof capture, keep the generated workspaces, local bare remotes, pushed
+manifest, and summary file outside the repo with an explicit output directory:</p>
 <figure class="code-block" data-lang="bash">
     <figcaption>
       <span>bash</span>
-      <button class="copy-btn" type="button" data-copy-code="code-24">Copy</button>
+      <button class="copy-btn" type="button" data-copy-code="code-33">Copy</button>
     </figcaption>
-    <div id="code-24" class="diff-render" data-code-b64="bWtkaXIgLXAgIiRyZW1vdGVfc3JjIgpnaXQgLUMgIiRyZW1vdGVfc3JjIiBpbml0IC1iIG1haW4KZ2l0IC1DICIkcmVtb3RlX3NyYyIgY29uZmlnIHVzZXIuZW1haWwgZGVtb0BleGFtcGxlLmNvbQpnaXQgLUMgIiRyZW1vdGVfc3JjIiBjb25maWcgdXNlci5uYW1lICJEZW1vIFVzZXIiCnByaW50ZiAnIyBjbGllbnQtYS1hcGlcbicgPiAiJHJlbW90ZV9zcmMvUkVBRE1FLm1kIgpnaXQgLUMgIiRyZW1vdGVfc3JjIiBhZGQgUkVBRE1FLm1kCmdpdCAtQyAiJHJlbW90ZV9zcmMiIGNvbW1pdCAtbSAiaW5pdGlhbCIKZ2l0IGNsb25lIC0tYmFyZSAiJHJlbW90ZV9zcmMiICIkcHJvamVjdF9yZW1vdGUi" data-lang="bash"></div>
-    <noscript><pre><code>mkdir -p &quot;$remote_src&quot;
-git -C &quot;$remote_src&quot; init -b main
-git -C &quot;$remote_src&quot; config user.email demo@example.com
-git -C &quot;$remote_src&quot; config user.name &quot;Demo User&quot;
-printf &#39;# client-a-api\n&#39; &gt; &quot;$remote_src/README.md&quot;
-git -C &quot;$remote_src&quot; add README.md
-git -C &quot;$remote_src&quot; commit -m &quot;initial&quot;
-git clone --bare &quot;$remote_src&quot; &quot;$project_remote&quot;</code></pre></noscript>
-  </figure><h2 id="machine-a-publish-workspace-metadata-78"><a class="heading-link" href="#machine-a-publish-workspace-metadata-78" aria-label="Link to Machine A: Publish Workspace Metadata">#</a>Machine A: Publish Workspace Metadata</h2><figure class="code-block" data-lang="bash">
-    <figcaption>
-      <span>bash</span>
-      <button class="copy-btn" type="button" data-copy-code="code-25">Copy</button>
-    </figcaption>
-    <div id="code-25" class="diff-render" data-code-b64="ZXhwb3J0IERFVl9EUk9QX0hPTUU9IiR0bXAvaG9tZS1hIgoudG1wL2RldnNwYWNlIGluaXQgLS13b3Jrc3BhY2UgIiR3b3Jrc3BhY2VfYSIKbWtkaXIgLXAgIiR3b3Jrc3BhY2VfYS93b3JrIgpnaXQgY2xvbmUgIiRwcm9qZWN0X3JlbW90ZSIgIiR3b3Jrc3BhY2VfYS93b3JrL2NsaWVudC1hLWFwaSIKcHJpbnRmICd7InNjcmlwdHMiOnsiZGV2Ijoidml0ZSJ9fVxuJyA+ICIkd29ya3NwYWNlX2Evd29yay9jbGllbnQtYS1hcGkvcGFja2FnZS5qc29uIgoudG1wL2RldnNwYWNlIHNjYW4KLnRtcC9kZXZzcGFjZSB3b3Jrc3BhY2UgcmVtb3RlIGNyZWF0ZSBsb2NhbCAiJG1hbmlmZXN0X3JlbW90ZSIKLnRtcC9kZXZzcGFjZSB3b3Jrc3BhY2UgcHVzaAoudG1wL2RldnNwYWNlIHN0YXR1cw==" data-lang="bash"></div>
-    <noscript><pre><code>export DEV_DROP_HOME=&quot;$tmp/home-a&quot;
-.tmp/devspace init --workspace &quot;$workspace_a&quot;
-mkdir -p &quot;$workspace_a/work&quot;
-git clone &quot;$project_remote&quot; &quot;$workspace_a/work/client-a-api&quot;
-printf &#39;{&quot;scripts&quot;:{&quot;dev&quot;:&quot;vite&quot;}}\n&#39; &gt; &quot;$workspace_a/work/client-a-api/package.json&quot;
-.tmp/devspace scan
-.tmp/devspace workspace remote create local &quot;$manifest_remote&quot;
-.tmp/devspace workspace push
-.tmp/devspace status</code></pre></noscript>
-  </figure><p>Narration:</p>
+    <div id="code-33" class="diff-render" data-code-b64="cHJvb2ZfZGlyPSIkKG1rdGVtcCAtZCAvdG1wL2RldmRyb3AtZGVtby1wcm9vZi5YWFhYWFgpIgpzY3JpcHRzL2RlbW8tY2hlY2suc2ggLS1vdXRwdXQtZGlyICIkcHJvb2ZfZGlyIg==" data-lang="bash"></div>
+    <noscript><pre><code>proof_dir=&quot;$(mktemp -d /tmp/devdrop-demo-proof.XXXXXX)&quot;
+scripts/demo-check.sh --output-dir &quot;$proof_dir&quot;</code></pre></noscript>
+  </figure><p>The script builds <code>devspace</code>, creates two temporary machine homes, creates a
+local bare project remote and a local bare manifest remote, runs the full
+workflow, asserts the generated <code>.env</code> mode is <code>0600</code>, and prints
+<code>DevDrop demo-check passed.</code> on success.</p>
+<h2 id="machine-a-publish-workspace-metadata-85"><a class="heading-link" href="#machine-a-publish-workspace-metadata-85" aria-label="Link to Machine A: Publish Workspace Metadata">#</a>Machine A: Publish Workspace Metadata</h2><p>Narration:</p>
 <ul>
 <li>The workspace contains a real Git project on machine A.</li>
 <li><code>scan</code> captures metadata and setup hints.</li>
 <li><code>workspace push</code> sends only <code>manifest.json</code> to the manifest remote.</li>
 </ul>
-<h2 id="machine-b-pull-plan-apply-hydrate-79"><a class="heading-link" href="#machine-b-pull-plan-apply-hydrate-79" aria-label="Link to Machine B: Pull, Plan, Apply, Hydrate">#</a>Machine B: Pull, Plan, Apply, Hydrate</h2><figure class="code-block" data-lang="bash">
-    <figcaption>
-      <span>bash</span>
-      <button class="copy-btn" type="button" data-copy-code="code-26">Copy</button>
-    </figcaption>
-    <div id="code-26" class="diff-render" data-code-b64="ZXhwb3J0IERFVl9EUk9QX0hPTUU9IiR0bXAvaG9tZS1iIgoudG1wL2RldnNwYWNlIGluaXQgLS13b3Jrc3BhY2UgIiR3b3Jrc3BhY2VfYiIKLnRtcC9kZXZzcGFjZSB3b3Jrc3BhY2UgcmVtb3RlIHNldCAiJG1hbmlmZXN0X3JlbW90ZSIKLnRtcC9kZXZzcGFjZSB3b3Jrc3BhY2UgcHVsbAoudG1wL2RldnNwYWNlIHBsYW4KLnRtcC9kZXZzcGFjZSBhcHBseQoudG1wL2RldnNwYWNlIHN0YXR1cwoudG1wL2RldnNwYWNlIHByb2plY3QgaHlkcmF0ZSBjbGllbnQtYS1hcGkKLnRtcC9kZXZzcGFjZSBzdGF0dXM=" data-lang="bash"></div>
-    <noscript><pre><code>export DEV_DROP_HOME=&quot;$tmp/home-b&quot;
-.tmp/devspace init --workspace &quot;$workspace_b&quot;
-.tmp/devspace workspace remote set &quot;$manifest_remote&quot;
-.tmp/devspace workspace pull
-.tmp/devspace plan
-.tmp/devspace apply
-.tmp/devspace status
-.tmp/devspace project hydrate client-a-api
-.tmp/devspace status</code></pre></noscript>
-  </figure><p>Narration:</p>
+<h2 id="machine-b-pull-plan-apply-hydrate-86"><a class="heading-link" href="#machine-b-pull-plan-apply-hydrate-86" aria-label="Link to Machine B: Pull, Plan, Apply, Hydrate">#</a>Machine B: Pull, Plan, Apply, Hydrate</h2><p>Narration:</p>
 <ul>
 <li>Pull localizes the workspace root for machine B.</li>
 <li><code>plan</code> shows safe placeholder actions before mutation.</li>
 <li><code>apply</code> creates structure only.</li>
 <li>Hydration uses normal Git clone and refuses unsafe destinations.</li>
 </ul>
-<h2 id="encrypted-env-profile-80"><a class="heading-link" href="#encrypted-env-profile-80" aria-label="Link to Encrypted Env Profile">#</a>Encrypted Env Profile</h2><figure class="code-block" data-lang="bash">
-    <figcaption>
-      <span>bash</span>
-      <button class="copy-btn" type="button" data-copy-code="code-27">Copy</button>
-    </figcaption>
-    <div id="code-27" class="diff-render" data-code-b64="cHJpbnRmICdwb3N0Z3JlczovL2RlbW9cbicgfCAudG1wL2RldnNwYWNlIGVudiBzZXQgY2xpZW50LWEtYXBpIERBVEFCQVNFX1VSTAoudG1wL2RldnNwYWNlIGVudiBsaXN0IGNsaWVudC1hLWFwaQoudG1wL2RldnNwYWNlIGVudiBwdWxsIGNsaWVudC1hLWFwaQpscyAtbCAiJHdvcmtzcGFjZV9iL3dvcmsvY2xpZW50LWEtYXBpLy5lbnYi" data-lang="bash"></div>
-    <noscript><pre><code>printf &#39;postgres://demo\n&#39; | .tmp/devspace env set client-a-api DATABASE_URL
-.tmp/devspace env list client-a-api
-.tmp/devspace env pull client-a-api
-ls -l &quot;$workspace_b/work/client-a-api/.env&quot;</code></pre></noscript>
-  </figure><p>Narration:</p>
+<h2 id="encrypted-env-profile-87"><a class="heading-link" href="#encrypted-env-profile-87" aria-label="Link to Encrypted Env Profile">#</a>Encrypted Env Profile</h2><p>Narration:</p>
 <ul>
 <li>Env values are stored encrypted under the workspace <code>.devdrop/secrets</code>
 directory.</li>
 <li><code>env list</code> masks values.</li>
 <li><code>env pull</code> writes the local <code>.env</code> file only on explicit request.</li>
 <li>The generated <code>.env</code> has <code>0600</code> permissions.</li>
+<li><code>scripts/demo-check.sh</code> enforces the <code>0600</code> assertion automatically.</li>
 </ul>
-<h2 id="close-81"><a class="heading-link" href="#close-81" aria-label="Link to Close">#</a>Close</h2><p>Show the release-readiness file and proof checklist:</p>
+<h2 id="close-88"><a class="heading-link" href="#close-88" aria-label="Link to Close">#</a>Close</h2><p>Show the release-readiness file and proof checklist:</p>
 <figure class="code-block" data-lang="bash">
     <figcaption>
       <span>bash</span>
-      <button class="copy-btn" type="button" data-copy-code="code-28">Copy</button>
+      <button class="copy-btn" type="button" data-copy-code="code-34">Copy</button>
     </figcaption>
-    <div id="code-28" class="diff-render" data-code-b64="c2VkIC1uICcxLDEyMHAnIGRvY3MvcmVsZWFzZS1yZWFkaW5lc3MubWQKc2VkIC1uICcxLDE2MHAnIGRvY3MvY2Fwc3RvbmUvcHJvb2YtYXJ0aWZhY3RzLm1k" data-lang="bash"></div>
+    <div id="code-34" class="diff-render" data-code-b64="c2VkIC1uICcxLDEyMHAnIGRvY3MvcmVsZWFzZS1yZWFkaW5lc3MubWQKc2VkIC1uICcxLDE2MHAnIGRvY3MvY2Fwc3RvbmUvcHJvb2YtYXJ0aWZhY3RzLm1k" data-lang="bash"></div>
     <noscript><pre><code>sed -n &#39;1,120p&#39; docs/release-readiness.md
 sed -n &#39;1,160p&#39; docs/capstone/proof-artifacts.md</code></pre></noscript>
   </figure><p>Show the remote-agent delivery case study:</p>
 <figure class="code-block" data-lang="bash">
     <figcaption>
       <span>bash</span>
-      <button class="copy-btn" type="button" data-copy-code="code-29">Copy</button>
+      <button class="copy-btn" type="button" data-copy-code="code-35">Copy</button>
     </figcaption>
-    <div id="code-29" class="diff-render" data-code-b64="c2VkIC1uICcxLDIyMHAnIGRvY3MvY2Fwc3RvbmUvcmVtb3RlLWFnZW50LWNhc2Utc3R1ZHkubWQKc2VkIC1uICcxLDIyMHAnIG9wcy93YXZlLXNoaXAvZGV2ZHJvcC1tdnAuYXJncy5qc29uCnNlZCAtbiAnMSwyMjBwJyBvcHMvd2F2ZS1zaGlwL2RldmRyb3AtY2Fwc3RvbmUuYXJncy5qc29u" data-lang="bash"></div>
-    <noscript><pre><code>sed -n &#39;1,220p&#39; docs/capstone/remote-agent-case-study.md
-sed -n &#39;1,220p&#39; ops/wave-ship/devdrop-mvp.args.json
-sed -n &#39;1,220p&#39; ops/wave-ship/devdrop-capstone.args.json</code></pre></noscript>
+    <div id="code-35" class="diff-render" data-code-b64="c2VkIC1uICcxLDIyMHAnIGRvY3MvY2Fwc3RvbmUvcmVtb3RlLWFnZW50LWNhc2Utc3R1ZHkubWQ=" data-lang="bash"></div>
+    <noscript><pre><code>sed -n &#39;1,220p&#39; docs/capstone/remote-agent-case-study.md</code></pre></noscript>
   </figure><p>Narration:</p>
 <ul>
 <li>The product was not built as one large ambiguous prompt.</li>
@@ -3941,8 +4354,9 @@ agent-delivery process that made the work auditable.</p>
 </div>
             <div class="source"><pre># Demo Script
 
-This script is designed for the final Module 5 recording. It uses temporary
-directories and local bare Git remotes so the demo works without network access.
+This script is designed for the final Module 5 recording. The executable version
+is checked in as `scripts/demo-check.sh`; it uses temporary directories and local
+bare Git remotes so the demo works without network access.
 
 ## Talk Track
 
@@ -3951,47 +4365,28 @@ machine publishing safe workspace metadata, a second machine pulling that
 metadata, creating placeholders, hydrating a Git project, and materializing an
 encrypted env value only when requested.
 
-## Setup
+## Run The Demo Check
 
 Start from the repo root:
 
 ```bash
-go build -o .tmp/devspace ./cmd/devdrop
-
-tmp=&quot;$(mktemp -d)&quot;
-workspace_a=&quot;$tmp/workspace-a&quot;
-workspace_b=&quot;$tmp/workspace-b&quot;
-remote_src=&quot;$tmp/remote-src&quot;
-project_remote=&quot;$tmp/client-a-api.git&quot;
-manifest_remote=&quot;$tmp/manifest-sync.git&quot;
+scripts/demo-check.sh
 ```
 
-Create a demo project remote:
+For proof capture, keep the generated workspaces, local bare remotes, pushed
+manifest, and summary file outside the repo with an explicit output directory:
 
 ```bash
-mkdir -p &quot;$remote_src&quot;
-git -C &quot;$remote_src&quot; init -b main
-git -C &quot;$remote_src&quot; config user.email demo@example.com
-git -C &quot;$remote_src&quot; config user.name &quot;Demo User&quot;
-printf &#39;# client-a-api\n&#39; &gt; &quot;$remote_src/README.md&quot;
-git -C &quot;$remote_src&quot; add README.md
-git -C &quot;$remote_src&quot; commit -m &quot;initial&quot;
-git clone --bare &quot;$remote_src&quot; &quot;$project_remote&quot;
+proof_dir=&quot;$(mktemp -d /tmp/devdrop-demo-proof.XXXXXX)&quot;
+scripts/demo-check.sh --output-dir &quot;$proof_dir&quot;
 ```
+
+The script builds `devspace`, creates two temporary machine homes, creates a
+local bare project remote and a local bare manifest remote, runs the full
+workflow, asserts the generated `.env` mode is `0600`, and prints
+`DevDrop demo-check passed.` on success.
 
 ## Machine A: Publish Workspace Metadata
-
-```bash
-export DEV_DROP_HOME=&quot;$tmp/home-a&quot;
-.tmp/devspace init --workspace &quot;$workspace_a&quot;
-mkdir -p &quot;$workspace_a/work&quot;
-git clone &quot;$project_remote&quot; &quot;$workspace_a/work/client-a-api&quot;
-printf &#39;{&quot;scripts&quot;:{&quot;dev&quot;:&quot;vite&quot;}}\n&#39; &gt; &quot;$workspace_a/work/client-a-api/package.json&quot;
-.tmp/devspace scan
-.tmp/devspace workspace remote create local &quot;$manifest_remote&quot;
-.tmp/devspace workspace push
-.tmp/devspace status
-```
 
 Narration:
 
@@ -4000,18 +4395,6 @@ Narration:
 - `workspace push` sends only `manifest.json` to the manifest remote.
 
 ## Machine B: Pull, Plan, Apply, Hydrate
-
-```bash
-export DEV_DROP_HOME=&quot;$tmp/home-b&quot;
-.tmp/devspace init --workspace &quot;$workspace_b&quot;
-.tmp/devspace workspace remote set &quot;$manifest_remote&quot;
-.tmp/devspace workspace pull
-.tmp/devspace plan
-.tmp/devspace apply
-.tmp/devspace status
-.tmp/devspace project hydrate client-a-api
-.tmp/devspace status
-```
 
 Narration:
 
@@ -4022,13 +4405,6 @@ Narration:
 
 ## Encrypted Env Profile
 
-```bash
-printf &#39;postgres://demo\n&#39; | .tmp/devspace env set client-a-api DATABASE_URL
-.tmp/devspace env list client-a-api
-.tmp/devspace env pull client-a-api
-ls -l &quot;$workspace_b/work/client-a-api/.env&quot;
-```
-
 Narration:
 
 - Env values are stored encrypted under the workspace `.devdrop/secrets`
@@ -4036,6 +4412,7 @@ Narration:
 - `env list` masks values.
 - `env pull` writes the local `.env` file only on explicit request.
 - The generated `.env` has `0600` permissions.
+- `scripts/demo-check.sh` enforces the `0600` assertion automatically.
 
 ## Close
 
@@ -4050,8 +4427,6 @@ Show the remote-agent delivery case study:
 
 ```bash
 sed -n &#39;1,220p&#39; docs/capstone/remote-agent-case-study.md
-sed -n &#39;1,220p&#39; ops/wave-ship/devdrop-mvp.args.json
-sed -n &#39;1,220p&#39; ops/wave-ship/devdrop-capstone.args.json
 ```
 
 Narration:
@@ -4140,11 +4515,11 @@ team still owns the product contract and the evidence bar.
             </div>
           </header>
           <div class="doc-body">
-            <div class="rendered markdown"><h1 id="playbook-contribution-client-enablement-lessons-82"><a class="heading-link" href="#playbook-contribution-client-enablement-lessons-82" aria-label="Link to Playbook Contribution: Client Enablement Lessons">#</a>Playbook Contribution: Client Enablement Lessons</h1><h2 id="principle-83"><a class="heading-link" href="#principle-83" aria-label="Link to Principle">#</a>Principle</h2><p>AI-native delivery works best when the team uses specs to narrow risk before
+            <div class="rendered markdown"><h1 id="playbook-contribution-client-enablement-lessons-89"><a class="heading-link" href="#playbook-contribution-client-enablement-lessons-89" aria-label="Link to Playbook Contribution: Client Enablement Lessons">#</a>Playbook Contribution: Client Enablement Lessons</h1><h2 id="principle-90"><a class="heading-link" href="#principle-90" aria-label="Link to Principle">#</a>Principle</h2><p>AI-native delivery works best when the team uses specs to narrow risk before
 agents write code. The point is not to make the agent faster at every possible
 task. The point is to make the desired behavior, forbidden behavior, and proof
 standard clear enough that fast code generation does not create hidden risk.</p>
-<h2 id="devdrop-lessons-84"><a class="heading-link" href="#devdrop-lessons-84" aria-label="Link to DevDrop Lessons">#</a>DevDrop Lessons</h2><ol>
+<h2 id="devdrop-lessons-91"><a class="heading-link" href="#devdrop-lessons-91" aria-label="Link to DevDrop Lessons">#</a>DevDrop Lessons</h2><ol>
 <li><p>Name the dangerous default.</p>
 <p>For DevDrop, the dangerous default was &quot;sync the whole workspace.&quot; Naming
 that risk forced the product toward metadata sync, explicit hydration, and
@@ -4174,7 +4549,7 @@ scope, dependencies, PR, verification output, and merge status. That is the
 difference between &quot;AI helped&quot; and a delivery system a client can review.</p>
 </li>
 </ol>
-<h2 id="how-to-introduce-this-workflow-to-a-traditional-team-85"><a class="heading-link" href="#how-to-introduce-this-workflow-to-a-traditional-team-85" aria-label="Link to How To Introduce This Workflow To A Traditional Team">#</a>How To Introduce This Workflow To A Traditional Team</h2><p>Start with a small, bounded product slice. Write the spec as a contract, not a
+<h2 id="how-to-introduce-this-workflow-to-a-traditional-team-92"><a class="heading-link" href="#how-to-introduce-this-workflow-to-a-traditional-team-92" aria-label="Link to How To Introduce This Workflow To A Traditional Team">#</a>How To Introduce This Workflow To A Traditional Team</h2><p>Start with a small, bounded product slice. Write the spec as a contract, not a
 brainstorm. Include user stories, non-goals, safety boundaries, and acceptance
 tests. Let agents implement against that contract, then review output through
 tests, diffs, and a release-readiness note.</p>
@@ -4238,285 +4613,11 @@ team still owns the product contract and the evidence bar.
 </pre></div>
           </div>
         </article>
-<article class="doc" id="doc-10" data-title="DevDrop MVP Wave-Ship Prep" data-path="ops/wave-ship/README.md" data-search="devdrop mvp wave-ship prep ops/wave-ship/readme.md # devdrop mvp wave-ship prep
-
-## workflow
-
-use the workflow files checked into this repo:
-
-```text
-.claude/workflows/wave-ship.js
-.claude/workflows/ship-card.js
-```
-
-`wave-ship.js` is the top-level coordinator. it decomposes or accepts cards,
-dispatches them through the configured backend, and owns serialized merge when
-`serializedmerge` is `true`.
-
-`ship-card.js` is the per-card runner. `wave-ship.js` calls it for each card, so
-keep both files together when copying or updating the workflow.
-
-the old inkwell workflow path is only an upstream reference for comparison:
-
-```text
-/users/lecoqjacob/projects/personal/inkwell/.claude/workflows/wave-ship.js
-```
-
-## args
-
-pass `devdrop-mvp.args.json` as the workflow args json for the original mvp wave.
-pass `devdrop-capstone.args.json` for the stretch wave that pushes the project to
-final capstone readiness.
-
-example:
-
-```text
-run .claude/workflows/wave-ship.js with ops/wave-ship/devdrop-mvp.args.json
-```
-
-the prepared run uses:
-
-- `repo`: `/users/lecoqjacob/projects/personal/devdrop`
-- `project`: `devdrop mvp`
-- `team`: `cypress ink labs`
-- `base`: `main`
-- `backend`: `orca`
-- `serializedmerge`: `true`
-- `autocontinue`: `false`
-- `maxconcurrent`: `3`
-- `engine`: `codex`
-
-## linear cards
-
-wave 1:
-
-- `cil-217` — devdrop: scaffold go cli and init command
-
-wave 2:
-
-- `cil-218` — devdrop: manifest model, workspace scan, and status
-- `cil-219` — devdrop: project add, workspace sync, and git hydration
-- `cil-220` — devdrop: encrypted env profile commands
-
-wave 3:
-
-- `cil-221` — devdrop: readme, examples, and end-to-end mvp verification
-
-## capstone stretch cards
-
-`devdrop-capstone.args.json` adds the next wave:
-
-- release packaging and install docs.
-- executable local demo-check harness.
-- `devspace doctor` diagnostics.
-- manifest remote diff preview.
-- hosted manifest sync control plane.
-- background daemon and workspace watcher.
-- fuse lazy workspace mount prototype.
-- team secret sharing and access model.
-- explicit dependency install workflow.
-- final capstone evidence and reflection.
-
-## boundaries
-
-- workers open prs and do not merge.
-- `wave-ship` owns serialized merge and ticket closeout.
-- hosted sync, fuse, daemon/watch mode, team secrets, and dependency install are
-  now explicit capstone frontier cards.
-- keep frontier behavior opt-in, inspectable, reversible, and safe by default.
-- do not build editor settings sync in this run.
-- do not put real secrets in docs, fixtures, logs, or tests.
-">
-          <header class="doc-header">
-            <div>
-              <h2>DevDrop MVP Wave-Ship Prep</h2>
-              <div class="doc-path">ops/wave-ship/README.md</div>
-            </div>
-            <div class="doc-meta">
-              <span class="badge">340 words</span>
-              <span class="badge">3 code</span>
-              <span class="badge">0 tables</span>
-            </div>
-          </header>
-          <div class="doc-body">
-            <div class="rendered markdown"><h1 id="devdrop-mvp-wave-ship-prep-86"><a class="heading-link" href="#devdrop-mvp-wave-ship-prep-86" aria-label="Link to DevDrop MVP Wave-Ship Prep">#</a>DevDrop MVP Wave-Ship Prep</h1><h2 id="workflow-87"><a class="heading-link" href="#workflow-87" aria-label="Link to Workflow">#</a>Workflow</h2><p>Use the workflow files checked into this repo:</p>
-<figure class="code-block" data-lang="text">
-    <figcaption>
-      <span>text</span>
-      <button class="copy-btn" type="button" data-copy-code="code-30">Copy</button>
-    </figcaption>
-    <div id="code-30" class="diff-render" data-code-b64="LmNsYXVkZS93b3JrZmxvd3Mvd2F2ZS1zaGlwLmpzCi5jbGF1ZGUvd29ya2Zsb3dzL3NoaXAtY2FyZC5qcw==" data-lang="text"></div>
-    <noscript><pre><code>.claude/workflows/wave-ship.js
-.claude/workflows/ship-card.js</code></pre></noscript>
-  </figure><p><code>wave-ship.js</code> is the top-level coordinator. It decomposes or accepts cards,
-dispatches them through the configured backend, and owns serialized merge when
-<code>serializedMerge</code> is <code>true</code>.</p>
-<p><code>ship-card.js</code> is the per-card runner. <code>wave-ship.js</code> calls it for each card, so
-keep both files together when copying or updating the workflow.</p>
-<p>The old Inkwell workflow path is only an upstream reference for comparison:</p>
-<figure class="code-block" data-lang="text">
-    <figcaption>
-      <span>text</span>
-      <button class="copy-btn" type="button" data-copy-code="code-31">Copy</button>
-    </figcaption>
-    <div id="code-31" class="diff-render" data-code-b64="L1VzZXJzL2xlY29xamFjb2IvUHJvamVjdHMvcGVyc29uYWwvaW5rd2VsbC8uY2xhdWRlL3dvcmtmbG93cy93YXZlLXNoaXAuanM=" data-lang="text"></div>
-    <noscript><pre><code>/Users/lecoqjacob/Projects/personal/inkwell/.claude/workflows/wave-ship.js</code></pre></noscript>
-  </figure><h2 id="args-88"><a class="heading-link" href="#args-88" aria-label="Link to Args">#</a>Args</h2><p>Pass <code>devdrop-mvp.args.json</code> as the workflow args JSON for the original MVP wave.
-Pass <code>devdrop-capstone.args.json</code> for the stretch wave that pushes the project to
-final capstone readiness.</p>
-<p>Example:</p>
-<figure class="code-block" data-lang="text">
-    <figcaption>
-      <span>text</span>
-      <button class="copy-btn" type="button" data-copy-code="code-32">Copy</button>
-    </figcaption>
-    <div id="code-32" class="diff-render" data-code-b64="UnVuIC5jbGF1ZGUvd29ya2Zsb3dzL3dhdmUtc2hpcC5qcyB3aXRoIG9wcy93YXZlLXNoaXAvZGV2ZHJvcC1tdnAuYXJncy5qc29u" data-lang="text"></div>
-    <noscript><pre><code>Run .claude/workflows/wave-ship.js with ops/wave-ship/devdrop-mvp.args.json</code></pre></noscript>
-  </figure><p>The prepared run uses:</p>
-<ul>
-<li><code>repo</code>: <code>/Users/lecoqjacob/Projects/personal/devdrop</code></li>
-<li><code>project</code>: <code>DevDrop MVP</code></li>
-<li><code>team</code>: <code>Cypress Ink Labs</code></li>
-<li><code>base</code>: <code>main</code></li>
-<li><code>backend</code>: <code>orca</code></li>
-<li><code>serializedMerge</code>: <code>true</code></li>
-<li><code>autoContinue</code>: <code>false</code></li>
-<li><code>maxConcurrent</code>: <code>3</code></li>
-<li><code>engine</code>: <code>codex</code></li>
-</ul>
-<h2 id="linear-cards-89"><a class="heading-link" href="#linear-cards-89" aria-label="Link to Linear Cards">#</a>Linear Cards</h2><p>Wave 1:</p>
-<ul>
-<li><code>CIL-217</code> — DevDrop: scaffold Go CLI and init command</li>
-</ul>
-<p>Wave 2:</p>
-<ul>
-<li><code>CIL-218</code> — DevDrop: manifest model, workspace scan, and status</li>
-<li><code>CIL-219</code> — DevDrop: project add, workspace sync, and Git hydration</li>
-<li><code>CIL-220</code> — DevDrop: encrypted env profile commands</li>
-</ul>
-<p>Wave 3:</p>
-<ul>
-<li><code>CIL-221</code> — DevDrop: README, examples, and end-to-end MVP verification</li>
-</ul>
-<h2 id="capstone-stretch-cards-90"><a class="heading-link" href="#capstone-stretch-cards-90" aria-label="Link to Capstone Stretch Cards">#</a>Capstone Stretch Cards</h2><p><code>devdrop-capstone.args.json</code> adds the next wave:</p>
-<ul>
-<li>Release packaging and install docs.</li>
-<li>Executable local demo-check harness.</li>
-<li><code>devspace doctor</code> diagnostics.</li>
-<li>Manifest remote diff preview.</li>
-<li>Hosted manifest sync control plane.</li>
-<li>Background daemon and workspace watcher.</li>
-<li>FUSE lazy workspace mount prototype.</li>
-<li>Team secret sharing and access model.</li>
-<li>Explicit dependency install workflow.</li>
-<li>Final capstone evidence and reflection.</li>
-</ul>
-<h2 id="boundaries-91"><a class="heading-link" href="#boundaries-91" aria-label="Link to Boundaries">#</a>Boundaries</h2><ul>
-<li>Workers open PRs and do not merge.</li>
-<li><code>wave-ship</code> owns serialized merge and ticket closeout.</li>
-<li>Hosted sync, FUSE, daemon/watch mode, team secrets, and dependency install are
-now explicit capstone frontier cards.</li>
-<li>Keep frontier behavior opt-in, inspectable, reversible, and safe by default.</li>
-<li>Do not build editor settings sync in this run.</li>
-<li>Do not put real secrets in docs, fixtures, logs, or tests.</li>
-</ul>
-</div>
-            <div class="source"><pre># DevDrop MVP Wave-Ship Prep
-
-## Workflow
-
-Use the workflow files checked into this repo:
-
-```text
-.claude/workflows/wave-ship.js
-.claude/workflows/ship-card.js
-```
-
-`wave-ship.js` is the top-level coordinator. It decomposes or accepts cards,
-dispatches them through the configured backend, and owns serialized merge when
-`serializedMerge` is `true`.
-
-`ship-card.js` is the per-card runner. `wave-ship.js` calls it for each card, so
-keep both files together when copying or updating the workflow.
-
-The old Inkwell workflow path is only an upstream reference for comparison:
-
-```text
-/Users/lecoqjacob/Projects/personal/inkwell/.claude/workflows/wave-ship.js
-```
-
-## Args
-
-Pass `devdrop-mvp.args.json` as the workflow args JSON for the original MVP wave.
-Pass `devdrop-capstone.args.json` for the stretch wave that pushes the project to
-final capstone readiness.
-
-Example:
-
-```text
-Run .claude/workflows/wave-ship.js with ops/wave-ship/devdrop-mvp.args.json
-```
-
-The prepared run uses:
-
-- `repo`: `/Users/lecoqjacob/Projects/personal/devdrop`
-- `project`: `DevDrop MVP`
-- `team`: `Cypress Ink Labs`
-- `base`: `main`
-- `backend`: `orca`
-- `serializedMerge`: `true`
-- `autoContinue`: `false`
-- `maxConcurrent`: `3`
-- `engine`: `codex`
-
-## Linear Cards
-
-Wave 1:
-
-- `CIL-217` — DevDrop: scaffold Go CLI and init command
-
-Wave 2:
-
-- `CIL-218` — DevDrop: manifest model, workspace scan, and status
-- `CIL-219` — DevDrop: project add, workspace sync, and Git hydration
-- `CIL-220` — DevDrop: encrypted env profile commands
-
-Wave 3:
-
-- `CIL-221` — DevDrop: README, examples, and end-to-end MVP verification
-
-## Capstone Stretch Cards
-
-`devdrop-capstone.args.json` adds the next wave:
-
-- Release packaging and install docs.
-- Executable local demo-check harness.
-- `devspace doctor` diagnostics.
-- Manifest remote diff preview.
-- Hosted manifest sync control plane.
-- Background daemon and workspace watcher.
-- FUSE lazy workspace mount prototype.
-- Team secret sharing and access model.
-- Explicit dependency install workflow.
-- Final capstone evidence and reflection.
-
-## Boundaries
-
-- Workers open PRs and do not merge.
-- `wave-ship` owns serialized merge and ticket closeout.
-- Hosted sync, FUSE, daemon/watch mode, team secrets, and dependency install are
-  now explicit capstone frontier cards.
-- Keep frontier behavior opt-in, inspectable, reversible, and safe by default.
-- Do not build editor settings sync in this run.
-- Do not put real secrets in docs, fixtures, logs, or tests.
-</pre></div>
-          </div>
-        </article>
       </section>
     </main>
   </div>
 
-  <script id="doc-data" type="application/json">[{"id":"doc-1","title":"DevDrop","rel":"README.md"},{"id":"doc-2","title":"Release Readiness","rel":"docs/release-readiness.md"},{"id":"doc-3","title":"DevDrop Capstone Packet","rel":"docs/capstone/README.md"},{"id":"doc-4","title":"Capstone Spec: DevDrop","rel":"docs/capstone/spec.md"},{"id":"doc-5","title":"Proof Artifacts","rel":"docs/capstone/proof-artifacts.md"},{"id":"doc-6","title":"Case Study: DevDrop","rel":"docs/capstone/case-study.md"},{"id":"doc-7","title":"Remote Agent Case Study","rel":"docs/capstone/remote-agent-case-study.md"},{"id":"doc-8","title":"Demo Script","rel":"docs/capstone/demo-script.md"},{"id":"doc-9","title":"Playbook Contribution: Client Enablement Lessons","rel":"docs/capstone/playbook-contribution.md"},{"id":"doc-10","title":"DevDrop MVP Wave-Ship Prep","rel":"ops/wave-ship/README.md"}]</script>
+  <script id="doc-data" type="application/json">[{"id":"doc-1","title":"DevDrop","rel":"README.md"},{"id":"doc-2","title":"Release Readiness","rel":"docs/release-readiness.md"},{"id":"doc-3","title":"DevDrop Capstone Packet","rel":"docs/capstone/README.md"},{"id":"doc-4","title":"Capstone Spec: DevDrop","rel":"docs/capstone/spec.md"},{"id":"doc-5","title":"Proof Artifacts","rel":"docs/capstone/proof-artifacts.md"},{"id":"doc-6","title":"Case Study: DevDrop","rel":"docs/capstone/case-study.md"},{"id":"doc-7","title":"Remote Agent Case Study","rel":"docs/capstone/remote-agent-case-study.md"},{"id":"doc-8","title":"Demo Script","rel":"docs/capstone/demo-script.md"},{"id":"doc-9","title":"Playbook Contribution: Client Enablement Lessons","rel":"docs/capstone/playbook-contribution.md"}]</script>
   <script type="module">
     import { File } from "https://esm.sh/@pierre/diffs@1.2.10?bundle";
 
