@@ -99,9 +99,9 @@ Use DevDrop as a teaching example for AI-native delivery:
 
 ## Current Limitations
 
-- No hosted sync service.
-- No background daemon or filesystem watcher.
+- Hosted sync, daemon/watch mode, FUSE lazy mounting, team secret sharing, and
+  explicit dependency install are capstone frontier work, not part of the
+  completed local-first MVP baseline.
 - No source-code syncing.
-- No team secret sharing.
 - The intended binary name is `devspace`, while some on-disk paths still use
   `.devdrop`.

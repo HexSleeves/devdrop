@@ -32,13 +32,22 @@ case study and final demo.
 
 ## Non-Goals
 
+These were non-goals for the first MVP slice, but they are now explicit capstone
+frontier work:
+
 - Hosted sync service.
 - Filesystem daemon or watcher.
 - FUSE or virtual filesystem.
-- Full source-code syncing.
 - Dependency installation automation.
-- Team secret sharing or remote secret backup.
+- Team secret sharing.
+
+These remain out of scope:
+
+- Full source-code syncing.
 - Automatic Git pull, merge, rebase, or conflict resolution for project repos.
+- Plaintext secret upload or remote secret storage.
+- Hidden dependency installation during scan, pull, apply, hydrate, daemon, or
+  FUSE reads.
 
 ## User Stories
 
@@ -132,3 +141,5 @@ Acceptance:
   without network access.
 - Remote-agent delivery evidence identifies cards, PRs, verification commands,
   blockers, and human decisions without exposing secrets or hidden local state.
+- Frontier capabilities are either implemented or honestly documented as
+  runnable spikes with follow-up cards.

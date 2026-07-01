@@ -1,13 +1,13 @@
 {
   "version": 1,
-  "workspaceRoot": "/Users/jacob/code",
+  "workspaceRoot": "/workspace",
   "machines": [
     {
       "id": "machine_abc123",
       "name": "mac-mini",
       "os": "darwin",
       "arch": "arm64",
-      "workspaceRoot": "/Users/jacob/code",
+      "workspaceRoot": "/workspace",
       "lastSeenAt": "2026-06-30T10:00:00Z"
     }
   ],

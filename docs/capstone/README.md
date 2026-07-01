@@ -46,8 +46,10 @@ encrypted locally.
 1. Create a tagged release binary and attach it to a GitHub release.
 2. Run the capstone stretch wave in `ops/wave-ship/devdrop-capstone.args.json`
    or execute the same cards manually.
-3. Record the demo using [demo-script.md](demo-script.md).
-4. Capture final proof links in [proof-artifacts.md](proof-artifacts.md).
-5. Add the personal reflection after demo feedback is received.
-6. Decide whether to rename on-disk `.devdrop` paths before release or document
+3. Push the frontier track: hosted sync, daemon/watch mode, FUSE lazy mount,
+   team secret sharing, and explicit dependency install.
+4. Record the demo using [demo-script.md](demo-script.md).
+5. Capture final proof links in [proof-artifacts.md](proof-artifacts.md).
+6. Add the personal reflection after demo feedback is received.
+7. Decide whether to rename on-disk `.devdrop` paths before release or document
    the name mismatch as an MVP limitation.

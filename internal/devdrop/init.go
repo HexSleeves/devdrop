@@ -75,8 +75,18 @@ func InitWorkspace(workspaceArg string) (Config, error) {
 }
 
 func ensureAgeIdentity(path string) error {
-	if exists(path) {
+	if info, err := os.Lstat(path); err == nil {
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("age identity path %q is not a regular file", path)
+		}
+		if info.Mode().Perm() != 0o600 {
+			if err := os.Chmod(path, 0o600); err != nil {
+				return err
+			}
+		}
 		return nil
+	} else if !os.IsNotExist(err) {
+		return err
 	}
 	identity, err := age.GenerateX25519Identity()
 	if err != nil {

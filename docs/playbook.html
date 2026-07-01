@@ -796,7 +796,9 @@
       },
       layout(handle, maxWidth, lineHeight) {
         const width = Math.max(1, maxWidth || 1);
-        const average = Math.max(6, parseFloat(handle.font) * 0.52 || 8);
+        const fontSizeMatch = String(handle.font || "").match(/\b(\d+(?:\.\d+)?)px(?:\s*\/|\s|$)/);
+        const fontSize = fontSizeMatch ? Number(fontSizeMatch[1]) : 16;
+        const average = Math.max(6, fontSize * 0.52);
         const chars = Math.max(1, Math.floor(width / average));
         const lines = Math.max(1, Math.ceil(String(handle.text || "").length / chars));
         return { height: Math.ceil(lines * (lineHeight || 20)), lineCount: lines };
@@ -814,15 +816,7 @@
     };
 
     window.PretextRuntime = fallbackPretext;
-  </script>
-  <!-- FALLBACK: vendor/pretext.js missing, using CDN -->
-  <script type="module">
-    import("https://esm.sh/@chenglou/pretext").then((mod) => {
-      window.PretextRuntime = { ...window.PretextRuntime, ...mod };
-      window.dispatchEvent(new Event("pretext-ready"));
-    }).catch(() => {
-      window.dispatchEvent(new Event("pretext-ready"));
-    });
+    window.dispatchEvent(new Event("pretext-ready"));
   </script>
   <script>
     const stages = [
@@ -954,9 +948,22 @@
       }
     ];
 
+    function loadDone() {
+      let raw;
+      try {
+        raw = JSON.parse(localStorage.getItem("devdrop-playbook-done") || "[]");
+      } catch (err) {
+        raw = [];
+      }
+      if (!Array.isArray(raw)) return new Set();
+      const valid = new Set();
+      stages.forEach((stage, i) => stage.checks.forEach((_, j) => valid.add(`${i}:${j}`)));
+      return new Set(raw.filter((key) => valid.has(key)));
+    }
+
     const state = {
       active: 0,
-      done: new Set(JSON.parse(localStorage.getItem("devdrop-playbook-done") || "[]"))
+      done: loadDone()
     };
 
     const nav = document.getElementById("stageNav");
@@ -998,20 +1005,30 @@
       `).join("");
     }
 
+    function escapeHTML(value) {
+      return String(value).replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+
     function buildStages() {
       stageMount.innerHTML = stages.map((stage, index) => `
         <section class="stage ${index === state.active ? "active" : ""}" data-stage-panel="${index}" aria-labelledby="stage-title-${index}">
           <div class="stage-grid">
             <article class="panel">
               <div class="panel-head">
-                <h3 id="stage-title-${index}" data-pretext contenteditable="true">${stage.title}</h3>
-                <span class="badge">${stage.badge}</span>
+                <h3 id="stage-title-${index}" data-pretext contenteditable="true">${escapeHTML(stage.title)}</h3>
+                <span class="badge">${escapeHTML(stage.badge)}</span>
               </div>
               <div class="panel-body">
-                <p data-pretext contenteditable="true">${stage.summary}</p>
+                <p data-pretext contenteditable="true">${escapeHTML(stage.summary)}</p>
                 ${stage.commands.map((cmd) => `
                   <div class="copy-row">
-                    <pre class="cmd">${renderCommand(cmd)}</pre>
+                    <pre class="cmd">${escapeHTML(renderCommand(cmd))}</pre>
                     <button class="copy" type="button" data-copy="${encodeURIComponent(cmd)}">Copy</button>
                   </div>
                 `).join("")}
@@ -1027,13 +1044,13 @@
                   ${stage.checks.map((check, item) => `
                     <label class="check">
                       <input type="checkbox" data-check="${index}:${item}" ${state.done.has(`${index}:${item}`) ? "checked" : ""}>
-                      <span>${renderCommand(check)}</span>
+                      <span>${escapeHTML(renderCommand(check))}</span>
                     </label>
                   `).join("")}
                 </div>
                 <div class="notes" style="margin-top: 14px;">
                   ${stage.notes.map(([label, text]) => `
-                    <div class="note"><strong>${label}:</strong> <span data-pretext contenteditable="true">${text}</span></div>
+                    <div class="note"><strong>${escapeHTML(label)}:</strong> <span data-pretext contenteditable="true">${escapeHTML(text)}</span></div>
                   `).join("")}
                 </div>
               </div>
@@ -1115,8 +1132,12 @@
       });
     }
 
+    const observedEditable = new WeakSet();
+
     function observeEditableText() {
       document.querySelectorAll('[contenteditable="true"]').forEach((el) => {
+        if (observedEditable.has(el)) return;
+        observedEditable.add(el);
         const observer = new MutationObserver(() => {
           const font = getComputedStyle(el).font;
           prepared.set(el, window.PretextRuntime.prepare(el.textContent || "", font));

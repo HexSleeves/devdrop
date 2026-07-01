@@ -82,13 +82,18 @@ The next wave is stored in
 `ops/wave-ship/devdrop-capstone.args.json`.
 
 It pushes the MVP toward a stronger final demo without changing the product into
-a hosted platform:
+a vague product. The wave now deliberately includes the risky frontier areas:
 
 1. Release packaging and install docs.
 2. Executable demo-check harness.
 3. `devspace doctor` diagnostics.
 4. Manifest remote diff/reconcile preview.
-5. Final capstone evidence, reflection, and demo readiness.
+5. Hosted manifest sync control plane.
+6. Background daemon and workspace watcher.
+7. FUSE lazy workspace mount prototype.
+8. Team secret sharing and access model.
+9. Explicit dependency install workflow.
+10. Final capstone evidence, reflection, and demo readiness.
 
 ## Guardrails
 
@@ -102,6 +107,8 @@ keeps the risk controlled with these rules:
 - Demo and release cards must avoid real secrets.
 - Cloud-agent evidence belongs in docs and PR links, not in generated secrets,
   logs, or hidden local state.
+- Frontier cards must fail safe: hosted sync is opt-in, dependency install is
+  explicit, FUSE is optional, and team secrets never upload plaintext values.
 
 ## What To Show In The Final Demo
 
@@ -116,4 +123,3 @@ Use the remote-agent system as the "how it was built" segment:
 6. Explain what failed or required human judgment.
 7. Tie it back to client enablement: agents work when the work is decomposed
    into explicit contracts with observable gates.
-

@@ -70,12 +70,19 @@ Wave 3:
 - Executable local demo-check harness.
 - `devspace doctor` diagnostics.
 - Manifest remote diff preview.
+- Hosted manifest sync control plane.
+- Background daemon and workspace watcher.
+- FUSE lazy workspace mount prototype.
+- Team secret sharing and access model.
+- Explicit dependency install workflow.
 - Final capstone evidence and reflection.
 
 ## Boundaries
 
 - Workers open PRs and do not merge.
 - `wave-ship` owns serialized merge and ticket closeout.
-- Do not build hosted sync, FUSE, a daemon, team secrets, editor settings sync,
-  or dependency auto-install in this run.
+- Hosted sync, FUSE, daemon/watch mode, team secrets, and dependency install are
+  now explicit capstone frontier cards.
+- Keep frontier behavior opt-in, inspectable, reversible, and safe by default.
+- Do not build editor settings sync in this run.
 - Do not put real secrets in docs, fixtures, logs, or tests.

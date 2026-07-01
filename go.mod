@@ -1,6 +1,8 @@
 module github.com/HexSleeves/devdrop
 
-go 1.26.4
+go 1.26
+
+toolchain go1.26.4
 
 require (
 	filippo.io/age v1.3.1

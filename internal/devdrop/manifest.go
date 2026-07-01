@@ -43,6 +43,7 @@ func ValidateManifest(m Manifest) error {
 	if strings.TrimSpace(m.WorkspaceRoot) == "" {
 		return fmt.Errorf("workspaceRoot is required")
 	}
+	ids := map[string]bool{}
 	paths := map[string]bool{}
 	names := map[string]bool{}
 	for _, p := range m.Projects {
@@ -52,6 +53,10 @@ func ValidateManifest(m Manifest) error {
 		if _, _, err := safeWorkspacePath(m.WorkspaceRoot, p.Path); err != nil {
 			return fmt.Errorf("project %s has invalid relative path %q: %w", p.Name, p.Path, err)
 		}
+		if ids[p.ID] {
+			return fmt.Errorf("duplicate project id %q", p.ID)
+		}
+		ids[p.ID] = true
 		if paths[p.Path] {
 			return fmt.Errorf("duplicate project path %q", p.Path)
 		}

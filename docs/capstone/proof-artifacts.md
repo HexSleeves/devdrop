@@ -16,6 +16,7 @@ links as releases, PRs, and recordings are created.
 | Remote-agent case study | Drafted | `docs/capstone/remote-agent-case-study.md` |
 | MVP wave args | Done | `ops/wave-ship/devdrop-mvp.args.json` |
 | Capstone stretch wave args | Drafted | `ops/wave-ship/devdrop-capstone.args.json` |
+| Frontier Linear cards | Drafted | `CIL-227` through `CIL-231` |
 | Release binary | Pending | Add GitHub release URL |
 | Final demo recording | Pending | Add recording URL |
 | Personal reflection | Pending | Add reflection file or section after feedback |
@@ -35,8 +36,8 @@ Expected current baseline:
 
 - `go test ./...` passes.
 - The build produces a local `devspace` binary.
-- `devspace --help` lists workspace, project, env, scan, plan, apply, status,
-  and version commands.
+- `devspace --help` lists init, workspace, project, env, scan, plan, apply,
+  status, and version commands.
 
 ## Demo Evidence To Capture
 
@@ -57,6 +58,8 @@ Record a terminal walkthrough that shows:
 13. Show the remote-agent delivery workflow: `.claude/workflows/wave-ship.js`,
     `ops/wave-ship/devdrop-mvp.args.json`, and
     `ops/wave-ship/devdrop-capstone.args.json`.
+14. Show the frontier track: hosted sync, daemon/watch, FUSE, team secrets, and
+    explicit dependency install.
 
 ## Safety Proof Points
 

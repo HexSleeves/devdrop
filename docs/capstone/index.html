@@ -544,8 +544,8 @@
         </div>
         <div class="stats" aria-label="Document stats">
           <div class="stat"><strong>10</strong><span>files</span></div>
-          <div class="stat"><strong>6,153</strong><span>words</span></div>
-          <div class="stat"><strong>31</strong><span>snippets</span></div>
+          <div class="stat"><strong>6,421</strong><span>words</span></div>
+          <div class="stat"><strong>32</strong><span>snippets</span></div>
         </div>
       </div>
 
@@ -611,7 +611,7 @@
         <div class="badge-row">
           <span class="badge">10 Markdown files</span>
           <span class="badge">3 tables</span>
-          <span class="badge">31 code blocks</span>
+          <span class="badge">32 code blocks</span>
         </div>
       </section>
 
@@ -2043,10 +2043,12 @@ encrypted locally.
 1. create a tagged release binary and attach it to a github release.
 2. run the capstone stretch wave in `ops/wave-ship/devdrop-capstone.args.json`
    or execute the same cards manually.
-3. record the demo using [demo-script.md](demo-script.md).
-4. capture final proof links in [proof-artifacts.md](proof-artifacts.md).
-5. add the personal reflection after demo feedback is received.
-6. decide whether to rename on-disk `.devdrop` paths before release or document
+3. push the frontier track: hosted sync, daemon/watch mode, fuse lazy mount,
+   team secret sharing, and explicit dependency install.
+4. record the demo using [demo-script.md](demo-script.md).
+5. capture final proof links in [proof-artifacts.md](proof-artifacts.md).
+6. add the personal reflection after demo feedback is received.
+7. decide whether to rename on-disk `.devdrop` paths before release or document
    the name mismatch as an mvp limitation.
 ">
           <header class="doc-header">
@@ -2055,7 +2057,7 @@ encrypted locally.
               <div class="doc-path">docs/capstone/README.md</div>
             </div>
             <div class="doc-meta">
-              <span class="badge">361 words</span>
+              <span class="badge">380 words</span>
               <span class="badge">0 code</span>
               <span class="badge">1 tables</span>
             </div>
@@ -2124,6 +2126,8 @@ files with <code>0600</code> permissions.</li>
 <li>Create a tagged release binary and attach it to a GitHub release.</li>
 <li>Run the capstone stretch wave in <code>ops/wave-ship/devdrop-capstone.args.json</code>
 or execute the same cards manually.</li>
+<li>Push the frontier track: hosted sync, daemon/watch mode, FUSE lazy mount,
+team secret sharing, and explicit dependency install.</li>
 <li>Record the demo using <a href="demo-script.md">demo-script.md</a>.</li>
 <li>Capture final proof links in <a href="proof-artifacts.md">proof-artifacts.md</a>.</li>
 <li>Add the personal reflection after demo feedback is received.</li>
@@ -2179,10 +2183,12 @@ encrypted locally.
 1. Create a tagged release binary and attach it to a GitHub release.
 2. Run the capstone stretch wave in `ops/wave-ship/devdrop-capstone.args.json`
    or execute the same cards manually.
-3. Record the demo using [demo-script.md](demo-script.md).
-4. Capture final proof links in [proof-artifacts.md](proof-artifacts.md).
-5. Add the personal reflection after demo feedback is received.
-6. Decide whether to rename on-disk `.devdrop` paths before release or document
+3. Push the frontier track: hosted sync, daemon/watch mode, FUSE lazy mount,
+   team secret sharing, and explicit dependency install.
+4. Record the demo using [demo-script.md](demo-script.md).
+5. Capture final proof links in [proof-artifacts.md](proof-artifacts.md).
+6. Add the personal reflection after demo feedback is received.
+7. Decide whether to rename on-disk `.devdrop` paths before release or document
    the name mismatch as an MVP limitation.
 </pre></div>
           </div>
@@ -2221,13 +2227,22 @@ case study and final demo.
 
 ## non-goals
 
+these were non-goals for the first mvp slice, but they are now explicit capstone
+frontier work:
+
 - hosted sync service.
 - filesystem daemon or watcher.
 - fuse or virtual filesystem.
-- full source-code syncing.
 - dependency installation automation.
-- team secret sharing or remote secret backup.
+- team secret sharing.
+
+these remain out of scope:
+
+- full source-code syncing.
 - automatic git pull, merge, rebase, or conflict resolution for project repos.
+- plaintext secret upload or remote secret storage.
+- hidden dependency installation during scan, pull, apply, hydrate, daemon, or
+  fuse reads.
 
 ## user stories
 
@@ -2321,6 +2336,8 @@ acceptance:
   without network access.
 - remote-agent delivery evidence identifies cards, prs, verification commands,
   blockers, and human decisions without exposing secrets or hidden local state.
+- frontier capabilities are either implemented or honestly documented as
+  runnable spikes with follow-up cards.
 ">
           <header class="doc-header">
             <div>
@@ -2328,7 +2345,7 @@ acceptance:
               <div class="doc-path">docs/capstone/spec.md</div>
             </div>
             <div class="doc-meta">
-              <span class="badge">742 words</span>
+              <span class="badge">795 words</span>
               <span class="badge">0 code</span>
               <span class="badge">0 tables</span>
             </div>
@@ -2355,14 +2372,22 @@ secrets.</p>
 remote/cloud agents can execute well-scoped cards through the checked-in
 <code>.claude/workflows/wave-ship.js</code> workflow, then include that evidence in the
 case study and final demo.</p>
-<h2 id="non-goals-43"><a class="heading-link" href="#non-goals-43" aria-label="Link to Non-Goals">#</a>Non-Goals</h2><ul>
+<h2 id="non-goals-43"><a class="heading-link" href="#non-goals-43" aria-label="Link to Non-Goals">#</a>Non-Goals</h2><p>These were non-goals for the first MVP slice, but they are now explicit capstone
+frontier work:</p>
+<ul>
 <li>Hosted sync service.</li>
 <li>Filesystem daemon or watcher.</li>
 <li>FUSE or virtual filesystem.</li>
-<li>Full source-code syncing.</li>
 <li>Dependency installation automation.</li>
-<li>Team secret sharing or remote secret backup.</li>
+<li>Team secret sharing.</li>
+</ul>
+<p>These remain out of scope:</p>
+<ul>
+<li>Full source-code syncing.</li>
 <li>Automatic Git pull, merge, rebase, or conflict resolution for project repos.</li>
+<li>Plaintext secret upload or remote secret storage.</li>
+<li>Hidden dependency installation during scan, pull, apply, hydrate, daemon, or
+FUSE reads.</li>
 </ul>
 <h2 id="user-stories-44"><a class="heading-link" href="#user-stories-44" aria-label="Link to User Stories">#</a>User Stories</h2><h3 id="initialize-a-workspace-45"><a class="heading-link" href="#initialize-a-workspace-45" aria-label="Link to Initialize a workspace">#</a>Initialize a workspace</h3><p>As a developer, I can run <code>devspace init --workspace ~/code</code> so DevDrop creates
 local config, a machine identity, an age identity, and a workspace manifest.</p>
@@ -2435,6 +2460,8 @@ and remaining risks.</li>
 without network access.</li>
 <li>Remote-agent delivery evidence identifies cards, PRs, verification commands,
 blockers, and human decisions without exposing secrets or hidden local state.</li>
+<li>Frontier capabilities are either implemented or honestly documented as
+runnable spikes with follow-up cards.</li>
 </ul>
 </div>
             <div class="source"><pre># Capstone Spec: DevDrop
@@ -2471,13 +2498,22 @@ case study and final demo.
 
 ## Non-Goals
 
+These were non-goals for the first MVP slice, but they are now explicit capstone
+frontier work:
+
 - Hosted sync service.
 - Filesystem daemon or watcher.
 - FUSE or virtual filesystem.
-- Full source-code syncing.
 - Dependency installation automation.
-- Team secret sharing or remote secret backup.
+- Team secret sharing.
+
+These remain out of scope:
+
+- Full source-code syncing.
 - Automatic Git pull, merge, rebase, or conflict resolution for project repos.
+- Plaintext secret upload or remote secret storage.
+- Hidden dependency installation during scan, pull, apply, hydrate, daemon, or
+  FUSE reads.
 
 ## User Stories
 
@@ -2571,6 +2607,8 @@ Acceptance:
   without network access.
 - Remote-agent delivery evidence identifies cards, PRs, verification commands,
   blockers, and human decisions without exposing secrets or hidden local state.
+- Frontier capabilities are either implemented or honestly documented as
+  runnable spikes with follow-up cards.
 </pre></div>
           </div>
         </article>
@@ -2592,6 +2630,7 @@ links as releases, prs, and recordings are created.
 | remote-agent case study | drafted | `docs/capstone/remote-agent-case-study.md` |
 | mvp wave args | done | `ops/wave-ship/devdrop-mvp.args.json` |
 | capstone stretch wave args | drafted | `ops/wave-ship/devdrop-capstone.args.json` |
+| frontier linear cards | drafted | `cil-227` through `cil-231` |
 | release binary | pending | add github release url |
 | final demo recording | pending | add recording url |
 | personal reflection | pending | add reflection file or section after feedback |
@@ -2633,6 +2672,8 @@ record a terminal walkthrough that shows:
 13. show the remote-agent delivery workflow: `.claude/workflows/wave-ship.js`,
     `ops/wave-ship/devdrop-mvp.args.json`, and
     `ops/wave-ship/devdrop-capstone.args.json`.
+14. show the frontier track: hosted sync, daemon/watch, fuse, team secrets, and
+    explicit dependency install.
 
 ## safety proof points
 
@@ -2669,7 +2710,7 @@ known limitation accepted:
               <div class="doc-path">docs/capstone/proof-artifacts.md</div>
             </div>
             <div class="doc-meta">
-              <span class="badge">422 words</span>
+              <span class="badge">448 words</span>
               <span class="badge">2 code</span>
               <span class="badge">1 tables</span>
             </div>
@@ -2731,6 +2772,11 @@ links as releases, PRs, and recordings are created.</p>
 <td><code>ops/wave-ship/devdrop-capstone.args.json</code></td>
 </tr>
 <tr>
+<td>Frontier Linear cards</td>
+<td>Drafted</td>
+<td><code>CIL-227</code> through <code>CIL-231</code></td>
+</tr>
+<tr>
 <td>Release binary</td>
 <td>Pending</td>
 <td>Add GitHub release URL</td>
@@ -2781,6 +2827,8 @@ and version commands.</li>
 <li>Show the remote-agent delivery workflow: <code>.claude/workflows/wave-ship.js</code>,
 <code>ops/wave-ship/devdrop-mvp.args.json</code>, and
 <code>ops/wave-ship/devdrop-capstone.args.json</code>.</li>
+<li>Show the frontier track: hosted sync, daemon/watch, FUSE, team secrets, and
+explicit dependency install.</li>
 </ol>
 <h2 id="safety-proof-points-56"><a class="heading-link" href="#safety-proof-points-56" aria-label="Link to Safety Proof Points">#</a>Safety Proof Points</h2><ul>
 <li>Path traversal is rejected by manifest validation and project add.</li>
@@ -2828,6 +2876,7 @@ links as releases, PRs, and recordings are created.
 | Remote-agent case study | Drafted | `docs/capstone/remote-agent-case-study.md` |
 | MVP wave args | Done | `ops/wave-ship/devdrop-mvp.args.json` |
 | Capstone stretch wave args | Drafted | `ops/wave-ship/devdrop-capstone.args.json` |
+| Frontier Linear cards | Drafted | `CIL-227` through `CIL-231` |
 | Release binary | Pending | Add GitHub release URL |
 | Final demo recording | Pending | Add recording URL |
 | Personal reflection | Pending | Add reflection file or section after feedback |
@@ -2869,6 +2918,8 @@ Record a terminal walkthrough that shows:
 13. Show the remote-agent delivery workflow: `.claude/workflows/wave-ship.js`,
     `ops/wave-ship/devdrop-mvp.args.json`, and
     `ops/wave-ship/devdrop-capstone.args.json`.
+14. Show the frontier track: hosted sync, daemon/watch, FUSE, team secrets, and
+    explicit dependency install.
 
 ## Safety Proof Points
 
@@ -3002,10 +3053,10 @@ use devdrop as a teaching example for ai-native delivery:
 
 ## current limitations
 
-- no hosted sync service.
-- no background daemon or filesystem watcher.
+- hosted sync, daemon/watch mode, fuse lazy mounting, team secret sharing, and
+  explicit dependency install are capstone frontier work, not part of the
+  completed local-first mvp baseline.
 - no source-code syncing.
-- no team secret sharing.
 - the intended binary name is `devspace`, while some on-disk paths still use
   `.devdrop`.
 ">
@@ -3015,7 +3066,7 @@ use devdrop as a teaching example for ai-native delivery:
               <div class="doc-path">docs/capstone/case-study.md</div>
             </div>
             <div class="doc-meta">
-              <span class="badge">641 words</span>
+              <span class="badge">651 words</span>
               <span class="badge">0 code</span>
               <span class="badge">0 tables</span>
             </div>
@@ -3098,10 +3149,10 @@ and case study.</li>
 control.</li>
 </ol>
 <h2 id="current-limitations-67"><a class="heading-link" href="#current-limitations-67" aria-label="Link to Current Limitations">#</a>Current Limitations</h2><ul>
-<li>No hosted sync service.</li>
-<li>No background daemon or filesystem watcher.</li>
+<li>Hosted sync, daemon/watch mode, FUSE lazy mounting, team secret sharing, and
+explicit dependency install are capstone frontier work, not part of the
+completed local-first MVP baseline.</li>
 <li>No source-code syncing.</li>
-<li>No team secret sharing.</li>
 <li>The intended binary name is <code>devspace</code>, while some on-disk paths still use
 <code>.devdrop</code>.</li>
 </ul>
@@ -3207,10 +3258,10 @@ Use DevDrop as a teaching example for AI-native delivery:
 
 ## Current Limitations
 
-- No hosted sync service.
-- No background daemon or filesystem watcher.
+- Hosted sync, daemon/watch mode, FUSE lazy mounting, team secret sharing, and
+  explicit dependency install are capstone frontier work, not part of the
+  completed local-first MVP baseline.
 - No source-code syncing.
-- No team secret sharing.
 - The intended binary name is `devspace`, while some on-disk paths still use
   `.devdrop`.
 </pre></div>
@@ -3300,13 +3351,18 @@ the next wave is stored in
 `ops/wave-ship/devdrop-capstone.args.json`.
 
 it pushes the mvp toward a stronger final demo without changing the product into
-a hosted platform:
+a vague product. the wave now deliberately includes the risky frontier areas:
 
 1. release packaging and install docs.
 2. executable demo-check harness.
 3. `devspace doctor` diagnostics.
 4. manifest remote diff/reconcile preview.
-5. final capstone evidence, reflection, and demo readiness.
+5. hosted manifest sync control plane.
+6. background daemon and workspace watcher.
+7. fuse lazy workspace mount prototype.
+8. team secret sharing and access model.
+9. explicit dependency install workflow.
+10. final capstone evidence, reflection, and demo readiness.
 
 ## guardrails
 
@@ -3320,6 +3376,8 @@ keeps the risk controlled with these rules:
 - demo and release cards must avoid real secrets.
 - cloud-agent evidence belongs in docs and pr links, not in generated secrets,
   logs, or hidden local state.
+- frontier cards must fail safe: hosted sync is opt-in, dependency install is
+  explicit, fuse is optional, and team secrets never upload plaintext values.
 
 ## what to show in the final demo
 
@@ -3334,7 +3392,6 @@ use the remote-agent system as the &quot;how it was built&quot; segment:
 6. explain what failed or required human judgment.
 7. tie it back to client enablement: agents work when the work is decomposed
    into explicit contracts with observable gates.
-
 ">
           <header class="doc-header">
             <div>
@@ -3342,7 +3399,7 @@ use the remote-agent system as the &quot;how it was built&quot; segment:
               <div class="doc-path">docs/capstone/remote-agent-case-study.md</div>
             </div>
             <div class="doc-meta">
-              <span class="badge">581 words</span>
+              <span class="badge">644 words</span>
               <span class="badge">1 code</span>
               <span class="badge">1 tables</span>
             </div>
@@ -3439,12 +3496,17 @@ verification evidence or reports a blocker.</p>
 <h2 id="capstone-stretch-wave-72"><a class="heading-link" href="#capstone-stretch-wave-72" aria-label="Link to Capstone Stretch Wave">#</a>Capstone Stretch Wave</h2><p>The next wave is stored in
 <code>ops/wave-ship/devdrop-capstone.args.json</code>.</p>
 <p>It pushes the MVP toward a stronger final demo without changing the product into
-a hosted platform:</p>
+a vague product. The wave now deliberately includes the risky frontier areas:</p>
 <ol>
 <li>Release packaging and install docs.</li>
 <li>Executable demo-check harness.</li>
 <li><code>devspace doctor</code> diagnostics.</li>
 <li>Manifest remote diff/reconcile preview.</li>
+<li>Hosted manifest sync control plane.</li>
+<li>Background daemon and workspace watcher.</li>
+<li>FUSE lazy workspace mount prototype.</li>
+<li>Team secret sharing and access model.</li>
+<li>Explicit dependency install workflow.</li>
 <li>Final capstone evidence, reflection, and demo readiness.</li>
 </ol>
 <h2 id="guardrails-73"><a class="heading-link" href="#guardrails-73" aria-label="Link to Guardrails">#</a>Guardrails</h2><p>The workflow is powerful enough to create risk if the cards are vague. DevDrop
@@ -3457,6 +3519,8 @@ keeps the risk controlled with these rules:</p>
 <li>Demo and release cards must avoid real secrets.</li>
 <li>Cloud-agent evidence belongs in docs and PR links, not in generated secrets,
 logs, or hidden local state.</li>
+<li>Frontier cards must fail safe: hosted sync is opt-in, dependency install is
+explicit, FUSE is optional, and team secrets never upload plaintext values.</li>
 </ul>
 <h2 id="what-to-show-in-the-final-demo-74"><a class="heading-link" href="#what-to-show-in-the-final-demo-74" aria-label="Link to What To Show In The Final Demo">#</a>What To Show In The Final Demo</h2><p>Use the remote-agent system as the &quot;how it was built&quot; segment:</p>
 <ol>
@@ -3555,13 +3619,18 @@ The next wave is stored in
 `ops/wave-ship/devdrop-capstone.args.json`.
 
 It pushes the MVP toward a stronger final demo without changing the product into
-a hosted platform:
+a vague product. The wave now deliberately includes the risky frontier areas:
 
 1. Release packaging and install docs.
 2. Executable demo-check harness.
 3. `devspace doctor` diagnostics.
 4. Manifest remote diff/reconcile preview.
-5. Final capstone evidence, reflection, and demo readiness.
+5. Hosted manifest sync control plane.
+6. Background daemon and workspace watcher.
+7. FUSE lazy workspace mount prototype.
+8. Team secret sharing and access model.
+9. Explicit dependency install workflow.
+10. Final capstone evidence, reflection, and demo readiness.
 
 ## Guardrails
 
@@ -3575,6 +3644,8 @@ keeps the risk controlled with these rules:
 - Demo and release cards must avoid real secrets.
 - Cloud-agent evidence belongs in docs and PR links, not in generated secrets,
   logs, or hidden local state.
+- Frontier cards must fail safe: hosted sync is opt-in, dependency install is
+  explicit, FUSE is optional, and team secrets never upload plaintext values.
 
 ## What To Show In The Final Demo
 
@@ -3589,7 +3660,6 @@ Use the remote-agent system as the &quot;how it was built&quot; segment:
 6. Explain what failed or required human judgment.
 7. Tie it back to client enablement: agents work when the work is decomposed
    into explicit contracts with observable gates.
-
 </pre></div>
           </div>
         </article>
@@ -4172,14 +4242,21 @@ team still owns the product contract and the evidence bar.
 
 ## workflow
 
-use:
+use the workflow files checked into this repo:
 
 ```text
 .claude/workflows/wave-ship.js
+.claude/workflows/ship-card.js
 ```
 
-this repo now carries its own checked-in workflow copy. the inkwell workflow path
-can still be used as an upstream reference when comparing behavior:
+`wave-ship.js` is the top-level coordinator. it decomposes or accepts cards,
+dispatches them through the configured backend, and owns serialized merge when
+`serializedmerge` is `true`.
+
+`ship-card.js` is the per-card runner. `wave-ship.js` calls it for each card, so
+keep both files together when copying or updating the workflow.
+
+the old inkwell workflow path is only an upstream reference for comparison:
 
 ```text
 /users/lecoqjacob/projects/personal/inkwell/.claude/workflows/wave-ship.js
@@ -4190,6 +4267,12 @@ can still be used as an upstream reference when comparing behavior:
 pass `devdrop-mvp.args.json` as the workflow args json for the original mvp wave.
 pass `devdrop-capstone.args.json` for the stretch wave that pushes the project to
 final capstone readiness.
+
+example:
+
+```text
+run .claude/workflows/wave-ship.js with ops/wave-ship/devdrop-mvp.args.json
+```
 
 the prepared run uses:
 
@@ -4227,14 +4310,21 @@ wave 3:
 - executable local demo-check harness.
 - `devspace doctor` diagnostics.
 - manifest remote diff preview.
+- hosted manifest sync control plane.
+- background daemon and workspace watcher.
+- fuse lazy workspace mount prototype.
+- team secret sharing and access model.
+- explicit dependency install workflow.
 - final capstone evidence and reflection.
 
 ## boundaries
 
 - workers open prs and do not merge.
 - `wave-ship` owns serialized merge and ticket closeout.
-- do not build hosted sync, fuse, a daemon, team secrets, editor settings sync,
-  or dependency auto-install in this run.
+- hosted sync, fuse, daemon/watch mode, team secrets, and dependency install are
+  now explicit capstone frontier cards.
+- keep frontier behavior opt-in, inspectable, reversible, and safe by default.
+- do not build editor settings sync in this run.
 - do not put real secrets in docs, fixtures, logs, or tests.
 ">
           <header class="doc-header">
@@ -4243,22 +4333,27 @@ wave 3:
               <div class="doc-path">ops/wave-ship/README.md</div>
             </div>
             <div class="doc-meta">
-              <span class="badge">243 words</span>
-              <span class="badge">2 code</span>
+              <span class="badge">340 words</span>
+              <span class="badge">3 code</span>
               <span class="badge">0 tables</span>
             </div>
           </header>
           <div class="doc-body">
-            <div class="rendered markdown"><h1 id="devdrop-mvp-wave-ship-prep-86"><a class="heading-link" href="#devdrop-mvp-wave-ship-prep-86" aria-label="Link to DevDrop MVP Wave-Ship Prep">#</a>DevDrop MVP Wave-Ship Prep</h1><h2 id="workflow-87"><a class="heading-link" href="#workflow-87" aria-label="Link to Workflow">#</a>Workflow</h2><p>Use:</p>
+            <div class="rendered markdown"><h1 id="devdrop-mvp-wave-ship-prep-86"><a class="heading-link" href="#devdrop-mvp-wave-ship-prep-86" aria-label="Link to DevDrop MVP Wave-Ship Prep">#</a>DevDrop MVP Wave-Ship Prep</h1><h2 id="workflow-87"><a class="heading-link" href="#workflow-87" aria-label="Link to Workflow">#</a>Workflow</h2><p>Use the workflow files checked into this repo:</p>
 <figure class="code-block" data-lang="text">
     <figcaption>
       <span>text</span>
       <button class="copy-btn" type="button" data-copy-code="code-30">Copy</button>
     </figcaption>
-    <div id="code-30" class="diff-render" data-code-b64="LmNsYXVkZS93b3JrZmxvd3Mvd2F2ZS1zaGlwLmpz" data-lang="text"></div>
-    <noscript><pre><code>.claude/workflows/wave-ship.js</code></pre></noscript>
-  </figure><p>This repo now carries its own checked-in workflow copy. The Inkwell workflow path
-can still be used as an upstream reference when comparing behavior:</p>
+    <div id="code-30" class="diff-render" data-code-b64="LmNsYXVkZS93b3JrZmxvd3Mvd2F2ZS1zaGlwLmpzCi5jbGF1ZGUvd29ya2Zsb3dzL3NoaXAtY2FyZC5qcw==" data-lang="text"></div>
+    <noscript><pre><code>.claude/workflows/wave-ship.js
+.claude/workflows/ship-card.js</code></pre></noscript>
+  </figure><p><code>wave-ship.js</code> is the top-level coordinator. It decomposes or accepts cards,
+dispatches them through the configured backend, and owns serialized merge when
+<code>serializedMerge</code> is <code>true</code>.</p>
+<p><code>ship-card.js</code> is the per-card runner. <code>wave-ship.js</code> calls it for each card, so
+keep both files together when copying or updating the workflow.</p>
+<p>The old Inkwell workflow path is only an upstream reference for comparison:</p>
 <figure class="code-block" data-lang="text">
     <figcaption>
       <span>text</span>
@@ -4269,7 +4364,15 @@ can still be used as an upstream reference when comparing behavior:</p>
   </figure><h2 id="args-88"><a class="heading-link" href="#args-88" aria-label="Link to Args">#</a>Args</h2><p>Pass <code>devdrop-mvp.args.json</code> as the workflow args JSON for the original MVP wave.
 Pass <code>devdrop-capstone.args.json</code> for the stretch wave that pushes the project to
 final capstone readiness.</p>
-<p>The prepared run uses:</p>
+<p>Example:</p>
+<figure class="code-block" data-lang="text">
+    <figcaption>
+      <span>text</span>
+      <button class="copy-btn" type="button" data-copy-code="code-32">Copy</button>
+    </figcaption>
+    <div id="code-32" class="diff-render" data-code-b64="UnVuIC5jbGF1ZGUvd29ya2Zsb3dzL3dhdmUtc2hpcC5qcyB3aXRoIG9wcy93YXZlLXNoaXAvZGV2ZHJvcC1tdnAuYXJncy5qc29u" data-lang="text"></div>
+    <noscript><pre><code>Run .claude/workflows/wave-ship.js with ops/wave-ship/devdrop-mvp.args.json</code></pre></noscript>
+  </figure><p>The prepared run uses:</p>
 <ul>
 <li><code>repo</code>: <code>/Users/lecoqjacob/Projects/personal/devdrop</code></li>
 <li><code>project</code>: <code>DevDrop MVP</code></li>
@@ -4301,13 +4404,20 @@ final capstone readiness.</p>
 <li>Executable local demo-check harness.</li>
 <li><code>devspace doctor</code> diagnostics.</li>
 <li>Manifest remote diff preview.</li>
+<li>Hosted manifest sync control plane.</li>
+<li>Background daemon and workspace watcher.</li>
+<li>FUSE lazy workspace mount prototype.</li>
+<li>Team secret sharing and access model.</li>
+<li>Explicit dependency install workflow.</li>
 <li>Final capstone evidence and reflection.</li>
 </ul>
 <h2 id="boundaries-91"><a class="heading-link" href="#boundaries-91" aria-label="Link to Boundaries">#</a>Boundaries</h2><ul>
 <li>Workers open PRs and do not merge.</li>
 <li><code>wave-ship</code> owns serialized merge and ticket closeout.</li>
-<li>Do not build hosted sync, FUSE, a daemon, team secrets, editor settings sync,
-or dependency auto-install in this run.</li>
+<li>Hosted sync, FUSE, daemon/watch mode, team secrets, and dependency install are
+now explicit capstone frontier cards.</li>
+<li>Keep frontier behavior opt-in, inspectable, reversible, and safe by default.</li>
+<li>Do not build editor settings sync in this run.</li>
 <li>Do not put real secrets in docs, fixtures, logs, or tests.</li>
 </ul>
 </div>
@@ -4315,14 +4425,21 @@ or dependency auto-install in this run.</li>
 
 ## Workflow
 
-Use:
+Use the workflow files checked into this repo:
 
 ```text
 .claude/workflows/wave-ship.js
+.claude/workflows/ship-card.js
 ```
 
-This repo now carries its own checked-in workflow copy. The Inkwell workflow path
-can still be used as an upstream reference when comparing behavior:
+`wave-ship.js` is the top-level coordinator. It decomposes or accepts cards,
+dispatches them through the configured backend, and owns serialized merge when
+`serializedMerge` is `true`.
+
+`ship-card.js` is the per-card runner. `wave-ship.js` calls it for each card, so
+keep both files together when copying or updating the workflow.
+
+The old Inkwell workflow path is only an upstream reference for comparison:
 
 ```text
 /Users/lecoqjacob/Projects/personal/inkwell/.claude/workflows/wave-ship.js
@@ -4333,6 +4450,12 @@ can still be used as an upstream reference when comparing behavior:
 Pass `devdrop-mvp.args.json` as the workflow args JSON for the original MVP wave.
 Pass `devdrop-capstone.args.json` for the stretch wave that pushes the project to
 final capstone readiness.
+
+Example:
+
+```text
+Run .claude/workflows/wave-ship.js with ops/wave-ship/devdrop-mvp.args.json
+```
 
 The prepared run uses:
 
@@ -4370,14 +4493,21 @@ Wave 3:
 - Executable local demo-check harness.
 - `devspace doctor` diagnostics.
 - Manifest remote diff preview.
+- Hosted manifest sync control plane.
+- Background daemon and workspace watcher.
+- FUSE lazy workspace mount prototype.
+- Team secret sharing and access model.
+- Explicit dependency install workflow.
 - Final capstone evidence and reflection.
 
 ## Boundaries
 
 - Workers open PRs and do not merge.
 - `wave-ship` owns serialized merge and ticket closeout.
-- Do not build hosted sync, FUSE, a daemon, team secrets, editor settings sync,
-  or dependency auto-install in this run.
+- Hosted sync, FUSE, daemon/watch mode, team secrets, and dependency install are
+  now explicit capstone frontier cards.
+- Keep frontier behavior opt-in, inspectable, reversible, and safe by default.
+- Do not build editor settings sync in this run.
 - Do not put real secrets in docs, fixtures, logs, or tests.
 </pre></div>
           </div>

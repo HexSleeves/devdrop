@@ -3,6 +3,7 @@ package devdrop
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -17,8 +18,11 @@ func EnvSet(projectRef, key, profile string, in io.Reader) error {
 	if profile == "" {
 		profile = "dev"
 	}
+	if err := validSecretName(profile); err != nil {
+		return err
+	}
 	key = strings.TrimSpace(key)
-	if key == "" || strings.ContainsAny(key, "=\n\r") {
+	if key == "" || strings.ContainsAny(key, "=\n\r \t") {
 		return fmt.Errorf("invalid env key %q", key)
 	}
 	valueBytes, err := io.ReadAll(in)
@@ -29,11 +33,20 @@ func EnvSet(projectRef, key, profile string, in io.Reader) error {
 	if value == "" {
 		return fmt.Errorf("empty secret value; pass it on stdin")
 	}
+	if strings.ContainsAny(value, "\n\r") {
+		return fmt.Errorf("env value for %q contains newlines, which cannot be written to .env", key)
+	}
 	cfg, m, p, err := projectContext(projectRef)
 	if err != nil {
 		return err
 	}
-	sp, _ := readSecretProfile(cfg, p.ID, profile)
+	sp, err := readSecretProfile(cfg, p.ID, profile)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		sp = SecretProfile{}
+	}
 	if sp.Values == nil {
 		sp.Values = map[string]string{}
 	}
@@ -62,6 +75,9 @@ func EnvList(projectRef, profile string) ([]string, error) {
 	if profile == "" {
 		profile = "dev"
 	}
+	if err := validSecretName(profile); err != nil {
+		return nil, err
+	}
 	cfg, _, p, err := projectContext(projectRef)
 	if err != nil {
 		return nil, err
@@ -81,6 +97,9 @@ func EnvList(projectRef, profile string) ([]string, error) {
 func EnvPull(projectRef, profile string) (string, error) {
 	if profile == "" {
 		profile = "dev"
+	}
+	if err := validSecretName(profile); err != nil {
+		return "", err
 	}
 	cfg, _, p, err := projectContext(projectRef)
 	if err != nil {
@@ -193,6 +212,18 @@ func writeSecretProfile(cfg Config, sp SecretProfile) error {
 
 func secretPath(cfg Config, projectID, profile string) string {
 	return filepath.Join(cfg.WorkspaceRoot, ".devdrop", "secrets", projectID, profile+".age")
+}
+
+// validSecretName rejects profile names that could escape the per-project
+// secrets directory. Only a plain single path segment is allowed.
+func validSecretName(name string) error {
+	if name == "" || name == "." || name == ".." {
+		return fmt.Errorf("invalid profile name %q", name)
+	}
+	if strings.ContainsAny(name, `/\`) || strings.Contains(name, "..") {
+		return fmt.Errorf("invalid profile name %q", name)
+	}
+	return nil
 }
 
 func loadIdentity(path string) (*age.X25519Identity, error) {

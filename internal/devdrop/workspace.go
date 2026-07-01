@@ -37,7 +37,10 @@ func ScanWorkspace() (ScanSummary, error) {
 	seen := map[string]bool{}
 	summary := ScanSummary{}
 	err = filepath.WalkDir(cfg.WorkspaceRoot, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil || !d.IsDir() {
+		if walkErr != nil {
+			return walkErr
+		}
+		if !d.IsDir() {
 			return nil
 		}
 		if path == cfg.WorkspaceRoot {
@@ -49,7 +52,7 @@ func ScanWorkspace() (ScanSummary, error) {
 		}
 		rel, err := filepath.Rel(cfg.WorkspaceRoot, path)
 		if err != nil {
-			return nil
+			return err
 		}
 		_, clean, err := safeWorkspacePath(cfg.WorkspaceRoot, rel)
 		if err != nil {
@@ -58,6 +61,7 @@ func ScanWorkspace() (ScanSummary, error) {
 		info := gitInfo(path)
 		hasMarker := info.IsRepo || hasDependencyMarker(path) || exists(filepath.Join(path, ".env"))
 		if !hasMarker {
+			summary.UntrackedFolders++
 			return nil
 		}
 		p := projectFromPath(clean, path, info)
@@ -144,12 +148,18 @@ func AddProject(rel string) (Project, error) {
 	if err != nil {
 		return Project{}, err
 	}
-	info := gitInfo(full)
-	if !exists(full) {
-		if err := os.MkdirAll(full, 0o755); err != nil {
+	stat, statErr := os.Stat(full)
+	if statErr != nil {
+		if !os.IsNotExist(statErr) {
+			return Project{}, statErr
+		}
+		if err := os.MkdirAll(full, 0o750); err != nil {
 			return Project{}, err
 		}
+	} else if !stat.IsDir() {
+		return Project{}, fmt.Errorf("cannot add %s: path exists and is not a directory", clean)
 	}
+	info := gitInfo(full)
 	p := projectFromPath(clean, full, info)
 	m, err := LoadManifest(cfg.WorkspaceRoot)
 	if err != nil {
@@ -283,7 +293,7 @@ func ApplyLastPlan() (Plan, error) {
 			applied.Actions[i].Reason = "destination already exists"
 			continue
 		}
-		if err := os.MkdirAll(full, 0o755); err != nil {
+		if err := os.MkdirAll(full, 0o750); err != nil {
 			return applied, err
 		}
 	}
@@ -332,14 +342,28 @@ func HydrateProject(ref string) (Project, error) {
 	if exists(full) && !isEmptyDir(full) {
 		return Project{}, fmt.Errorf("cannot hydrate %s: destination folder is non-empty; no files were changed", p.Path)
 	}
-	if !exists(full) {
-		parent := filepath.Dir(full)
-		if err := os.MkdirAll(parent, 0o755); err != nil {
+	parent := filepath.Dir(full)
+	if err := os.MkdirAll(parent, 0o750); err != nil {
+		return Project{}, err
+	}
+	// Clone into a sibling temp dir first so a failed or interrupted clone
+	// cannot leave partial contents at the destination and block a retry.
+	tmp, err := os.MkdirTemp(parent, ".devdrop-hydrate-*")
+	if err != nil {
+		return Project{}, err
+	}
+	defer os.RemoveAll(tmp)
+	if err := cloneRepo(p.Remote, tmp); err != nil {
+		return Project{}, fmt.Errorf("cannot hydrate %s.\n\nReason:\n%w\n\nRemote:\n%s", p.Path, err, p.Remote)
+	}
+	if exists(full) {
+		// Verified empty above; remove the empty placeholder so Rename succeeds.
+		if err := os.Remove(full); err != nil {
 			return Project{}, err
 		}
 	}
-	if err := cloneRepo(p.Remote, full); err != nil {
-		return Project{}, fmt.Errorf("cannot hydrate %s.\n\nReason:\n%w\n\nRemote:\n%s", p.Path, err, p.Remote)
+	if err := os.Rename(tmp, full); err != nil {
+		return Project{}, err
 	}
 	if err := refreshAllProjectState(cfg.WorkspaceRoot); err != nil {
 		return Project{}, err
@@ -384,11 +408,6 @@ func ignoredName(name string) bool {
 		return true
 	}
 	return strings.HasSuffix(name, ".log")
-}
-
-func cleanRel(path string) (string, error) {
-	_, clean, err := safeWorkspacePath("/", path)
-	return clean, err
 }
 
 func isEmptyDir(path string) bool {

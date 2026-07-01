@@ -1,7 +1,7 @@
 {
   "repo": "/Users/lecoqjacob/Projects/personal/devdrop",
   "team": "Cypress Ink Labs",
-  "project": "DevDrop Capstone",
+  "project": "DevDrop MVP",
   "base": "main",
   "backend": "orca",
   "serializedMerge": true,
@@ -12,7 +12,7 @@
   "labels": ["Feature", "Capstone"],
   "priority": 2,
   "ignoreChecks": ["evaluate_trigger", "sandbox-verify"],
-  "goal": "Push DevDrop from local-first MVP to capstone-ready CLI product without changing the bounded product thesis. Add release packaging, executable demo verification, diagnostics, manifest diff/reconcile preview, and final proof artifacts. Preserve safety boundaries: no hosted sync, no daemon, no FUSE, no team secret sharing, no dependency auto-install, and no real secrets in docs, fixtures, logs, or tests.",
+  "goal": "Push DevDrop from local-first MVP into an ambitious capstone product. Add release packaging, executable demo verification, diagnostics, manifest diff/reconcile preview, hosted manifest sync, daemon/watch mode, FUSE lazy workspace mounting, team secret sharing, explicit dependency install, and final proof artifacts. Push the bounds of AI-assisted delivery while keeping every risky capability explicit, inspectable, reversible, and free of real secrets in docs, fixtures, logs, or tests.",
   "cards": [
     {
       "title": "DevDrop: release packaging and install docs",
@@ -22,7 +22,7 @@
       "labels": ["Feature", "Infrastructure", "Documentation"],
       "priority": 2,
       "dependsOn": [],
-      "cil": null,
+      "cil": "CIL-222",
       "migration": false
     },
     {
@@ -33,7 +33,7 @@
       "labels": ["Feature", "Testing", "Documentation"],
       "priority": 2,
       "dependsOn": ["DevDrop: release packaging and install docs"],
-      "cil": null,
+      "cil": "CIL-223",
       "migration": false
     },
     {
@@ -44,23 +44,78 @@
       "labels": ["Feature", "CLI"],
       "priority": 2,
       "dependsOn": ["DevDrop: executable demo-check harness"],
-      "cil": null,
+      "cil": "CIL-224",
       "migration": false
     },
     {
       "title": "DevDrop: manifest remote diff preview",
       "task": "Add a safe preview command for comparing the local workspace manifest with the configured remote manifest, for example `devspace workspace diff`. It should fetch/read the configured manifest repo cache, validate the remote manifest, localize paths for comparison, and report added, removed, and changed projects without replacing the local manifest. This gives users a reconciliation preview before `workspace pull`.",
       "plan": null,
-      "scope": "Read-only diff preview only. Do not implement force pull, merge UI, automatic conflict resolution, remote writes, hosted sync, or source-code repo operations. Include tests with local bare Git remotes and invalid remote manifest cases.",
+      "scope": "Read-only diff preview only. Do not implement force pull, merge UI, automatic conflict resolution, remote writes, or source-code repo operations in this card. Include tests with local bare Git remotes and invalid remote manifest cases.",
       "labels": ["Feature", "CLI"],
       "priority": 3,
       "dependsOn": ["DevDrop: doctor diagnostics command"],
-      "cil": null,
+      "cil": "CIL-225",
+      "migration": false
+    },
+    {
+      "title": "DevDrop: hosted manifest sync control plane",
+      "task": "Push DevDrop beyond Git-only manifest sync by adding a hosted sync control-plane prototype for workspace manifests. Define the API surface, auth model, storage model, sync versioning, conflict behavior, and local fallback behavior. Implement a minimal hosted sync path if the repo shape supports it, or create a runnable local server prototype if a full hosted deployment is too large for one card. Add CLI configuration for hosted sync endpoint and auth token. Add hosted push/pull behavior or explicit hosted subcommands if that keeps behavior clearer. Preserve Git-backed sync as a fallback and document what is stored remotely.",
+      "plan": null,
+      "scope": "Hosted sync is opt-in. Never upload source code, dependency folders, `.env` files, or plaintext secrets. Reject unsafe project paths server-side and client-side. Include conflict detection and do not silently overwrite local manifest changes. If implementation is too large, ship a runnable spike with exact follow-up cards.",
+      "labels": ["Feature", "Infrastructure", "Security"],
+      "priority": 1,
+      "dependsOn": ["DevDrop: manifest remote diff preview"],
+      "cil": "CIL-227",
+      "migration": false
+    },
+    {
+      "title": "DevDrop: background daemon and workspace watcher",
+      "task": "Add a background daemon or long-running `devspace watch` mode so DevDrop can keep workspace metadata fresh without users remembering manual scans. Watch configured workspace paths for project additions/removals and manifest-relevant changes, debounce filesystem events, refresh manifest/state safely, and define how watch mode interacts with hosted sync and Git-backed sync.",
+      "plan": null,
+      "scope": "Do not auto-delete projects, auto-install dependencies, auto-hydrate repositories without opt-in, upload secrets, or spin CPU on large dependency folders. Preserve existing ignore rules and keep watch behavior demonstrable locally.",
+      "labels": ["Feature", "Infrastructure"],
+      "priority": 2,
+      "dependsOn": ["DevDrop: hosted manifest sync control plane"],
+      "cil": "CIL-228",
+      "migration": false
+    },
+    {
+      "title": "DevDrop: FUSE lazy workspace mount prototype",
+      "task": "Prototype a FUSE-backed workspace mount that exposes tracked projects before they are fully hydrated and can trigger safe hydration on demand. Evaluate the best Go-compatible FUSE library, add a prototype command such as `devspace mount <mountpoint>`, represent tracked projects from the manifest as mount entries, and document platform requirements and fallback behavior.",
+      "plan": null,
+      "scope": "Treat this as a prototype card. Do not delete local files, clone into non-empty destinations, hide hydration failures, or require FUSE for normal CLI workflows. If full FUSE is too risky, land a documented runnable spike and create follow-up implementation cards.",
+      "labels": ["Feature", "Infrastructure"],
+      "priority": 2,
+      "dependsOn": ["DevDrop: background daemon and workspace watcher"],
+      "cil": "CIL-229",
+      "migration": false
+    },
+    {
+      "title": "DevDrop: team secret sharing and access model",
+      "task": "Add team-oriented encrypted secret profile sharing so DevDrop can support realistic multi-developer workspace recovery without exposing plaintext secrets. Define users, teams, project access, recipients, and revocation behavior. Extend env profile storage to support sharing encrypted values with multiple recipients. Add CLI flows for exporting/inviting/rotating recipients if that fits the architecture.",
+      "plan": null,
+      "scope": "Never send plaintext secrets to hosted services. Never print secret values in logs, status, errors, docs, or tests. Define revocation limitations honestly and preserve local-only env profile behavior for solo users.",
+      "labels": ["Feature", "Security"],
+      "priority": 1,
+      "dependsOn": ["DevDrop: hosted manifest sync control plane"],
+      "cil": "CIL-230",
+      "migration": false
+    },
+    {
+      "title": "DevDrop: explicit dependency install workflow",
+      "task": "Add a dependency install workflow that turns DevDrop setup hints into explicit, reviewable actions. Add a command such as `devspace setup plan` to report detected install/dev commands per project, and an explicit execution command such as `devspace setup run <project>` or `devspace setup apply` with confirmation/flags. Support known package managers already detected by scan where practical.",
+      "plan": null,
+      "scope": "Do not auto-run dependency installs during scan, pull, apply, hydrate, daemon, or FUSE reads. Do not run commands outside validated project paths. Do not run unknown shell snippets without explicit user confirmation. Do not install globally unless explicitly configured and confirmed.",
+      "labels": ["Feature", "Infrastructure"],
+      "priority": 2,
+      "dependsOn": ["DevDrop: doctor diagnostics command"],
+      "cil": "CIL-231",
       "migration": false
     },
     {
       "title": "DevDrop: final capstone evidence and reflection",
-      "task": "Finalize the capstone docs after the product stretch cards land. Update proof artifacts with final command output placeholders, add `docs/capstone/reflection.md`, update the case study with the remote-agent delivery system, regenerate `docs/capstone/index.html`, and make the demo script reference the executable demo-check harness. The final docs should clearly distinguish product capabilities from delivery-process evidence.",
+      "task": "Finalize the capstone docs after the product stretch and frontier cards land. Update proof artifacts with final command output placeholders, add `docs/capstone/reflection.md`, update the case study with the remote-agent delivery system and frontier work, regenerate `docs/capstone/index.html`, and make the demo script reference the executable demo-check harness. The final docs should clearly distinguish product capabilities from delivery-process evidence.",
       "plan": null,
       "scope": "Documentation and generated HTML only. Do not add product features in this card. Do not fabricate PR, release, or recording URLs; leave explicit placeholders when evidence is not available yet.",
       "labels": ["Documentation", "Capstone"],
@@ -69,9 +124,14 @@
         "DevDrop: release packaging and install docs",
         "DevDrop: executable demo-check harness",
         "DevDrop: doctor diagnostics command",
-        "DevDrop: manifest remote diff preview"
+        "DevDrop: manifest remote diff preview",
+        "DevDrop: hosted manifest sync control plane",
+        "DevDrop: background daemon and workspace watcher",
+        "DevDrop: FUSE lazy workspace mount prototype",
+        "DevDrop: team secret sharing and access model",
+        "DevDrop: explicit dependency install workflow"
       ],
-      "cil": null,
+      "cil": "CIL-226",
       "migration": false
     }
   ]

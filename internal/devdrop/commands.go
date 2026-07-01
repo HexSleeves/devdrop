@@ -101,22 +101,22 @@ func newWorkspaceCommand() *cobra.Command {
 		Short:      "Compatibility alias for plan/apply",
 		Deprecated: "use `devspace plan` and `devspace apply` instead",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if dryRun {
-				plan, err := BuildPlan()
-				if err != nil {
-					return err
-				}
-				if err := SaveLastPlan(plan); err != nil {
-					return err
-				}
-				printPlan(cmd.OutOrStdout(), plan)
-				return nil
-			}
-			plan, err := ApplyLastPlan()
+			plan, err := BuildPlan()
 			if err != nil {
 				return err
 			}
-			printApply(cmd.OutOrStdout(), plan)
+			if err := SaveLastPlan(plan); err != nil {
+				return err
+			}
+			if dryRun {
+				printPlan(cmd.OutOrStdout(), plan)
+				return nil
+			}
+			applied, err := ApplyLastPlan()
+			if err != nil {
+				return err
+			}
+			printApply(cmd.OutOrStdout(), applied)
 			return nil
 		},
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -13,7 +14,7 @@ const envHome = "DEV_DROP_HOME"
 
 func appHome() (string, error) {
 	if override := os.Getenv(envHome); override != "" {
-		return filepath.Abs(override)
+		return expandPath(override)
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -91,7 +92,53 @@ func safeWorkspacePath(workspace, rel string) (string, string, error) {
 	if back == ".." || strings.HasPrefix(back, "../") || filepath.IsAbs(back) {
 		return "", "", fmt.Errorf("project path escapes workspace: %s", rel)
 	}
+	// Lexical checks above cannot catch symlink-based escapes (a directory
+	// inside the workspace that links outside it). Resolve symlinks on the
+	// existing portions of both root and candidate and re-check containment.
+	realRoot, err := resolveExisting(root)
+	if err != nil {
+		return "", "", err
+	}
+	realFull, err := resolveExisting(full)
+	if err != nil {
+		return "", "", err
+	}
+	realBack, err := filepath.Rel(realRoot, realFull)
+	if err != nil {
+		return "", "", err
+	}
+	realBack = filepath.ToSlash(realBack)
+	if realBack == ".." || strings.HasPrefix(realBack, "../") || filepath.IsAbs(realBack) {
+		return "", "", fmt.Errorf("project path escapes workspace via symlink: %s", rel)
+	}
 	return full, clean, nil
+}
+
+// resolveExisting evaluates symlinks for the longest existing prefix of path
+// and re-appends the not-yet-created remainder. This lets callers detect a
+// symlink escape even when the final path does not exist yet.
+func resolveExisting(path string) (string, error) {
+	p := path
+	var tail []string
+	for {
+		resolved, err := filepath.EvalSymlinks(p)
+		if err == nil {
+			if len(tail) == 0 {
+				return resolved, nil
+			}
+			slices.Reverse(tail)
+			return filepath.Join(append([]string{resolved}, tail...)...), nil
+		}
+		if !os.IsNotExist(err) {
+			return "", err
+		}
+		parent := filepath.Dir(p)
+		if parent == p {
+			return path, nil
+		}
+		tail = append(tail, filepath.Base(p))
+		p = parent
+	}
 }
 
 func randomID(prefix string) (string, error) {

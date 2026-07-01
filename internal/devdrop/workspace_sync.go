@@ -263,7 +263,7 @@ func ensureManifestRepoRemote(repo, remote string) error {
 		return nil
 	}
 	if current != remote {
-		return fmt.Errorf("manifest repo origin is %s, but configured remote is %s; remove %s or reconcile the cache", current, remote, repo)
+		return fmt.Errorf("manifest repo origin is %s, but configured remote is %s; remove %s or reconcile the cache", redactRemote(current), redactRemote(remote), repo)
 	}
 	return nil
 }
@@ -470,14 +470,48 @@ func manifestForSync(m Manifest) Manifest {
 }
 
 func manifestRemoteNotReadyError(remote string, err error) error {
-	msg := err.Error()
+	// Remote strings and the underlying git error may embed HTTPS userinfo or a
+	// PAT (https://user:token@host/...). Redact before surfacing to logs/output.
+	msg := sanitizeRemoteInText(remote, err.Error())
 	if !strings.Contains(msg, "Repository not found") &&
 		!strings.Contains(msg, "Could not read from remote repository") &&
 		!strings.Contains(msg, "does not appear to be a git repository") &&
 		!strings.Contains(msg, "not found") {
-		return err
+		return fmt.Errorf("%s", msg)
 	}
-	return fmt.Errorf("manifest remote is not ready: %s\n\nCreate it first, then rerun sync:\n  devspace workspace remote create github %s --private\n  devspace workspace push\n\nOr use a local bare repo:\n  devspace workspace remote create local ~/Projects/devspace-manifest.git\n  devspace workspace push\n\nOriginal error:\n%w", remote, githubRepoSlug(remote), err)
+	return fmt.Errorf("manifest remote is not ready: %s\n\nCreate it first, then rerun sync:\n  devspace workspace remote create github %s --private\n  devspace workspace push\n\nOr use a local bare repo:\n  devspace workspace remote create local ~/Projects/devspace-manifest.git\n  devspace workspace push\n\nOriginal error:\n%s", redactRemote(remote), githubRepoSlug(remote), msg)
+}
+
+// redactRemote strips credentials from the authority component of an http(s)
+// or ssh remote URL so tokens never reach error messages. SSH scp-style
+// remotes (git@host:owner/repo) carry no secret and are returned unchanged.
+func redactRemote(remote string) string {
+	for _, scheme := range []string{"https://", "http://", "ssh://"} {
+		if !strings.HasPrefix(remote, scheme) {
+			continue
+		}
+		rest := remote[len(scheme):]
+		authority := rest
+		tail := ""
+		if slash := strings.IndexByte(rest, '/'); slash >= 0 {
+			authority = rest[:slash]
+			tail = rest[slash:]
+		}
+		if at := strings.LastIndexByte(authority, '@'); at >= 0 {
+			authority = "***@" + authority[at+1:]
+		}
+		return scheme + authority + tail
+	}
+	return remote
+}
+
+// sanitizeRemoteInText replaces any occurrence of a credentialed remote in free
+// text (such as git stderr) with its redacted form.
+func sanitizeRemoteInText(remote, text string) string {
+	if red := redactRemote(remote); red != remote {
+		text = strings.ReplaceAll(text, remote, red)
+	}
+	return text
 }
 
 func githubRepoSlug(remote string) string {

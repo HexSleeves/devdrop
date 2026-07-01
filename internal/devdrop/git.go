@@ -43,18 +43,26 @@ func gitInfo(path string) GitInfo {
 	}
 	branch, branchErr := runGit(ctx, path, "branch", "--show-current")
 	detached := branchErr != nil || branch == ""
+	var warnings []string
+	// remote/HEAD lookups return non-zero when legitimately absent (no origin
+	// configured, repo with no commits yet), so those stay on mustGit and fall
+	// back to empty. A failing `status` is genuinely anomalous and would make
+	// Dirty silently unreliable, so surface it.
 	remoteNames := strings.Fields(mustGit(ctx, path, "remote"))
 	remote := mustGit(ctx, path, "config", "--get", "remote.origin.url")
 	if remote == "" && len(remoteNames) == 1 {
 		remote = mustGit(ctx, path, "remote", "get-url", remoteNames[0])
 	}
 	commit := mustGit(ctx, path, "rev-parse", "--short", "HEAD")
-	status := mustGit(ctx, path, "status", "--porcelain")
-	def := defaultBranch(ctx, path, branch)
-	warning := ""
-	if len(remoteNames) > 1 {
-		warning = fmt.Sprintf("multiple Git remotes configured: %s; using origin when present", strings.Join(remoteNames, ", "))
+	status, statusErr := runGit(ctx, path, "status", "--porcelain")
+	if statusErr != nil {
+		warnings = append(warnings, fmt.Sprintf("git status inspection failed; dirty state may be inaccurate: %s", statusErr.Error()))
 	}
+	def := defaultBranch(ctx, path, branch)
+	if len(remoteNames) > 1 {
+		warnings = append(warnings, fmt.Sprintf("multiple Git remotes configured: %s; using origin when present", strings.Join(remoteNames, ", ")))
+	}
+	warning := strings.Join(warnings, "; ")
 	return GitInfo{
 		IsRepo:         true,
 		Remote:         remote,
@@ -115,7 +123,7 @@ func cloneRepo(remote, dest string) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "git", "clone", remote, dest)
+	cmd := exec.CommandContext(ctx, "git", "clone", "--", remote, dest)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
