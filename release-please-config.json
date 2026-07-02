@@ -1,0 +1,12 @@
+{
+  "bootstrap-sha": "b3bdb1637df872da7a7c28eaff69d847c07d0fc5",
+  "packages": {
+    ".": {
+      "release-type": "go",
+      "include-component-in-tag": false,
+      "skip-github-release": true,
+      "bump-minor-pre-major": true,
+      "changelog-path": "CHANGELOG.md"
+    }
+  }
+}

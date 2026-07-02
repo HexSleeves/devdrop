@@ -44,3 +44,54 @@ jobs:
         uses: actions/attest-build-provenance@v4
         with:
           subject-checksums: dist/checksums.txt
+
+  # Gated live deploy: waits for manual approval on the `production` environment
+  # before pointing Railway at the freshly published image. Stable tags only.
+  deploy-railway:
+    needs: goreleaser
+    if: ${{ !contains(github.ref_name, '-') }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-railway-production
+      cancel-in-progress: false
+    environment:
+      name: production
+      url: https://${{ vars.RAILWAY_PUBLIC_DOMAIN }}
+    env:
+      RAILWAY_API: https://backboard.railway.com/graphql/v2
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+      ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
+      IMAGE: ghcr.io/liatrio-forge/devspace-hosted:${{ github.ref_name }}
+      PUBLIC_DOMAIN: ${{ vars.RAILWAY_PUBLIC_DOMAIN }}
+    steps:
+      - name: Deploy the new image to Railway
+        run: |
+          set -euo pipefail
+          # POST a GraphQL mutation; fail on a transport error OR a logical
+          # `errors` array (the API returns HTTP 200 even on logical failure).
+          graphql() {
+            local query="$1" vars="$2" assert="$3" resp
+            resp=$(curl -sS --max-time 30 --retry 3 --retry-delay 5 --retry-all-errors \
+              "$RAILWAY_API" \
+              -H "Project-Access-Token: $RAILWAY_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$(jq -n --arg q "$query" --argjson v "$vars" '{query:$q,variables:$v}')")
+            echo "$resp" | jq .
+            echo "$resp" | jq -e "$assert" >/dev/null
+          }
+          graphql \
+            'mutation($s:String!,$e:String!,$i:String!){serviceInstanceUpdate(serviceId:$s,environmentId:$e,input:{source:{image:$i}})}' \
+            "$(jq -n --arg s "$SERVICE_ID" --arg e "$ENVIRONMENT_ID" --arg i "$IMAGE" '{s:$s,e:$e,i:$i}')" \
+            '.errors == null and .data.serviceInstanceUpdate == true'
+          graphql \
+            'mutation($s:String!,$e:String!){serviceInstanceDeployV2(serviceId:$s,environmentId:$e)}' \
+            "$(jq -n --arg s "$SERVICE_ID" --arg e "$ENVIRONMENT_ID" '{s:$s,e:$e}')" \
+            '.errors == null and .data.serviceInstanceDeployV2 != null'
+
+      - name: Smoke check /healthz
+        # Railway must build + start the new image before the endpoint is live,
+        # so retry across errors/refused for several minutes.
+        run: |
+          curl --fail --retry 30 --retry-delay 10 --retry-all-errors --connect-timeout 10 \
+            "https://$PUBLIC_DOMAIN/healthz"
