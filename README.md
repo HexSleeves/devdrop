@@ -21,17 +21,22 @@ go run ./cmd/devdrop --help
 
 ## Release Packaging
 
-Repo-native release targets are available for the `devspace` CLI:
+Releases are automated with GoReleaser: pushing a `v*` tag publishes a GitHub
+Release with prebuilt `devspace` archives for Linux and macOS (amd64/arm64),
+SHA256 checksums, and build-provenance attestation. Download archives from the
+[releases page](https://github.com/HexSleeves/devdrop/releases) and verify them
+with `sha256sum -c` and `gh attestation verify`.
+
+CI (`go test`, `go vet`, build) runs on every PR and push to `main`. The same
+gate is available locally:
 
 ```bash
 make verify
-make release
 ```
 
-`make verify` runs tests, `go vet`, and a local build into `bin/devspace`.
-`make release` builds a current-platform archive under `dist/` and writes
-`dist/SHA256SUMS`. See [`docs/release.md`](docs/release.md) for install-from-source
-and GitHub Release assembly instructions.
+See [`docs/release.md`](docs/release.md) for the full release process,
+consumer verification steps, install-from-source instructions, and the manual
+`make release` fallback.
 
 ## Current MVP Status
 

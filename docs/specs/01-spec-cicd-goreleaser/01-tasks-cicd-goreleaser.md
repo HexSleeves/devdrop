@@ -110,7 +110,7 @@ Task list for `01-spec-cicd-goreleaser.md`.
 
 #### 5.0 Tasks
 
-- [ ] 5.1 Update `docs/release.md`: document the automated flow (push a `v*` tag → GitHub Release with archives, checksums, changelog, attestation; verify with `gh attestation verify` and `sha256sum -c`) as the primary process, and retitle the existing manual `make release` steps as the offline/manual fallback. Update the README "Release Packaging" section to match.
-- [ ] 5.2 Get the PR green (ci + release-check), then merge it into `main`.
+- [x] 5.1 Update `docs/release.md`: document the automated flow (push a `v*` tag → GitHub Release with archives, checksums, changelog, attestation; verify with `gh attestation verify` and `sha256sum -c`) as the primary process, and retitle the existing manual `make release` steps as the offline/manual fallback. Update the README "Release Packaging" section to match.
+- [~] 5.2 Get the PR green (ci + release-check), then merge it into `main`.
 - [ ] 5.3 Tag the merge commit `v0.1.0-rc.1` and push the tag; watch the `release` workflow run to completion.
 - [ ] 5.4 Verify the release: `gh release view v0.1.0-rc.1` shows prerelease=true with 4 archives + `checksums.txt`; download one archive and `checksums.txt`, run `sha256sum -c` and `gh attestation verify checksums.txt --repo HexSleeves/devdrop`; save all outputs + release URL to `docs/specs/01-spec-cicd-goreleaser/proofs/validation-release.md` (commit proofs to `main`).
