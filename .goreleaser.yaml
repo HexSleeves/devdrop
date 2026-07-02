@@ -3,7 +3,8 @@ version: 2
 project_name: devspace
 
 builds:
-  - main: ./cmd/devspace
+  - id: devspace
+    main: ./cmd/devspace
     binary: devspace
     env:
       - CGO_ENABLED=0
@@ -13,6 +14,22 @@ builds:
       - -trimpath
     ldflags:
       - -s -w -X main.version=v{{ .Version }}
+
+kos:
+  - id: devspace-hosted
+    build: devspace
+    base_image: cgr.dev/chainguard/static:latest
+    repositories:
+      - ghcr.io/hexsleeves/devspace-hosted
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    tags:
+      - "{{ .Tag }}"
+      - latest
+    labels:
+      org.opencontainers.image.source: https://github.com/HexSleeves/devspace
+      org.opencontainers.image.description: DevSpace hosted manifest sync server
 
 archives:
   - formats: [tar.gz]

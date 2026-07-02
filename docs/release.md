@@ -3,9 +3,10 @@
 DevDrop ships the local-first CLI as a `devspace` binary built from the existing
 Go module. Releases are **automated with GoReleaser**: pushing a version tag
 builds multi-platform archives and publishes them to GitHub Releases with
-checksums, a generated changelog, and build-provenance attestation. The manual
-`make release` flow remains available as an offline fallback. This workflow only
-packages the CLI; it does not add hosted sync, a daemon, FUSE behavior, managed
+checksums, a generated changelog, and build-provenance attestation. GoReleaser is
+the single source of truth for release artifacts (there is no separate manual
+release path). This workflow packages the CLI; the hosted server is published
+separately as a container image. It does not add a daemon, FUSE behavior, managed
 team identity, or dependency install behavior.
 
 ## Automated release (primary)
@@ -144,30 +145,3 @@ goreleaser check
 goreleaser release --snapshot --clean
 ```
 
-## Manual release (offline fallback)
-
-Use this only when the automated pipeline is unavailable. It produces a
-current-platform archive plus `dist/SHA256SUMS` (note: the automated pipeline
-names its checksum file `checksums.txt` instead).
-
-1. Start from a clean working tree and run `make verify`.
-2. Build the archive, overriding the version to match the tag:
-
-   ```bash
-   make release VERSION=v0.1.0
-   ```
-
-3. Inspect the generated files:
-
-   ```bash
-   ls -lh dist/
-   cat dist/SHA256SUMS
-   ```
-
-4. Create a GitHub Release using the tag and upload:
-
-   - `dist/devspace_v0.1.0_<goos>_<goarch>.tar.gz`
-   - `dist/SHA256SUMS`
-
-5. In the release notes, include the exact commit SHA, supported platform, and
-   checksum contents. Do not include secrets or machine-local configuration.
