@@ -48,6 +48,22 @@ Versioning is automatic — you do not tag by hand.
 To publish binaries without a live deploy (e.g. a preview), push a prerelease
 tag by hand: `git tag v0.1.0-rc.3 && git push origin v0.1.0-rc.3`.
 
+### Setup prerequisites (one-time)
+
+The automated flow above depends on repo configuration that must exist first,
+or release runs will fail:
+
+- **`RELEASE_PLEASE_TOKEN`** repo secret — a fine-grained PAT with **Contents:
+  write** + **Pull requests: write**. It must NOT be the default `GITHUB_TOKEN`,
+  or the tag `release-please` pushes will not trigger `release.yml`.
+- **`production` GitHub Environment** (Settings → Environments) with a
+  **required reviewer** — the manual approval gate for the live deploy.
+- **Railway** secrets/variable on the `production` environment: `RAILWAY_TOKEN`
+  (project token), `RAILWAY_SERVICE_ID`, `RAILWAY_ENVIRONMENT_ID`, and the
+  `RAILWAY_PUBLIC_DOMAIN` variable.
+- The **ghcr package** `devspace-hosted` made **public** after its first push,
+  so Railway can pull it without registry credentials.
+
 ### If a release run fails
 
 The tag already exists, so re-running is safe and idempotent from the same tag:
