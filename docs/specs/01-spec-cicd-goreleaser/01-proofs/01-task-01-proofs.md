@@ -41,7 +41,24 @@ Go build: Success
 
 **Why it matters:** This is the end-to-end proof the CI gate is live for every future PR.
 
-**Status:** PENDING — populated after the feature PR is opened and the `ci` run completes.
+**Run URL:** <https://github.com/HexSleeves/devdrop/actions/runs/28565011052> (PR #12, conclusion: success)
+
+**Command:**
+
+~~~bash
+gh run view 28565011052 --json jobs
+~~~
+
+**Result summary:** The `verify` job succeeded with every step green — checkout, setup-go, then the three gate steps Test, Vet, and Build.
+
+~~~text
+verify
+  Run actions/checkout@v7: success
+  Run actions/setup-go@v6: success
+  Test: success
+  Vet: success
+  Build: success
+~~~
 
 ## Reviewer Conclusion
 

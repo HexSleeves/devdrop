@@ -48,7 +48,7 @@ Task list for `01-spec-cicd-goreleaser.md`.
 
 ## Tasks
 
-### [~] 1.0 Add CI workflow gating tests, vet, and build
+### [x] 1.0 Add CI workflow gating tests, vet, and build
 
 #### 1.0 Proof Artifact(s)
 
@@ -60,9 +60,9 @@ Task list for `01-spec-cicd-goreleaser.md`.
 - [x] 1.1 Create a feature branch (e.g., `feat/cicd-goreleaser`) and add `.github/workflows/ci.yml`: name `ci`, triggers `pull_request` (branches: `main`) and `push` (branches: `main`), top-level `permissions: contents: read`, one `verify` job on `ubuntu-latest`.
 - [x] 1.2 Add job steps: `actions/checkout`, `actions/setup-go@v6` with `go-version-file: go.mod`, then `go test ./...`, `go vet ./...`, and `go build -trimpath -o bin/devspace ./cmd/devdrop` as separate named steps so a failure pinpoints the gate that broke.
 - [x] 1.3 Run the same three commands locally to confirm the codebase is green before pushing (mirrors `make verify`).
-- [~] 1.4 Push the branch, open a PR to `main`, wait for the `ci` run, and save the run URL plus `gh run view <run-id>` output to `docs/specs/01-spec-cicd-goreleaser/proofs/ci-run.md`.
+- [x] 1.4 Push the branch, open a PR to `main`, wait for the `ci` run, and save the run URL plus `gh run view <run-id>` output to `docs/specs/01-spec-cicd-goreleaser/proofs/ci-run.md`.
 
-### [~] 2.0 Add GoReleaser v2 configuration for multi-platform devspace releases
+### [x] 2.0 Add GoReleaser v2 configuration for multi-platform devspace releases
 
 #### 2.0 Proof Artifact(s)
 
@@ -76,7 +76,7 @@ Task list for `01-spec-cicd-goreleaser.md`.
 - [x] 2.3 Add `checksum` (default `checksums.txt`), `changelog` with `sort: asc` and conventional-commit groups (`^feat` → Features, `^fix` → Bug Fixes, catch-all Others) excluding `^docs`, `^chore`, `^test`, and `release: prerelease: auto` so `-rc` tags publish as prereleases.
 - [x] 2.4 Run `goreleaser check` and `goreleaser release --snapshot --clean`; verify `dist/` contains exactly the four expected archives + checksums file and that an archive contains `devspace`, `README.md`, `RELEASE.md`; save outputs to `docs/specs/01-spec-cicd-goreleaser/proofs/goreleaser-local.md`.
 
-### [~] 3.0 Add release-config snapshot dry-run workflow (release-check)
+### [x] 3.0 Add release-config snapshot dry-run workflow (release-check)
 
 #### 3.0 Proof Artifact(s)
 
@@ -85,9 +85,9 @@ Task list for `01-spec-cicd-goreleaser.md`.
 #### 3.0 Tasks
 
 - [x] 3.1 Add `.github/workflows/release-check.yml`: trigger `pull_request` with `paths: ['.goreleaser.yaml', '.github/workflows/release*.yml']`, `permissions: contents: read`, job with `actions/checkout` (`fetch-depth: 0`), `actions/setup-go@v6` (`go-version-file: go.mod`), and `goreleaser/goreleaser-action@v7` (`version: "~> v2"`, `args: release --snapshot --clean`).
-- [~] 3.2 Push to the open PR (it touches `.goreleaser.yaml`, so the path filter must fire), wait for the green `release-check` run, and save the run URL to `docs/specs/01-spec-cicd-goreleaser/proofs/release-check-run.md`.
+- [x] 3.2 Push to the open PR (it touches `.goreleaser.yaml`, so the path filter must fire), wait for the green `release-check` run, and save the run URL to `docs/specs/01-spec-cicd-goreleaser/proofs/release-check-run.md`.
 
-### [~] 4.0 Add tag-triggered release workflow with artifact attestation
+### [x] 4.0 Add tag-triggered release workflow with artifact attestation
 
 #### 4.0 Proof Artifact(s)
 
@@ -100,7 +100,7 @@ Task list for `01-spec-cicd-goreleaser.md`.
 - [x] 4.2 Append an attestation step after GoReleaser: `actions/attest-build-provenance@v3` with `subject-checksums: dist/checksums.txt`, so every released archive gets verifiable provenance.
 - [x] 4.3 Re-run `goreleaser check` and re-confirm workflow YAML validity (`gh workflow list` after merge, or a clean `release-check` run on the PR), then commit; the full runtime proof lands with the validation tag in 5.0.
 
-### [ ] 5.0 Update release docs and cut validation prerelease
+### [~] 5.0 Update release docs and cut validation prerelease
 
 #### 5.0 Proof Artifact(s)
 

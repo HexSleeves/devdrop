@@ -21,7 +21,22 @@ This task adds `.github/workflows/release-check.yml`: pull requests that touch `
 
 **Why it matters:** This gate is the safety net that keeps a broken `.goreleaser.yaml` from reaching `main` and failing at tag time.
 
-**Status:** PENDING — populated after the feature PR is opened and the `release-check` run completes.
+**Run URL:** <https://github.com/HexSleeves/devdrop/actions/runs/28565011054> (PR #12, conclusion: success)
+
+**Command:**
+
+~~~bash
+gh run view 28565011054 --json jobs
+~~~
+
+**Result summary:** The path filter fired on PR #12 (which introduces `.goreleaser.yaml`) and the `snapshot` job's GoReleaser dry-run succeeded on `ubuntu-latest`.
+
+~~~text
+snapshot
+  Run actions/checkout@v7: success
+  Run actions/setup-go@v6: success
+  GoReleaser snapshot dry-run: success
+~~~
 
 ## Reviewer Conclusion
 
