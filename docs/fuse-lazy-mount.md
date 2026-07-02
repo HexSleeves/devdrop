@@ -17,7 +17,7 @@ The prototype uses `github.com/hanwen/go-fuse/v2/fs`.
 
 ## Behavior
 
-The mount exposes tracked project paths from `.devdrop/manifest.json`.
+The mount exposes tracked project paths from `.devspace/manifest.json`.
 
 - `ls <mountpoint>` lists top-level manifest path segments without hydrating
   projects.
@@ -26,7 +26,7 @@ The mount exposes tracked project paths from `.devdrop/manifest.json`.
 - Hydration failures are returned to the filesystem caller and logged to stderr;
   the mount does not convert them into empty successful directories.
 - Local-only, manual, metadata-only, or missing projects that cannot hydrate
-  automatically are represented by a stub directory containing `.devdrop-status`.
+  automatically are represented by a stub directory containing `.devspace-status`.
 - The mountpoint must be empty. DevDrop refuses to mount over non-empty
   directories so local files are not hidden.
 

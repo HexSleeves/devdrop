@@ -4,7 +4,7 @@
 
 - Full Go unit/regression suite with `go test ./...`.
 - Static checks with `go vet ./...`.
-- CLI build with `go build -o .tmp/devspace ./cmd/devdrop`.
+- CLI build with `go build -o .tmp/devspace ./cmd/devspace`.
 - Top-level command help for the `devspace` command surface.
 - Local two-machine simulation using temporary directories and a local bare Git remote.
 - Git-backed manifest push/pull using local bare Git remotes only.
@@ -60,11 +60,9 @@
 - There is no hosted sync, daemon, FUSE layer, partial clone, or sparse checkout.
 - Secret profile sharing uses explicit age recipients only; there is no OS keychain integration, remote backup, managed identity provider, or guaranteed clawback after a recipient has copied or decrypted material.
 - Dependency/setup commands are detected only as hints and are never executed.
-- The source package path is still `cmd/devdrop`, but the intended binary name is `devspace`.
 
 ## Remaining Risks
 
-- The local config/state directory is still named `.devdrop`; a future rename/migration may be useful if the product name stays `devspace`.
 - Plan/apply is intentionally conservative and may require manual cleanup or explicit future flags for advanced cases.
 - Manifest sync has no force flag or merge UI; conflicts intentionally require manual reconciliation.
 - Git inspection still avoids mutating repos, so stale/outdated remote commit detection remains shallow.

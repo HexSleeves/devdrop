@@ -7,7 +7,7 @@ links as releases, PRs, and recordings are created.
 
 | Artifact | Status | Evidence |
 | --- | --- | --- |
-| CLI implementation | Done | `cmd/devdrop/main.go`, `internal/devdrop/` |
+| CLI implementation | Done | `cmd/devspace/main.go`, `internal/devspace/` |
 | Manifest example | Done | `examples/manifest.json` |
 | Release readiness notes | Done | `docs/release-readiness.md` |
 | Capstone spec | Done | `docs/capstone/spec.md` |
@@ -26,7 +26,7 @@ Run these before final demo day:
 ```bash
 go test ./...
 go vet ./...
-go build -o .tmp/devspace ./cmd/devdrop
+go build -o .tmp/devspace ./cmd/devspace
 .tmp/devspace --help
 scripts/demo-check.sh
 ```
@@ -79,8 +79,8 @@ Capture the command output and the generated
 - Hydrate refuses non-empty destinations.
 - Secret files are encrypted at rest and list output masks values.
 
-These are covered by tests in `internal/devdrop/hardening_test.go`,
-`internal/devdrop/workspace_sync_test.go`, and `internal/devdrop/devdrop_test.go`.
+These are covered by tests in `internal/devspace/hardening_test.go`,
+`internal/devspace/workspace_sync_test.go`, and `internal/devspace/devspace_test.go`.
 
 ## Release Gate
 

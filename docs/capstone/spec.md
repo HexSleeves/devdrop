@@ -134,7 +134,7 @@ Acceptance:
 
 - `go test ./...` passes.
 - `go vet ./...` passes before release.
-- `go build -o .tmp/devspace ./cmd/devdrop` produces the demo binary.
+- `go build -o .tmp/devspace ./cmd/devspace` produces the demo binary.
 - The release readiness document states tested workflows, known limitations,
   and remaining risks.
 - The demo uses temporary directories and local bare remotes so it can run

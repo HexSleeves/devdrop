@@ -53,7 +53,7 @@ Narration:
 
 Narration:
 
-- Env values are stored encrypted under the workspace `.devdrop/secrets`
+- Env values are stored encrypted under the workspace `.devspace/secrets`
   directory.
 - `env list` masks values.
 - `env pull` writes the local `.env` file only on explicit request.

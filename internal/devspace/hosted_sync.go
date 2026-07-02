@@ -4,17 +4,22 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 const hostedManifestAPIVersion = "v1"
@@ -75,6 +80,9 @@ func SetHostedSync(endpoint, token, workspace string) (Config, error) {
 	}
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
 		return Config{}, fmt.Errorf("hosted sync endpoint must use http or https")
+	}
+	if parsed.Scheme == "http" && !isLoopbackHost(parsed.Hostname()) {
+		return Config{}, fmt.Errorf("hosted sync endpoint must use https (plain http is only allowed for localhost)")
 	}
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -371,6 +379,20 @@ func hostedManifestHash(m Manifest) (string, error) {
 	return hex.EncodeToString(sum[:]), nil
 }
 
+// isLoopbackHost reports whether host (as returned by url.URL.Hostname, which
+// strips any surrounding brackets from IPv6 literals) refers to localhost.
+func isLoopbackHost(host string) bool {
+	if host == "" {
+		return false
+	}
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	trimmed := strings.TrimSuffix(strings.TrimPrefix(host, "["), "]")
+	ip := net.ParseIP(trimmed)
+	return ip != nil && ip.IsLoopback()
+}
+
 func validateHostedWorkspaceID(workspace string) error {
 	if workspace == "" {
 		return fmt.Errorf("hosted workspace id is required")
@@ -390,9 +412,26 @@ func validateHostedWorkspaceID(workspace string) error {
 	return nil
 }
 
+const (
+	defaultHostedSyncRateLimit = rate.Limit(10)
+	defaultHostedSyncRateBurst = 20
+	// defaultHostedSyncMaxLimiters bounds the per-IP limiter map so a stream of
+	// distinct client IPs cannot exhaust memory. Idle entries are evicted
+	// first; the oldest is dropped if the cap is still hit.
+	defaultHostedSyncMaxLimiters = 4096
+	hostedSyncLimiterIdleTTL     = 10 * time.Minute
+)
+
 type HostedSyncServerOptions struct {
 	StoreDir string
 	Token    string
+
+	// RateLimit and RateBurst configure the per-client-IP token-bucket rate
+	// limiter. Zero values fall back to sensible defaults.
+	RateLimit rate.Limit
+	RateBurst int
+	// MaxLimiters bounds the number of tracked per-IP limiters (0 = default).
+	MaxLimiters int
 }
 
 func NewHostedSyncServer(opts HostedSyncServerOptions) (http.Handler, error) {
@@ -411,12 +450,107 @@ func NewHostedSyncServer(opts HostedSyncServerOptions) (http.Handler, error) {
 	if err := os.MkdirAll(storeDir, 0o700); err != nil {
 		return nil, err
 	}
-	return &hostedSyncServer{storeDir: storeDir, token: token}, nil
+	rateLimit := opts.RateLimit
+	if rateLimit == 0 {
+		rateLimit = defaultHostedSyncRateLimit
+	}
+	rateBurst := opts.RateBurst
+	if rateBurst == 0 {
+		rateBurst = defaultHostedSyncRateBurst
+	}
+	maxLimiters := opts.MaxLimiters
+	if maxLimiters <= 0 {
+		maxLimiters = defaultHostedSyncMaxLimiters
+	}
+	return &hostedSyncServer{
+		storeDir:     storeDir,
+		token:        token,
+		workspaceMus: map[string]*sync.Mutex{},
+		limiters:     map[string]*hostedIPLimiter{},
+		rateLimit:    rateLimit,
+		rateBurst:    rateBurst,
+		maxLimiters:  maxLimiters,
+	}, nil
 }
 
 type hostedSyncServer struct {
 	storeDir string
 	token    string
+
+	mu           sync.Mutex
+	workspaceMus map[string]*sync.Mutex
+
+	limiterMu   sync.Mutex
+	limiters    map[string]*hostedIPLimiter
+	rateLimit   rate.Limit
+	rateBurst   int
+	maxLimiters int
+}
+
+// hostedIPLimiter is a per-client rate limiter plus the last time it was used,
+// so idle entries can be evicted to keep the limiter map bounded.
+type hostedIPLimiter struct {
+	limiter  *rate.Limiter
+	lastSeen time.Time
+}
+
+// workspaceMutex lazily creates and returns the mutex used to serialize
+// read-check-write access to a single workspace's stored manifest.
+func (s *hostedSyncServer) workspaceMutex(workspace string) *sync.Mutex {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	m, ok := s.workspaceMus[workspace]
+	if !ok {
+		m = &sync.Mutex{}
+		s.workspaceMus[workspace] = m
+	}
+	return m
+}
+
+// allowRequest reports whether the client identified by r.RemoteAddr is
+// within its rate limit, lazily creating a per-client token-bucket limiter.
+func (s *hostedSyncServer) allowRequest(r *http.Request) bool {
+	ip := hostedClientIP(r.RemoteAddr)
+	now := time.Now()
+	s.limiterMu.Lock()
+	entry, ok := s.limiters[ip]
+	if !ok {
+		if len(s.limiters) >= s.maxLimiters {
+			s.evictLimitersLocked(now)
+		}
+		entry = &hostedIPLimiter{limiter: rate.NewLimiter(s.rateLimit, s.rateBurst)}
+		s.limiters[ip] = entry
+	}
+	entry.lastSeen = now
+	s.limiterMu.Unlock()
+	return entry.limiter.Allow()
+}
+
+// evictLimitersLocked drops limiters idle beyond the TTL and, if the map is
+// still at capacity, the single oldest entry. The caller must hold limiterMu.
+func (s *hostedSyncServer) evictLimitersLocked(now time.Time) {
+	var oldestKey string
+	var oldest time.Time
+	for k, e := range s.limiters {
+		if now.Sub(e.lastSeen) > hostedSyncLimiterIdleTTL {
+			delete(s.limiters, k)
+			continue
+		}
+		if oldestKey == "" || e.lastSeen.Before(oldest) {
+			oldestKey, oldest = k, e.lastSeen
+		}
+	}
+	if len(s.limiters) >= s.maxLimiters && oldestKey != "" {
+		delete(s.limiters, oldestKey)
+	}
+}
+
+func hostedClientIP(remoteAddr string) string {
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		return remoteAddr
+	}
+	return host
 }
 
 func (s *hostedSyncServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -425,8 +559,13 @@ func (s *hostedSyncServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("ok"))
 		return
 	}
+	if !s.allowRequest(r) {
+		http.Error(w, "too many requests\n", http.StatusTooManyRequests)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
-	if r.Header.Get("Authorization") != "Bearer "+s.token {
+	expected := "Bearer " + s.token
+	if subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte(expected)) != 1 {
 		http.Error(w, "unauthorized\n", http.StatusUnauthorized)
 		return
 	}
@@ -473,6 +612,11 @@ func (s *hostedSyncServer) handlePut(w http.ResponseWriter, r *http.Request, wor
 		http.Error(w, err.Error()+"\n", http.StatusBadRequest)
 		return
 	}
+
+	wsMutex := s.workspaceMutex(workspace)
+	wsMutex.Lock()
+	defer wsMutex.Unlock()
+
 	current, err := s.load(workspace)
 	if err != nil && !missing(err) {
 		http.Error(w, err.Error()+"\n", http.StatusInternalServerError)
