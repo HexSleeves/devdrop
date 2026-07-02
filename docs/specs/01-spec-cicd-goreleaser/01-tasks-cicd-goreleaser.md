@@ -100,7 +100,7 @@ Task list for `01-spec-cicd-goreleaser.md`.
 - [x] 4.2 Append an attestation step after GoReleaser: `actions/attest-build-provenance@v3` with `subject-checksums: dist/checksums.txt`, so every released archive gets verifiable provenance.
 - [x] 4.3 Re-run `goreleaser check` and re-confirm workflow YAML validity (`gh workflow list` after merge, or a clean `release-check` run on the PR), then commit; the full runtime proof lands with the validation tag in 5.0.
 
-### [~] 5.0 Update release docs and cut validation prerelease
+### [x] 5.0 Update release docs and cut validation prerelease
 
 #### 5.0 Proof Artifact(s)
 
@@ -111,6 +111,6 @@ Task list for `01-spec-cicd-goreleaser.md`.
 #### 5.0 Tasks
 
 - [x] 5.1 Update `docs/release.md`: document the automated flow (push a `v*` tag → GitHub Release with archives, checksums, changelog, attestation; verify with `gh attestation verify` and `sha256sum -c`) as the primary process, and retitle the existing manual `make release` steps as the offline/manual fallback. Update the README "Release Packaging" section to match.
-- [~] 5.2 Get the PR green (ci + release-check), then merge it into `main`.
-- [ ] 5.3 Tag the merge commit `v0.1.0-rc.1` and push the tag; watch the `release` workflow run to completion.
-- [ ] 5.4 Verify the release: `gh release view v0.1.0-rc.1` shows prerelease=true with 4 archives + `checksums.txt`; download one archive and `checksums.txt`, run `sha256sum -c` and `gh attestation verify checksums.txt --repo HexSleeves/devdrop`; save all outputs + release URL to `docs/specs/01-spec-cicd-goreleaser/proofs/validation-release.md` (commit proofs to `main`).
+- [x] 5.2 Get the PR green (ci + release-check), then merge it into `main`.
+- [x] 5.3 Tag the merge commit `v0.1.0-rc.1` and push the tag; watch the `release` workflow run to completion.
+- [x] 5.4 Verify the release: `gh release view v0.1.0-rc.1` shows prerelease=true with 4 archives + `checksums.txt`; download one archive and `checksums.txt`, run `sha256sum -c` and `gh attestation verify checksums.txt --repo HexSleeves/devdrop`; save all outputs + release URL to `docs/specs/01-spec-cicd-goreleaser/proofs/validation-release.md` (commit proofs to `main`).

@@ -42,7 +42,9 @@ permissions:
 
 **Why it matters:** Runtime confirmation that the pipeline works end to end.
 
-**Status:** See Task 05 proofs (`01-task-05-proofs.md`) — the validation prerelease `v0.1.0-rc.1` exercises this workflow.
+**Run URL:** <https://github.com/HexSleeves/devdrop/actions/runs/28565647944> (tag `v0.1.0-rc.2`, conclusion: success; GoReleaser step green, attest step `skipped` because the repo is private — see the deviation record in `01-task-05-proofs.md`).
+
+**Note:** After the first validation run failed at the attest step (attestations are unavailable on user-owned private repos), PR #13 added `if: ${{ !github.event.repository.private }}` to the attest step, so it activates automatically once the repository is public.
 
 ## Reviewer Conclusion
 
