@@ -2,7 +2,9 @@ package devspace
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -241,6 +243,61 @@ func TestHostedPullLocalizesManifestForSecondWorkspace(t *testing.T) {
 	}
 	if _, err := os.ReadFile(manifestPath(workspaceB) + ".bak"); err != nil {
 		t.Fatalf("pull did not back up previous manifest: %v", err)
+	}
+}
+
+func TestHostedServerHealthzOkWithoutAuth(t *testing.T) {
+	server := hostedSyncTestServer(t)
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL+"/healthz", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(body) != "ok" {
+		t.Fatalf("body = %q", body)
+	}
+}
+
+func TestHostedServerHealthzDoesNotOpenAuthHole(t *testing.T) {
+	server := hostedSyncTestServer(t)
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL+"/v1/workspaces/team-a/manifest", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("status = %d", resp.StatusCode)
+	}
+
+	reqBadAuth, err := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL+"/v1/workspaces/team-a/manifest", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reqBadAuth.Header.Set("Authorization", "Bearer wrong-token")
+	respBadAuth, err := http.DefaultClient.Do(reqBadAuth)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer respBadAuth.Body.Close()
+	if respBadAuth.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("status = %d", respBadAuth.StatusCode)
 	}
 }
 
