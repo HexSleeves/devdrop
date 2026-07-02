@@ -65,3 +65,6 @@ changelog:
 
 release:
   prerelease: auto
+  # release-please owns the tag/version; GoReleaser owns the GitHub Release.
+  # keep-existing = create the release if absent, never clobber one.
+  mode: keep-existing

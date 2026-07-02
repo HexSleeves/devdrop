@@ -17,8 +17,13 @@ team identity, or dependency install behavior.
   and push to `main`.
 - `.github/workflows/release-check.yml` runs a GoReleaser snapshot dry-run on
   PRs that touch `.goreleaser.yaml` or the release workflows.
-- `.github/workflows/release.yml` runs GoReleaser when a `v*` tag is pushed and
-  then attests the artifacts with GitHub artifact attestations.
+- `.github/workflows/release-please.yml` maintains an automatic **release PR**
+  (next version + `CHANGELOG.md`) from conventional commits; merging it pushes
+  the `vX.Y.Z` tag.
+- `.github/workflows/release.yml` runs GoReleaser when a `v*` tag is pushed
+  (archives, checksums, the ghcr image, attestation), then a **gated
+  `deploy-railway` job** waits for manual approval on the `production`
+  environment before deploying the image to Railway (stable tags only).
 
 Each release contains four tar.gz archives (`linux`/`darwin` × `amd64`/`arm64`)
 named `devspace_<version>_<os>_<arch>.tar.gz`, plus a `checksums.txt` file
@@ -28,25 +33,20 @@ as GitHub prereleases automatically.
 
 ### Cutting a release
 
-1. Make sure `main` is green (the `ci` workflow passed on the release commit).
-2. Tag and push:
+Versioning is automatic — you do not tag by hand.
 
-   ```bash
-   git tag v0.1.0
-   git push origin v0.1.0
-   ```
+1. Land feature PRs on `main` with conventional-commit titles (`feat:`/`fix:`).
+2. `release-please` opens/updates a **release PR** with the next version and
+   `CHANGELOG.md`. Review and **merge it** when you want to ship.
+3. Merging the release PR pushes the `vX.Y.Z` tag, which runs `release.yml`:
+   GoReleaser creates the GitHub Release with the archives, `checksums.txt`, and
+   the ghcr image (changelog from `feat:`/`fix:` history).
+4. For a **stable** tag, the `deploy-railway` job then pauses at **"Waiting for
+   review"** on the `production` environment — approve it in the Actions run to
+   deploy the image to Railway. Prerelease (`-rc`) tags skip the deploy.
 
-3. Watch the `release` workflow, then verify the published release:
-
-   ```bash
-   gh run watch --exit-status "$(gh run list --workflow release --limit 1 --json databaseId --jq '.[0].databaseId')"
-   gh release view v0.1.0
-   ```
-
-No manual uploads are needed; GoReleaser creates the GitHub Release, attaches
-the archives and `checksums.txt`, and generates the changelog from
-conventional-commit history (`feat:`/`fix:` grouped, `docs:`/`chore:`/`test:`
-excluded).
+To publish binaries without a live deploy (e.g. a preview), push a prerelease
+tag by hand: `git tag v0.1.0-rc.3 && git push origin v0.1.0-rc.3`.
 
 ### If a release run fails
 
@@ -144,4 +144,3 @@ To dry-run the release build locally (requires `goreleaser`):
 goreleaser check
 goreleaser release --snapshot --clean
 ```
-

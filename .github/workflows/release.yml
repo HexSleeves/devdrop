@@ -44,3 +44,51 @@ jobs:
         uses: actions/attest-build-provenance@v4
         with:
           subject-checksums: dist/checksums.txt
+
+  # Gated live deploy: waits for manual approval on the `production` environment
+  # before pointing Railway at the freshly published image. Stable tags only.
+  deploy-railway:
+    needs: goreleaser
+    if: ${{ !contains(github.ref_name, '-') }}
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://${{ vars.RAILWAY_PUBLIC_DOMAIN }}
+    env:
+      IMAGE: ghcr.io/liatrio-forge/devspace-hosted:${{ github.ref_name }}
+      RAILWAY_API: https://backboard.railway.com/graphql/v2
+    steps:
+      - name: Point the Railway service at the new image tag
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          resp=$(curl -sS "$RAILWAY_API" \
+            -H "Project-Access-Token: $RAILWAY_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+                  --arg s "${{ secrets.RAILWAY_SERVICE_ID }}" \
+                  --arg e "${{ secrets.RAILWAY_ENVIRONMENT_ID }}" \
+                  --arg i "$IMAGE" \
+                  '{query:"mutation($s:String!,$e:String!,$i:String!){serviceInstanceUpdate(serviceId:$s,environmentId:$e,input:{source:{image:$i}})}",variables:{s:$s,e:$e,i:$i}}')")
+          echo "$resp" | jq .
+          # GraphQL returns HTTP 200 even on logical errors — assert explicitly.
+          echo "$resp" | jq -e '.errors == null and .data.serviceInstanceUpdate == true' >/dev/null
+
+      - name: Trigger the deploy
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          resp=$(curl -sS "$RAILWAY_API" \
+            -H "Project-Access-Token: $RAILWAY_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+                  --arg s "${{ secrets.RAILWAY_SERVICE_ID }}" \
+                  --arg e "${{ secrets.RAILWAY_ENVIRONMENT_ID }}" \
+                  '{query:"mutation($s:String!,$e:String!){serviceInstanceDeployV2(serviceId:$s,environmentId:$e)}",variables:{s:$s,e:$e}}')")
+          echo "$resp" | jq .
+          echo "$resp" | jq -e '.errors == null and .data.serviceInstanceDeployV2 != null' >/dev/null
+
+      - name: Smoke check /healthz
+        run: |
+          curl --fail --retry 10 --retry-delay 5 --retry-connrefused \
+            "https://${{ vars.RAILWAY_PUBLIC_DOMAIN }}/healthz"
