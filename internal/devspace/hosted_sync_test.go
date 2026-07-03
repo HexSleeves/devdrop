@@ -60,6 +60,26 @@ func TestHostedServerRateLimiterMapIsBounded(t *testing.T) {
 	}
 }
 
+func TestHostedServerWorkspaceLocksAreBounded(t *testing.T) {
+	handler, err := NewHostedSyncServer(HostedSyncServerOptions{StoreDir: t.TempDir(), Token: "test-token"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := handler.(*hostedSyncServer)
+
+	seen := map[*sync.Mutex]bool{}
+	first := s.workspaceMutex("workspace-0")
+	if again := s.workspaceMutex("workspace-0"); again != first {
+		t.Fatalf("workspaceMutex returned different pointers for the same workspace ID: %p vs %p", first, again)
+	}
+	for i := 0; i < 10000; i++ {
+		seen[s.workspaceMutex("workspace-"+strconv.Itoa(i))] = true
+	}
+	if n := len(seen); n > 256 {
+		t.Fatalf("workspace mutex stripes grew past the fixed array size: %d distinct pointers (max 256)", n)
+	}
+}
+
 func TestHostedServerClientIPRespectsTrustedXFF(t *testing.T) {
 	_, trusted, err := net.ParseCIDR("10.0.0.0/8")
 	if err != nil {
@@ -202,6 +222,61 @@ func TestSetHostedSyncAllowsPlainHTTPForLoopbackHost(t *testing.T) {
 	}
 	if cfg.HostedSyncEndpoint != "http://127.0.0.1:8787" {
 		t.Fatalf("endpoint = %q", cfg.HostedSyncEndpoint)
+	}
+}
+
+func TestGetHostedSyncRejectsPlainHTTPEndpoint(t *testing.T) {
+	hardeningInitWorkspace(t, "code")
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.HostedSyncEndpoint = "http://evil.example.com"
+	cfg.HostedSyncToken = "test-token"
+	cfg.HostedSyncWorkspace = "team-a"
+	if err := SaveConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := GetHostedSync(); err == nil || !strings.Contains(err.Error(), "https") {
+		t.Fatalf("GetHostedSync error = %v, want an https-related error", err)
+	}
+}
+
+func TestGetHostedSyncAllowsLoopbackHTTP(t *testing.T) {
+	hardeningInitWorkspace(t, "code")
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.HostedSyncEndpoint = "http://127.0.0.1:8787"
+	cfg.HostedSyncToken = "test-token"
+	cfg.HostedSyncWorkspace = "team-a"
+	if err := SaveConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := GetHostedSync(); err != nil {
+		t.Fatalf("GetHostedSync unexpected error: %v", err)
+	}
+}
+
+func TestHostedConfigSetReadsTokenFromEnv(t *testing.T) {
+	hardeningInitWorkspace(t, "code")
+	t.Setenv("DEVSPACE_HOSTED_TOKEN", "env-token")
+
+	if _, _, err := executeCommand(t, "test", "hosted", "config", "set", "https://example.com"); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := GetHostedSync()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.HostedSyncToken != "env-token" {
+		t.Fatal("hosted sync token was not read from DEVSPACE_HOSTED_TOKEN")
 	}
 }
 

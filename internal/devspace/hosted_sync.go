@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"net"
 	"net/http"
@@ -74,15 +75,8 @@ func SetHostedSync(endpoint, token, workspace string) (Config, error) {
 	if err := validateHostedWorkspaceID(workspace); err != nil {
 		return Config{}, err
 	}
-	parsed, err := url.Parse(endpoint)
-	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
-		return Config{}, fmt.Errorf("hosted sync endpoint must be an absolute http(s) URL")
-	}
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return Config{}, fmt.Errorf("hosted sync endpoint must use http or https")
-	}
-	if parsed.Scheme == "http" && !isLoopbackHost(parsed.Hostname()) {
-		return Config{}, fmt.Errorf("hosted sync endpoint must use https (plain http is only allowed for localhost)")
+	if err := validateHostedEndpoint(endpoint); err != nil {
+		return Config{}, err
 	}
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -98,6 +92,26 @@ func SetHostedSync(endpoint, token, workspace string) (Config, error) {
 	return cfg, nil
 }
 
+// validateHostedEndpoint enforces the HTTPS-only rule (plain http is only
+// allowed for loopback endpoints) so it can be checked both at config-write
+// time (SetHostedSync) and at point of use (GetHostedSync) — anything that
+// puts a non-loopback http:// endpoint into config.json outside the CLI's
+// own setter must still be caught before a sync sends the bearer token and
+// manifest over plaintext.
+func validateHostedEndpoint(endpoint string) error {
+	parsed, err := url.Parse(endpoint)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return fmt.Errorf("hosted sync endpoint must be an absolute http(s) URL")
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("hosted sync endpoint must use http or https")
+	}
+	if parsed.Scheme == "http" && !isLoopbackHost(parsed.Hostname()) {
+		return fmt.Errorf("hosted sync endpoint must use https (plain http is only allowed for localhost)")
+	}
+	return nil
+}
+
 func GetHostedSync() (Config, error) {
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -105,6 +119,9 @@ func GetHostedSync() (Config, error) {
 	}
 	if strings.TrimSpace(cfg.HostedSyncEndpoint) == "" {
 		return Config{}, fmt.Errorf("no hosted sync endpoint configured; run `devspace hosted config set <endpoint> --token <token>` or use Git-backed `devspace workspace push/pull`")
+	}
+	if err := validateHostedEndpoint(cfg.HostedSyncEndpoint); err != nil {
+		return Config{}, fmt.Errorf("configured hosted sync endpoint is invalid: %w; re-run `devspace hosted config set`", err)
 	}
 	if strings.TrimSpace(cfg.HostedSyncToken) == "" {
 		return Config{}, fmt.Errorf("no hosted sync auth token configured; run `devspace hosted config set <endpoint> --token <token>`")
@@ -472,7 +489,6 @@ func NewHostedSyncServer(opts HostedSyncServerOptions) (http.Handler, error) {
 	return &hostedSyncServer{
 		storeDir:       storeDir,
 		token:          token,
-		workspaceMus:   map[string]*sync.Mutex{},
 		limiters:       map[string]*hostedIPLimiter{},
 		rateLimit:      rateLimit,
 		rateBurst:      rateBurst,
@@ -485,8 +501,7 @@ type hostedSyncServer struct {
 	storeDir string
 	token    string
 
-	mu           sync.Mutex
-	workspaceMus map[string]*sync.Mutex
+	workspaceMus [256]sync.Mutex
 
 	limiterMu      sync.Mutex
 	limiters       map[string]*hostedIPLimiter
@@ -503,17 +518,14 @@ type hostedIPLimiter struct {
 	lastSeen time.Time
 }
 
-// workspaceMutex lazily creates and returns the mutex used to serialize
-// read-check-write access to a single workspace's stored manifest.
+// workspaceMutex returns the stripe lock that serializes read-check-write
+// access to a workspace's stored manifest. Stripes are a fixed array so
+// client-chosen workspace IDs cannot grow server memory; distinct workspaces
+// that hash to the same stripe merely serialize, which is safe.
 func (s *hostedSyncServer) workspaceMutex(workspace string) *sync.Mutex {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	m, ok := s.workspaceMus[workspace]
-	if !ok {
-		m = &sync.Mutex{}
-		s.workspaceMus[workspace] = m
-	}
-	return m
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(workspace))
+	return &s.workspaceMus[h.Sum32()%uint32(len(s.workspaceMus))]
 }
 
 // allowRequest reports whether the identified client is within its rate
