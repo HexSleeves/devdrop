@@ -13,24 +13,35 @@ your row when done.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
-| 001 | Reject unsafe manifest project IDs (secrets path traversal) | P1 | S | — | TODO |
-| 002 | Atomic writes for secrets, .env, and age identity | P1 | S | — | TODO |
-| 003 | Safety-net tests: symlink escape + recipient listing | P1 | S | — | TODO |
-| 004 | Validate manifest-supplied git remotes before clone | P2 | S | — | TODO |
-| 005 | Hosted client: re-validate endpoint at use; env-var token | P2 | S | — | TODO |
-| 006 | Fix mergeProject so rescans preserve user overrides | P1 | S | — | TODO |
-| 007 | Bound hosted server's per-workspace mutex map (striped locks) | P2 | S | — | TODO |
-| 008 | CI/Makefile lint + gofmt + govulncheck gates | P2 | S | — | TODO |
-| 009 | Cross-process app-home locking for mutating commands | P2 | M | — | TODO |
-| 010 | Scan: one project per monorepo, not per nested package.json | P2 | M | 006 | TODO |
-| 011 | Watch: scoped refresh instead of full rescan per event | P3 | M | 009, 010 | TODO |
-| 012 | `devspace project remove` (untrack + cascade) | P2 | M | 009 (soft) | TODO |
-| 013 | SPIKE: manifest conflict reconciliation design + prototype | P3 | M | — | TODO |
-| 014 | SPIKE: access-role posture decision doc | P3 | M | — | TODO |
-| 015 | SPIKE: FUSE-capable CI go/no-go + mount backlog | P3 | M | — | TODO |
+| 001 | Reject unsafe manifest project IDs (secrets path traversal) | P1 | S | — | READY |
+| 002 | Atomic writes for secrets, .env, and age identity | P1 | S | — | READY |
+| 003 | Safety-net tests: symlink escape + recipient listing | P1 | S | — | READY |
+| 004 | Validate manifest-supplied git remotes before clone | P2 | S | — | READY |
+| 005 | Hosted client: re-validate endpoint at use; env-var token | P2 | S | — | DRIFTED |
+| 006 | Fix mergeProject so rescans preserve user overrides | P1 | S | — | READY |
+| 007 | Bound hosted server's per-workspace mutex map (striped locks) | P2 | S | — | DRIFTED |
+| 008 | CI/Makefile lint + gofmt + govulncheck gates | P2 | S | — | BRANCH |
+| 009 | Cross-process app-home locking for mutating commands | P2 | M | — | READY |
+| 010 | Scan: one project per monorepo, not per nested package.json | P2 | M | 006 | READY |
+| 011 | Watch: scoped refresh instead of full rescan per event | P3 | M | 009, 010 | BLOCKED: depends on 009 and 010 |
+| 012 | `devspace project remove` (untrack + cascade) | P2 | M | 009 (soft) | READY |
+| 013 | SPIKE: manifest conflict reconciliation design + prototype | P3 | M | — | DRIFTED |
+| 014 | SPIKE: access-role posture decision doc | P3 | M | — | DRIFTED |
+| 015 | SPIKE: FUSE-capable CI go/no-go + mount backlog | P3 | M | — | READY |
 
-Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) |
-REJECTED (with one-line rationale).
+Status values during SDD execution: TODO | READY | IN PROGRESS | DONE |
+BRANCH (already implemented on `chore/hardening-pass`) | DRIFTED |
+BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
+
+## SDD reconciliation notes
+
+- Task 1 reconciliation ran all 15 source-plan drift checks against
+  `595d158..HEAD`; every check returned no in-scope code drift.
+- `chore/hardening-pass` contains overlapping branch work for Plans 005, 007,
+  008, 013, and 014. Treat those commits as evidence to cherry-pick, rework,
+  defer, or reject; do not merge the branch wholesale.
+- Plans 001, 002, 003, and 006 are the first READY implementation group.
+- Plan 011 remains BLOCKED until Plans 009 and 010 are complete.
 
 ## Dependency notes
 

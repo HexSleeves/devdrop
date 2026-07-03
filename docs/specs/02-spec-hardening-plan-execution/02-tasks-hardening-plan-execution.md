@@ -96,7 +96,7 @@ Task list for `02-spec-hardening-plan-execution.md`.
 
 ## Tasks
 
-### [ ] 1.0 Reconcile the hardening plan bundle against live branch state
+### [x] 1.0 Reconcile the hardening plan bundle against live branch state
 
 #### 1.0 Proof Artifact(s)
 
@@ -106,14 +106,52 @@ Task list for `02-spec-hardening-plan-execution.md`.
 
 #### 1.0 Tasks
 
-- [ ] 1.1 Create `docs/specs/02-spec-hardening-plan-execution/02-proofs/` and capture sanitized branch-state commands in `02-task-01-proofs.md`.
-- [ ] 1.2 Run every source plan drift check, at least in summary form, and record which plans changed in-scope files since `595d158`.
-- [ ] 1.3 Compare `main..chore/hardening-pass` commit-by-commit and file-by-file; classify each branch commit as cherry-pick candidate, rework candidate, reject, or defer.
-- [ ] 1.4 Classify Plans 001-015 as TODO, already implemented on branch, drifted, blocked, rejected, or ready.
-- [ ] 1.5 For any plan marked DONE, BLOCKED, or REJECTED, write a one-line rationale tied to concrete code, branch, or test evidence.
-- [ ] 1.6 Update `plans/README.md` and this SDD task file status notes so the plan index and SDD checklist do not disagree.
-- [ ] 1.7 Preserve each source plan's STOP conditions in the reconciliation notes; do not weaken them during grouping.
-- [ ] 1.8 Run `python3 .agents/skills/sdd/scripts/assess-sdd-state.py .` and append the output to the Task 1 proof artifact.
+- [x] 1.1 Create `docs/specs/02-spec-hardening-plan-execution/02-proofs/` and capture sanitized branch-state commands in `02-task-01-proofs.md`.
+- [x] 1.2 Run every source plan drift check, at least in summary form, and record which plans changed in-scope files since `595d158`.
+- [x] 1.3 Compare `main..chore/hardening-pass` commit-by-commit and file-by-file; classify each branch commit as cherry-pick candidate, rework candidate, reject, or defer.
+- [x] 1.4 Classify Plans 001-015 as TODO, already implemented on branch, drifted, blocked, rejected, or ready.
+- [x] 1.5 For any plan marked DONE, BLOCKED, or REJECTED, write a one-line rationale tied to concrete code, branch, or test evidence.
+- [x] 1.6 Update `plans/README.md` and this SDD task file status notes so the plan index and SDD checklist do not disagree.
+- [x] 1.7 Preserve each source plan's STOP conditions in the reconciliation notes; do not weaken them during grouping.
+- [x] 1.8 Run `python3 .agents/skills/sdd/scripts/assess-sdd-state.py .` and append the output to the Task 1 proof artifact.
+
+#### 1.0 Reconciliation Notes
+
+All source-plan drift checks against `595d158..HEAD` returned no in-scope code drift. The active overlap is isolated to `chore/hardening-pass`, which contains CI, hosted, sync, output-helper, and documentation commits that must be reconciled before Task 3 work.
+
+| Plan | Reconciled Status | Branch/Drift Rationale |
+| --- | --- | --- |
+| 001 | READY | No in-scope drift; no branch implementation found. Execute in Task 2. |
+| 002 | READY | No in-scope drift; no branch implementation found. Execute after or beside Plan 001 in Task 2. |
+| 003 | READY | No in-scope drift; no branch implementation found. Execute as test-only coverage in Task 2. |
+| 004 | READY | No in-scope drift; no branch implementation found. Execute in Task 3. |
+| 005 | DRIFTED | Branch commits `70509e8` and `ae5a61c` touch hosted client/server safety surfaces; rework against current hosted contracts in Task 3. |
+| 006 | READY | No in-scope drift; no branch implementation found. Execute in Task 2 before Plans 010 and 011. |
+| 007 | DRIFTED | Branch commit `70509e8` changes hosted rate-limit behavior near the workspace lock map; reconcile before implementing bounded locks. |
+| 008 | ALREADY IMPLEMENTED ON BRANCH | Branch commit `c890b39` adds golangci-lint, govulncheck, Dependabot, and Makefile gates. Cherry-pick or rework in Task 3. |
+| 009 | READY | No in-scope drift; branch command/output commits do not implement app-home locking. Execute in Task 4. |
+| 010 | READY | No in-scope drift; depends on Plan 006. Execute in Task 4 after Plan 006 lands. |
+| 011 | BLOCKED | Blocked by explicit source-plan dependencies on Plans 009 and 010. |
+| 012 | READY | No in-scope drift; soft-depends on Plan 009. Execute in Task 4. |
+| 013 | DRIFTED | Branch commits `e4f7bd0` and hosted changes touch sync inputs; design spike must reread current sync refusal paths first. |
+| 014 | DRIFTED | Branch commits touch `types.go` and hosted sync surfaces; role-posture spike must account for configurable identity and hosted auth state. |
+| 015 | READY | No mount/doc drift; CI feasibility still requires observed workflow evidence during Task 5. |
+
+Branch commit decisions:
+
+| Commit | Decision | Rationale |
+| --- | --- | --- |
+| `595d158` | reject | Ancestor ignore-rule commit already present on `main` as `50df691`. |
+| `8d086ff` | reject | Repo-identity cleanup overlaps with already-landed rename/capstone cleanup and deletes local Lavish artifacts not part of hardening execution. |
+| `c890b39` | cherry-pick candidate | Direct Plan 008 implementation candidate. |
+| `70509e8` | rework candidate | Hosted rate-limit/XFF change overlaps hosted hardening but must be reconciled with current public-exposure contracts. |
+| `ae5a61c` | rework candidate | Public bind guard overlaps hosted safety but current `main` already includes PR #16 hardening; re-evaluate before preserving. |
+| `e4f7bd0` | defer | Configurable sync commit identity is related but outside P1/P2 hardening unless Task 3 keeps it. |
+| `71919e8` | defer | Presentation-helper refactor may aid output cleanup but is not required by a source plan. |
+| `9b4da48` | defer | Command-output tests are useful only if Task 3 keeps the output-helper refactor. |
+| `973b6f1` | defer | SHA-1 documentation is directionally useful but not required for source-plan execution. |
+
+Source-plan STOP conditions remain in force. Task grouping does not relax file scope, dependency order, no-secret requirements, or spike limits; each later parent task must reread the relevant source plans before editing implementation files.
 
 ### [ ] 2.0 Implement the priority local safety and correctness slice
 
