@@ -124,11 +124,11 @@ All source-plan drift checks against `595d158..HEAD` returned no in-scope code d
 | 001 | DONE | Implemented in Task 2 with unsafe-ID validation and secret-path defense-in-depth tests. |
 | 002 | DONE | Implemented in Task 2 with atomic secret, `.env`, and age identity writes. |
 | 003 | DONE | Implemented in Task 2 with symlink containment and recipient listing/export tests. |
-| 004 | READY | No in-scope drift; no branch implementation found. Execute in Task 3. |
-| 005 | DRIFTED | Branch commits `70509e8` and `ae5a61c` touch hosted client/server safety surfaces; rework against current hosted contracts in Task 3. |
+| 004 | DONE | Implemented in Task 3 with manifest-level and hydrate-time remote validation. |
+| 005 | DONE | Implemented in Task 3 with hosted endpoint point-of-use validation and `DEVSPACE_HOSTED_TOKEN`. |
 | 006 | DONE | Implemented in Task 2 with mergeProject preservation and scan regression tests. |
-| 007 | DRIFTED | Branch commit `70509e8` changes hosted rate-limit behavior near the workspace lock map; reconcile before implementing bounded locks. |
-| 008 | ALREADY IMPLEMENTED ON BRANCH | Branch commit `c890b39` adds golangci-lint, govulncheck, Dependabot, and Makefile gates. Cherry-pick or rework in Task 3. |
+| 007 | DONE | Implemented in Task 3 with fixed striped workspace locks. |
+| 008 | DONE | Reworked from branch commit `c890b39`; Dependabot remained out of Plan 008 scope. |
 | 009 | READY | No in-scope drift; branch command/output commits do not implement app-home locking. Execute in Task 4. |
 | 010 | READY | No in-scope drift; depends on Plan 006. Execute in Task 4 after Plan 006 lands. |
 | 011 | BLOCKED | Blocked by explicit source-plan dependencies on Plans 009 and 010. |
@@ -171,7 +171,7 @@ Source-plan STOP conditions remain in force. Task grouping does not relax file s
 - [x] 2.6 Run the targeted P1 test command and `make verify`; save sanitized output plus `git diff --stat` to `02-task-02-proofs.md`.
 - [x] 2.7 Update `plans/README.md` and this task file to reflect completed or blocked P1 plans, without committing real secrets or generated workspace state.
 
-### [ ] 3.0 Reconcile and land CI, hosted, and sync hardening work without duplication
+### [x] 3.0 Reconcile and land CI, hosted, and sync hardening work without duplication
 
 #### 3.0 Proof Artifact(s)
 
@@ -181,14 +181,14 @@ Source-plan STOP conditions remain in force. Task grouping does not relax file s
 
 #### 3.0 Tasks
 
-- [ ] 3.1 Re-read Plans 004, 005, 007, 008, and any branch commits touching hosted/sync/output/CI before choosing cherry-pick or rework.
-- [ ] 3.2 Reconcile Plan 008 against `c890b39` and current CI files; either preserve the branch implementation, rework it, or mark it rejected/deferred with evidence.
-- [ ] 3.3 Implement or reconcile Plan 004 and Plan 005: validate unsafe Git remote forms, re-check hosted endpoint safety at point of use, and support hosted token configuration from environment where planned.
-- [ ] 3.4 Implement or reconcile Plan 007 and hosted branch hardening: replace unbounded workspace mutex growth with bounded locking while preserving existing hosted hardening tests.
-- [ ] 3.5 Reconcile existing sync identity and output-helper branch commits; keep only changes that support this spec or a source plan and document rejected extras.
-- [ ] 3.6 Run `go test ./internal/devspace -run 'Hosted|Remote|Sync|Output|Hardening' -v`, `make lint`, `make vulncheck`, and `make verify`; document any unavailable network/tooling exception.
-- [ ] 3.7 Update `plans/README.md`, branch-reconciliation notes, and SDD task statuses with DONE/TODO/BLOCKED/REJECTED reasons.
-- [ ] 3.8 Save sanitized branch comparison, test output, CI/lint/vulnerability output, and diff summary to `02-task-03-proofs.md`.
+- [x] 3.1 Re-read Plans 004, 005, 007, 008, and any branch commits touching hosted/sync/output/CI before choosing cherry-pick or rework.
+- [x] 3.2 Reconcile Plan 008 against `c890b39` and current CI files; either preserve the branch implementation, rework it, or mark it rejected/deferred with evidence.
+- [x] 3.3 Implement or reconcile Plan 004 and Plan 005: validate unsafe Git remote forms, re-check hosted endpoint safety at point of use, and support hosted token configuration from environment where planned.
+- [x] 3.4 Implement or reconcile Plan 007 and hosted branch hardening: replace unbounded workspace mutex growth with bounded locking while preserving existing hosted hardening tests.
+- [x] 3.5 Reconcile existing sync identity and output-helper branch commits; keep only changes that support this spec or a source plan and document rejected extras.
+- [x] 3.6 Run `go test ./internal/devspace -run 'Hosted|Remote|Sync|Output|Hardening' -v`, `make lint`, `make vulncheck`, and `make verify`; document any unavailable network/tooling exception.
+- [x] 3.7 Update `plans/README.md`, branch-reconciliation notes, and SDD task statuses with DONE/TODO/BLOCKED/REJECTED reasons.
+- [x] 3.8 Save sanitized branch comparison, test output, CI/lint/vulnerability output, and diff summary to `02-task-03-proofs.md`.
 
 ### [ ] 4.0 Implement concurrency, scan, watch, and project lifecycle hardening
 

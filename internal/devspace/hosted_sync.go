@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"net"
 	"net/http"
@@ -74,15 +75,8 @@ func SetHostedSync(endpoint, token, workspace string) (Config, error) {
 	if err := validateHostedWorkspaceID(workspace); err != nil {
 		return Config{}, err
 	}
-	parsed, err := url.Parse(endpoint)
-	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
-		return Config{}, fmt.Errorf("hosted sync endpoint must be an absolute http(s) URL")
-	}
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return Config{}, fmt.Errorf("hosted sync endpoint must use http or https")
-	}
-	if parsed.Scheme == "http" && !isLoopbackHost(parsed.Hostname()) {
-		return Config{}, fmt.Errorf("hosted sync endpoint must use https (plain http is only allowed for localhost)")
+	if err := validateHostedEndpoint(endpoint); err != nil {
+		return Config{}, err
 	}
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -105,6 +99,9 @@ func GetHostedSync() (Config, error) {
 	}
 	if strings.TrimSpace(cfg.HostedSyncEndpoint) == "" {
 		return Config{}, fmt.Errorf("no hosted sync endpoint configured; run `devspace hosted config set <endpoint> --token <token>` or use Git-backed `devspace workspace push/pull`")
+	}
+	if err := validateHostedEndpoint(cfg.HostedSyncEndpoint); err != nil {
+		return Config{}, fmt.Errorf("configured hosted sync endpoint is invalid: %w; re-run `devspace hosted config set`", err)
 	}
 	if strings.TrimSpace(cfg.HostedSyncToken) == "" {
 		return Config{}, fmt.Errorf("no hosted sync auth token configured; run `devspace hosted config set <endpoint> --token <token>`")
@@ -379,6 +376,20 @@ func hostedManifestHash(m Manifest) (string, error) {
 	return hex.EncodeToString(sum[:]), nil
 }
 
+func validateHostedEndpoint(endpoint string) error {
+	parsed, err := url.Parse(endpoint)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return fmt.Errorf("hosted sync endpoint must be an absolute http(s) URL")
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("hosted sync endpoint must use http or https")
+	}
+	if parsed.Scheme == "http" && !isLoopbackHost(parsed.Hostname()) {
+		return fmt.Errorf("hosted sync endpoint must use https (plain http is only allowed for localhost)")
+	}
+	return nil
+}
+
 // isLoopbackHost reports whether host (as returned by url.URL.Hostname, which
 // strips any surrounding brackets from IPv6 literals) refers to localhost.
 func isLoopbackHost(host string) bool {
@@ -463,13 +474,12 @@ func NewHostedSyncServer(opts HostedSyncServerOptions) (http.Handler, error) {
 		maxLimiters = defaultHostedSyncMaxLimiters
 	}
 	return &hostedSyncServer{
-		storeDir:     storeDir,
-		token:        token,
-		workspaceMus: map[string]*sync.Mutex{},
-		limiters:     map[string]*hostedIPLimiter{},
-		rateLimit:    rateLimit,
-		rateBurst:    rateBurst,
-		maxLimiters:  maxLimiters,
+		storeDir:    storeDir,
+		token:       token,
+		limiters:    map[string]*hostedIPLimiter{},
+		rateLimit:   rateLimit,
+		rateBurst:   rateBurst,
+		maxLimiters: maxLimiters,
 	}, nil
 }
 
@@ -477,8 +487,7 @@ type hostedSyncServer struct {
 	storeDir string
 	token    string
 
-	mu           sync.Mutex
-	workspaceMus map[string]*sync.Mutex
+	workspaceMus [256]sync.Mutex
 
 	limiterMu   sync.Mutex
 	limiters    map[string]*hostedIPLimiter
@@ -494,17 +503,12 @@ type hostedIPLimiter struct {
 	lastSeen time.Time
 }
 
-// workspaceMutex lazily creates and returns the mutex used to serialize
-// read-check-write access to a single workspace's stored manifest.
+// workspaceMutex returns a fixed stripe lock used to serialize read-check-write
+// access to a workspace's stored manifest.
 func (s *hostedSyncServer) workspaceMutex(workspace string) *sync.Mutex {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	m, ok := s.workspaceMus[workspace]
-	if !ok {
-		m = &sync.Mutex{}
-		s.workspaceMus[workspace] = m
-	}
-	return m
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(workspace))
+	return &s.workspaceMus[h.Sum32()%uint32(len(s.workspaceMus))]
 }
 
 // allowRequest reports whether the client identified by r.RemoteAddr is

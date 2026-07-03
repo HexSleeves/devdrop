@@ -168,6 +168,9 @@ func newHostedConfigCommand() *cobra.Command {
 		Short: "Set hosted sync endpoint and auth token",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if token == "" {
+				token = strings.TrimSpace(os.Getenv("DEVSPACE_HOSTED_TOKEN"))
+			}
 			cfg, err := SetHostedSync(args[0], token, workspace)
 			if err != nil {
 				return err
@@ -177,7 +180,7 @@ func newHostedConfigCommand() *cobra.Command {
 			return nil
 		},
 	}
-	set.Flags().StringVar(&token, "token", "", "hosted sync bearer token")
+	set.Flags().StringVar(&token, "token", "", "hosted sync bearer token (prefer DEVSPACE_HOSTED_TOKEN to keep the token out of shell history and process listings)")
 	set.Flags().StringVar(&workspace, "workspace", "default", "hosted workspace id")
 	cmd.AddCommand(set)
 	cmd.AddCommand(&cobra.Command{

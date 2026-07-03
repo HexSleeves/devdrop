@@ -91,6 +91,9 @@ func TestValidateManifestRejectsUnsafeProjects(t *testing.T) {
 		{name: "dot id", input: Manifest{Version: ManifestVersion, WorkspaceRoot: "/tmp/code", Projects: []Project{
 			{ID: ".", Name: "one", Path: "one", Type: ProjectTypeLocal, HydrateMode: HydrateManual},
 		}}, wantErr: "invalid id"},
+		{name: "transport helper remote", input: Manifest{Version: ManifestVersion, WorkspaceRoot: "/tmp/code", Projects: []Project{
+			{ID: "a", Name: "one", Path: "one", Type: ProjectTypeGit, Remote: "ext::sh -c id", HydrateMode: HydrateOnDemand},
+		}}, wantErr: "transport-helper"},
 	}
 	if err := ValidateManifest(base); err != nil {
 		t.Fatalf("base manifest should validate: %v", err)
@@ -100,6 +103,55 @@ func TestValidateManifestRejectsUnsafeProjects(t *testing.T) {
 			err := ValidateManifest(tc.input)
 			if err == nil {
 				t.Fatalf("expected validation failure for %#v", tc.input)
+			}
+			if !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("expected error containing %q, got %v", tc.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestValidateProjectRemote(t *testing.T) {
+	cases := []struct {
+		name    string
+		remote  string
+		wantErr string
+	}{
+		{name: "empty", remote: ""},
+		{name: "https", remote: "https://github.com/x/y.git"},
+		{name: "ssh url", remote: "ssh://git@host/x.git"},
+		{name: "https ipv6", remote: "https://[::1]:8080/repo.git"},
+		{name: "ssh ipv6", remote: "ssh://git@[2001:db8::1]/repo.git"},
+		{name: "scp style", remote: "git@github.com:org/repo.git"},
+		{name: "absolute path", remote: "/abs/local/path"},
+		{name: "relative path", remote: "../local/repo.git"},
+		{name: "http", remote: "http://git.example.test/x/y.git", wantErr: "unsupported scheme"},
+		{name: "git url", remote: "git://host/x.git", wantErr: "unsupported scheme"},
+		{name: "leading dash", remote: "-c core.sshCommand=sh", wantErr: "must not begin"},
+		{name: "leading whitespace dash", remote: " -c core.sshCommand=sh", wantErr: "must not begin"},
+		{name: "ext helper", remote: "ext::sh -c id", wantErr: "transport-helper"},
+		{name: "fd helper", remote: "fd::17", wantErr: "transport-helper"},
+		{name: "uppercase ext helper", remote: "EXT::sh -c id", wantErr: "transport-helper"},
+		{name: "mixedcase ext helper", remote: "Ext::sh -c id", wantErr: "transport-helper"},
+		{name: "leading whitespace ext helper", remote: " ext::sh -c id", wantErr: "transport-helper"},
+		{name: "unsupported scheme", remote: "foo://host/x", wantErr: "unsupported scheme"},
+		{name: "ssh opaque", remote: "ssh:opaque-thing", wantErr: "missing host"},
+		{name: "https missing host", remote: "https:///path", wantErr: "missing host"},
+		{name: "ssh host dash", remote: "ssh://-oProxyCommand=sh/repo", wantErr: "host must not begin"},
+		{name: "embedded control", remote: "https://github.com/x\ny.git", wantErr: "control character"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateProjectRemote(tc.remote)
+			if tc.wantErr == "" {
+				if err != nil {
+					t.Fatalf("validateProjectRemote(%q) returned %v", tc.remote, err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("validateProjectRemote(%q) returned nil", tc.remote)
 			}
 			if !strings.Contains(err.Error(), tc.wantErr) {
 				t.Fatalf("expected error containing %q, got %v", tc.wantErr, err)
@@ -222,6 +274,44 @@ func TestSyncCreatesPlaceholderAndHydrateClonesLocalRemote(t *testing.T) {
 	}
 	if !exists(filepath.Join(workspace, "work", "app", ".git")) {
 		t.Fatal("repo was not cloned")
+	}
+}
+
+func TestHydrateRejectsUnsupportedRemote(t *testing.T) {
+	home := t.TempDir()
+	workspace := filepath.Join(t.TempDir(), "code")
+	t.Setenv(envHome, home)
+	cfg, err := InitWorkspace(workspace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := Manifest{
+		Version:       ManifestVersion,
+		WorkspaceRoot: workspace,
+		Machines:      []Machine{machineFromConfig(cfg)},
+		Projects: []Project{{
+			ID:          projectID("work/app"),
+			Name:        "app",
+			Path:        "work/app",
+			Type:        ProjectTypeGit,
+			Remote:      "ext::sh -c id",
+			HydrateMode: HydrateOnDemand,
+			Ignore:      append([]string{}, DefaultIgnores...),
+		}},
+	}
+	if err := writeJSON(manifestPath(workspace), m, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = HydrateProject("app")
+	if err == nil {
+		t.Fatal("expected unsupported remote to be rejected")
+	}
+	if !strings.Contains(err.Error(), "transport-helper") {
+		t.Fatalf("expected transport-helper error, got %v", err)
+	}
+	if exists(filepath.Join(workspace, "work", "app")) {
+		t.Fatal("hydrate created destination for unsupported remote")
 	}
 }
 

@@ -12,15 +12,15 @@ your row when done.
 ## Execution order & status
 
 | Plan | Title | Priority | Effort | Depends on | Status |
-|------|-------|----------|--------|------------|--------|
+| ---- | ----- | -------- | ------ | ---------- | ------ |
 | 001 | Reject unsafe manifest project IDs (secrets path traversal) | P1 | S | — | DONE |
 | 002 | Atomic writes for secrets, .env, and age identity | P1 | S | — | DONE |
 | 003 | Safety-net tests: symlink escape + recipient listing | P1 | S | — | DONE |
-| 004 | Validate manifest-supplied git remotes before clone | P2 | S | — | READY |
-| 005 | Hosted client: re-validate endpoint at use; env-var token | P2 | S | — | DRIFTED |
+| 004 | Validate manifest-supplied git remotes before clone | P2 | S | — | DONE |
+| 005 | Hosted client: re-validate endpoint at use; env-var token | P2 | S | — | DONE |
 | 006 | Fix mergeProject so rescans preserve user overrides | P1 | S | — | DONE |
-| 007 | Bound hosted server's per-workspace mutex map (striped locks) | P2 | S | — | DRIFTED |
-| 008 | CI/Makefile lint + gofmt + govulncheck gates | P2 | S | — | BRANCH |
+| 007 | Bound hosted server's per-workspace mutex map (striped locks) | P2 | S | — | DONE |
+| 008 | CI/Makefile lint + gofmt + govulncheck gates | P2 | S | — | DONE |
 | 009 | Cross-process app-home locking for mutating commands | P2 | M | — | READY |
 | 010 | Scan: one project per monorepo, not per nested package.json | P2 | M | 006 | READY |
 | 011 | Watch: scoped refresh instead of full rescan per event | P3 | M | 009, 010 | BLOCKED: depends on 009 and 010 |
@@ -48,6 +48,9 @@ BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
 
 - Task 2 completed Plans 001, 002, 003, and 006 with targeted safety tests,
   coverage checks for recipient listing/export, and `make verify`.
+- Task 3 completed Plans 004, 005, 007, and 008. Branch commits `e4f7bd0`,
+  `71919e8`, and `9b4da48` were deferred; `973b6f1`, `70509e8`, and
+  `ae5a61c` were rejected for this slice as out of source-plan scope.
 
 ## Dependency notes
 

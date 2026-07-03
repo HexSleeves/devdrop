@@ -1,0 +1,46 @@
+version: "2"
+
+linters:
+  default: standard
+  settings:
+    errcheck:
+      exclude-functions:
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - fmt.Fprint
+  exclusions:
+    rules:
+      # Best-effort cleanup paths; keep errcheck active for operational writes.
+      - linters:
+          - errcheck
+        text: "Body.Close"
+      - linters:
+          - errcheck
+        path: internal/devspace/jsonio.go
+        text: "Error return value of `os.Remove` is not checked"
+      - linters:
+          - errcheck
+        path: internal/devspace/mount.go
+        text: "Error return value of `server.Unmount` is not checked"
+      - linters:
+          - errcheck
+        path: internal/devspace/watch.go
+        text: "Error return value of `watcher.Close` is not checked"
+      - linters:
+          - errcheck
+        path: internal/devspace/workspace.go
+        text: "Error return value of `os.RemoveAll` is not checked"
+
+      # Existing staticcheck/unused baseline; source cleanup is outside Plan 008.
+      - linters:
+          - staticcheck
+        path: internal/devspace/git.go
+        text: "ST1005:"
+      - linters:
+          - staticcheck
+        path: internal/devspace/manifest.go
+        text: "QF1001:"
+      - linters:
+          - unused
+        path: internal/devspace/commands.go
+        text: "func sortedProjectNames is unused"

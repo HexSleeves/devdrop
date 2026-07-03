@@ -54,6 +54,9 @@ func ValidateManifest(m Manifest) error {
 		if err := validateProjectID(p.ID); err != nil {
 			return fmt.Errorf("project %s has invalid id: %w", p.Name, err)
 		}
+		if err := validateProjectRemote(p.Remote); err != nil {
+			return fmt.Errorf("project %s: %w", p.Name, err)
+		}
 		if _, _, err := safeWorkspacePath(m.WorkspaceRoot, p.Path); err != nil {
 			return fmt.Errorf("project %s has invalid relative path %q: %w", p.Name, p.Path, err)
 		}
