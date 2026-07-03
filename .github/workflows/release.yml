@@ -23,7 +23,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -71,7 +71,7 @@ jobs:
       PUBLIC_DOMAIN: ${{ vars.RAILWAY_PUBLIC_DOMAIN }}
     steps:
       - name: Log in to GitHub Container Registry (personal mirror)
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: hexsleeves
