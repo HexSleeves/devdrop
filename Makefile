@@ -4,8 +4,10 @@ BINARY_NAME ?= devspace
 CMD_PATH ?= ./cmd/devspace
 BIN_DIR ?= bin
 DIST_DIR ?= dist
+GOLANGCI_LINT ?= go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6
+GOVULNCHECK ?= go run golang.org/x/vuln/cmd/govulncheck@v1.1.4
 
-.PHONY: all test vet build verify lint vulncheck clean
+.PHONY: all test vet lint vulncheck build verify clean
 
 all: verify
 
@@ -15,18 +17,18 @@ test:
 vet:
 	go vet ./...
 
+lint:
+	$(GOLANGCI_LINT) run ./...
+	test -z "$$(gofmt -l cmd internal)" || (gofmt -l cmd internal && exit 1)
+
+vulncheck:
+	$(GOVULNCHECK) ./...
+
 build:
 	mkdir -p $(BIN_DIR)
 	go build -trimpath -o $(BIN_DIR)/$(BINARY_NAME) $(CMD_PATH)
 
-lint:
-	golangci-lint run --timeout 5m
-	test -z "$$(gofmt -l cmd internal)" || (gofmt -l cmd internal && exit 1)
-
-vulncheck:
-	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
-
-verify: test vet lint build
+verify: test vet lint vulncheck build
 
 clean:
 	rm -rf $(BIN_DIR) $(DIST_DIR)

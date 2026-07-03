@@ -5,10 +5,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 )
+
+var transportHelperPrefix = regexp.MustCompile(`^[A-Za-z0-9+.-]+::`)
 
 type GitInfo struct {
 	IsRepo         bool
@@ -133,6 +137,49 @@ func cloneRepo(remote, dest string) error {
 		}
 		//nolint:staticcheck // multi-line message deliberately formatted for direct CLI display, not wrapped
 		return fmt.Errorf("git clone failed for %s into %s: %s\n\nNext steps:\n- Confirm you have access to the repository.\n- Confirm your SSH key or local remote path is configured.\n- Try running `git ls-remote %s`.", remote, dest, msg, remote)
+	}
+	return nil
+}
+
+func validateProjectRemote(remote string) error {
+	remote = strings.TrimSpace(remote)
+	if remote == "" {
+		return nil
+	}
+	if strings.ContainsFunc(remote, func(r rune) bool {
+		return r < 0x20 || r == 0x7f
+	}) {
+		return fmt.Errorf("git remote contains control character: %q", remote)
+	}
+	if strings.HasPrefix(remote, "-") {
+		return fmt.Errorf("git remote must not begin with '-': %q", remote)
+	}
+	if transportHelperPrefix.MatchString(remote) {
+		return fmt.Errorf("git remote uses unsupported transport-helper syntax: %q", remote)
+	}
+	if u, err := url.Parse(remote); err == nil && u.Scheme != "" {
+		switch u.Scheme {
+		case "https", "ssh":
+			if u.Host == "" {
+				return fmt.Errorf("git remote %q is missing host", remote)
+			}
+			if strings.HasPrefix(u.Host, "-") {
+				return fmt.Errorf("git remote host must not begin with '-': %q", remote)
+			}
+			return nil
+		case "http", "git":
+			if u.Host == "" {
+				return fmt.Errorf("git remote %q is missing host", remote)
+			}
+			if strings.HasPrefix(u.Host, "-") {
+				return fmt.Errorf("git remote host must not begin with '-': %q", remote)
+			}
+			return fmt.Errorf("git remote has unsupported scheme %q", u.Scheme)
+		default:
+			if u.Host != "" {
+				return fmt.Errorf("git remote has unsupported scheme %q", u.Scheme)
+			}
+		}
 	}
 	return nil
 }

@@ -226,40 +226,39 @@ func TestSetHostedSyncAllowsPlainHTTPForLoopbackHost(t *testing.T) {
 }
 
 func TestGetHostedSyncRejectsPlainHTTPEndpoint(t *testing.T) {
-	hardeningInitWorkspace(t, "code")
-
-	cfg, err := LoadConfig()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg.HostedSyncEndpoint = "http://evil.example.com"
-	cfg.HostedSyncToken = "test-token"
-	cfg.HostedSyncWorkspace = "team-a"
-	if err := SaveConfig(cfg); err != nil {
+	workspace := hardeningInitWorkspace(t, "code")
+	if err := SaveConfig(Config{
+		WorkspaceRoot:       workspace,
+		HostedSyncEndpoint:  "http://example.com",
+		HostedSyncToken:     "test-token",
+		HostedSyncWorkspace: "team-a",
+	}); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := GetHostedSync(); err == nil || !strings.Contains(err.Error(), "https") {
-		t.Fatalf("GetHostedSync error = %v, want an https-related error", err)
+	_, err := GetHostedSync()
+	if err == nil || !strings.Contains(err.Error(), "must use https") {
+		t.Fatalf("plain http configured endpoint error = %v", err)
 	}
 }
 
 func TestGetHostedSyncAllowsLoopbackHTTP(t *testing.T) {
-	hardeningInitWorkspace(t, "code")
+	workspace := hardeningInitWorkspace(t, "code")
+	if err := SaveConfig(Config{
+		WorkspaceRoot:       workspace,
+		HostedSyncEndpoint:  "http://127.0.0.1:8787",
+		HostedSyncToken:     "test-token",
+		HostedSyncWorkspace: "team-a",
+	}); err != nil {
+		t.Fatal(err)
+	}
 
-	cfg, err := LoadConfig()
+	cfg, err := GetHostedSync()
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.HostedSyncEndpoint = "http://127.0.0.1:8787"
-	cfg.HostedSyncToken = "test-token"
-	cfg.HostedSyncWorkspace = "team-a"
-	if err := SaveConfig(cfg); err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err := GetHostedSync(); err != nil {
-		t.Fatalf("GetHostedSync unexpected error: %v", err)
+	if cfg.HostedSyncEndpoint != "http://127.0.0.1:8787" {
+		t.Fatalf("endpoint = %q", cfg.HostedSyncEndpoint)
 	}
 }
 

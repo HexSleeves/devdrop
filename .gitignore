@@ -19,6 +19,3 @@ coverage/
 # Lavish review artifacts (local review surfaces)
 .lavish/
 .claude/
-
-# Local planning notes (agent-generated, not source)
-plans/

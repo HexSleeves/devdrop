@@ -335,6 +335,9 @@ func HydrateProject(ref string) (Project, error) {
 	if p.Type != ProjectTypeGit || p.Remote == "" {
 		return Project{}, fmt.Errorf("cannot hydrate %s: project has no Git remote", p.Path)
 	}
+	if err := validateProjectRemote(p.Remote); err != nil {
+		return Project{}, err
+	}
 	full, _, err := safeWorkspacePath(cfg.WorkspaceRoot, p.Path)
 	if err != nil {
 		return Project{}, err

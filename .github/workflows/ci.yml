@@ -28,11 +28,12 @@ jobs:
       - name: Lint
         uses: golangci/golangci-lint-action@v7
         with:
+          # v2.1.6, not v2.1.0: older v2.1.x builds are incompatible with Go 1.26.
           version: v2.1.6
           args: --timeout 5m
 
       - name: Vulncheck
-        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
 
       - name: Build
         run: go build -trimpath -o bin/devspace ./cmd/devspace

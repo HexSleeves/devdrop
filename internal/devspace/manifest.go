@@ -51,6 +51,12 @@ func ValidateManifest(m Manifest) error {
 		if p.ID == "" || p.Name == "" || p.Path == "" {
 			return fmt.Errorf("project id, name, and path are required")
 		}
+		if err := validateProjectID(p.ID); err != nil {
+			return fmt.Errorf("project %s has invalid id: %w", p.Name, err)
+		}
+		if err := validateProjectRemote(p.Remote); err != nil {
+			return fmt.Errorf("project %s: %w", p.Name, err)
+		}
 		if _, _, err := safeWorkspacePath(m.WorkspaceRoot, p.Path); err != nil {
 			return fmt.Errorf("project %s has invalid relative path %q: %w", p.Name, p.Path, err)
 		}
@@ -144,6 +150,28 @@ func validAccessRole(role string) bool {
 		role == AccessRoleViewer
 }
 
+// validateProjectID rejects IDs that could escape per-project metadata
+// directories when joined into filesystem paths. Generated IDs use
+// project_<hex>, but synced manifests are untrusted input.
+func validateProjectID(id string) error {
+	if id == "" || id == "." || id == ".." {
+		return fmt.Errorf("invalid project id %q", id)
+	}
+	if len(id) > 64 {
+		return fmt.Errorf("project id too long: %q", id)
+	}
+	for _, r := range id {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '-' || r == '.' {
+			continue
+		}
+		return fmt.Errorf("project id contains unsupported character %q", r)
+	}
+	if strings.Contains(id, "..") {
+		return fmt.Errorf("project id is unsafe: %q", id)
+	}
+	return nil
+}
+
 // projectID derives a short, stable identifier for a project's relative
 // path. Persisted in manifests, so it is deliberately NOT migrated to
 // SHA-256: changing it would silently invalidate every existing manifest's
@@ -204,13 +232,24 @@ func mergeProject(old, next Project) Project {
 	if old.EnvProfiles != nil && next.EnvProfiles == nil {
 		next.EnvProfiles = old.EnvProfiles
 	}
-	if len(next.Ignore) == 0 {
+	if len(old.Ignore) > 0 {
 		next.Ignore = old.Ignore
 	}
-	if next.HydrateMode == "" {
-		next.HydrateMode = old.HydrateMode
+	if old.HydrateMode != "" {
+		typeChanged := old.Type != next.Type
+		oldWasDefault := old.HydrateMode == defaultHydrateModeForType(old.Type)
+		if !(typeChanged && oldWasDefault) {
+			next.HydrateMode = old.HydrateMode
+		}
 	}
 	return next
+}
+
+func defaultHydrateModeForType(projectType string) string {
+	if projectType == ProjectTypeGit {
+		return HydrateOnDemand
+	}
+	return HydrateManual
 }
 
 func ensureWorkspaceManifest(workspace string, cfg Config) (Manifest, error) {
