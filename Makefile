@@ -5,7 +5,7 @@ CMD_PATH ?= ./cmd/devspace
 BIN_DIR ?= bin
 DIST_DIR ?= dist
 
-.PHONY: all test vet build verify clean
+.PHONY: all test vet build verify lint vuln clean
 
 all: verify
 
@@ -18,6 +18,12 @@ vet:
 build:
 	mkdir -p $(BIN_DIR)
 	go build -trimpath -o $(BIN_DIR)/$(BINARY_NAME) $(CMD_PATH)
+
+lint:
+	golangci-lint run --timeout 5m
+
+vuln:
+	govulncheck ./...
 
 verify: test vet build
 
