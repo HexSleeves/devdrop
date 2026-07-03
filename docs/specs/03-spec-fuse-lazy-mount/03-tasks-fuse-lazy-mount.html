@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>03-tasks-fuse-lazy-mount</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff; --fg: #1a1a2e; --muted: #6b7280; --border: #e5e7eb;
+    --card: #f9fafb; --accent: #4f46e5; --pass: #059669; --fail: #dc2626; --warn: #d97706;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1117; --fg:#e6e6ef; --muted:#9ca3af; --border:#262a35; --card:#161922; --accent:#818cf8; --pass:#34d399; --fail:#f87171; --warn:#fbbf24; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height:1.6; }
+  .doc { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  header.doc-header { border-bottom: 1px solid var(--border); padding-bottom:1rem; margin-bottom:2rem; }
+  h1 { margin: .25rem 0; font-size:1.6rem; }
+  h2 { margin-top:2rem; border-bottom:1px solid var(--border); padding-bottom:.35rem; }
+  .meta { color:var(--muted); font-size:.9rem; }
+  .badge { display:inline-block; font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:.25rem .6rem; border-radius:999px; }
+  .badge-type { background:var(--accent); color:#fff; }
+  .status-pass, .status-done, .status-verified { background:var(--pass); color:#fff; }
+  .status-fail, .status-failed { background:var(--fail); color:#fff; }
+  .status-flag, .status-pending, .status-unknown, .status-in-progress { background:var(--warn); color:#111; }
+  table { width:100%; border-collapse: collapse; margin: 1rem 0; }
+  th, td { border:1px solid var(--border); padding:.5rem .75rem; text-align:left; vertical-align:top; }
+  th { background:var(--card); }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem 1.25rem; margin:1rem 0; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem; overflow-x:auto; }
+  .task-list { list-style:none; padding-left:0; }
+  .task { padding:.35rem 0; }
+  .task[data-status="done"] .task-label::before { content: "\2611 "; }
+  .task[data-status="pending"] .task-label::before { content: "\2610 "; }
+  .task[data-status="in-progress"] .task-label::before { content: "\25D1 "; }
+  figure { margin: 1rem 0; }
+  figure img { max-width:100%; border:1px solid var(--border); border-radius:.5rem; }
+  figcaption { color:var(--muted); font-size:.85rem; margin-top:.35rem; }
+</style>
+</head>
+<body data-overall-status="PASS">
+<div class="doc">
+  <header class="doc-header">
+    <span class="badge badge-type">Tasks</span>
+    <h1>03-tasks-fuse-lazy-mount</h1>
+    <p class="meta">Sequence 03 · Feature: fuse-lazy-mount · Phase 2/3</p>
+  </header>
+
+  <section id="standards">
+    <h2>Repository Standards Evidence</h2>
+    <table>
+      <thead><tr><th>Source</th><th>Status</th><th>Standards</th><th>Conflicts</th></tr></thead>
+      <tbody>
+        <tr><td><code>AGENTS.md</code></td><td>yes</td><td>Silence by default; solve first; keep output minimal.</td><td>None for implementation.</td></tr>
+        <tr><td><code>README.md</code></td><td>yes</td><td>Local-first CLI; <code>make verify</code>; FUSE listed as roadmap/frontier.</td><td>None.</td></tr>
+        <tr><td><code>Makefile</code></td><td>yes</td><td><code>verify</code> runs test, vet, lint, vulncheck, build.</td><td>None.</td></tr>
+        <tr><td><code>.github/workflows/ci.yml</code></td><td>yes</td><td>Hosted Ubuntu CI; pinned lint/vuln tools; default verify remains FUSE-free.</td><td>None.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="parent-task" data-task-id="1.0" data-status="pending">
+    <h2>1.0 Hosted Linux FUSE Probe</h2>
+    <p><strong>Proof Artifact(s):</strong> <code>03-proofs/03-task-01-proofs.html</code> with workflow run URL/log excerpt and final absence of temporary workflow.</p>
+    <ul class="task-list">
+      <li class="task" data-task-id="1.1" data-status="pending"><span class="task-label">Create temporary FUSE probe workflow.</span></li>
+      <li class="task" data-task-id="1.2" data-status="pending"><span class="task-label">Push branch and trigger/observe GitHub Actions probe.</span></li>
+      <li class="task" data-task-id="1.3" data-status="pending"><span class="task-label">Record GO or NO-GO evidence and delete temporary workflow.</span></li>
+    </ul>
+  </section>
+
+  <section class="parent-task" data-task-id="2.0" data-status="pending">
+    <h2>2.0 GO/NO-GO Documentation</h2>
+    <p><strong>Proof Artifact(s):</strong> <code>03-proofs/03-task-02-proofs.html</code> with documentation diff, Plan 015 status, and verification output.</p>
+    <ul class="task-list">
+      <li class="task" data-task-id="2.1" data-status="pending"><span class="task-label">Update <code>docs/fuse-lazy-mount.md</code> with verified CI feasibility.</span></li>
+      <li class="task" data-task-id="2.2" data-status="pending"><span class="task-label">Update <code>plans/README.md</code> with final Plan 015 status.</span></li>
+      <li class="task" data-task-id="2.3" data-status="pending"><span class="task-label">Update SDD-HTML proof and validation artifacts.</span></li>
+    </ul>
+  </section>
+
+  <section class="parent-task" data-task-id="3.0" data-status="pending">
+    <h2>3.0 Linux FUSE Integration Job On GO</h2>
+    <p><strong>Proof Artifact(s):</strong> <code>03-proofs/03-task-03-proofs.html</code> with tagged test output and <code>make verify</code>.</p>
+    <ul class="task-list">
+      <li class="task" data-task-id="3.1" data-status="pending"><span class="task-label">If probe is GO, add Linux-only <code>mount-integration</code> job.</span></li>
+      <li class="task" data-task-id="3.2" data-status="pending"><span class="task-label">If probe is GO, add <code>mount_fuse_test.go</code> with real traversal/hydration/failure/unmount coverage.</span></li>
+      <li class="task" data-task-id="3.3" data-status="pending"><span class="task-label">Verify default <code>make verify</code> stays FUSE-free.</span></li>
+    </ul>
+  </section>
+
+  <section id="relevant-files">
+    <h2>Relevant Files</h2>
+    <table>
+      <thead><tr><th>Path</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>.github/workflows/fuse-probe.yml</code></td><td>Temporary probe only; must be deleted before final state.</td></tr>
+        <tr><td><code>.github/workflows/ci.yml</code></td><td>Permanent integration job only on Linux GO.</td></tr>
+        <tr><td><code>internal/devspace/mount_fuse_test.go</code></td><td>Permanent tagged FUSE integration tests only on Linux GO.</td></tr>
+        <tr><td><code>docs/fuse-lazy-mount.md</code></td><td>Verified CI feasibility and future options.</td></tr>
+        <tr><td><code>plans/README.md</code></td><td>Plan 015 status reconciliation.</td></tr>
+        <tr><td><code>docs/specs/03-spec-fuse-lazy-mount/</code></td><td>HTML SDD spec, tasks, proofs, audit, validation.</td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+</body>
+</html>

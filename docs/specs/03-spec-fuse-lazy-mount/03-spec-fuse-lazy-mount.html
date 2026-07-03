@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>03-spec-fuse-lazy-mount</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff; --fg: #1a1a2e; --muted: #6b7280; --border: #e5e7eb;
+    --card: #f9fafb; --accent: #4f46e5; --pass: #059669; --fail: #dc2626; --warn: #d97706;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1117; --fg:#e6e6ef; --muted:#9ca3af; --border:#262a35; --card:#161922; --accent:#818cf8; --pass:#34d399; --fail:#f87171; --warn:#fbbf24; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height:1.6; }
+  .doc { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  header.doc-header { border-bottom: 1px solid var(--border); padding-bottom:1rem; margin-bottom:2rem; }
+  h1 { margin: .25rem 0; font-size:1.6rem; }
+  h2 { margin-top:2rem; border-bottom:1px solid var(--border); padding-bottom:.35rem; }
+  .meta { color:var(--muted); font-size:.9rem; }
+  .badge { display:inline-block; font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:.25rem .6rem; border-radius:999px; }
+  .badge-type { background:var(--accent); color:#fff; }
+  .status-pass, .status-done, .status-verified { background:var(--pass); color:#fff; }
+  .status-fail, .status-failed { background:var(--fail); color:#fff; }
+  .status-flag, .status-pending, .status-unknown, .status-in-progress { background:var(--warn); color:#111; }
+  table { width:100%; border-collapse: collapse; margin: 1rem 0; }
+  th, td { border:1px solid var(--border); padding:.5rem .75rem; text-align:left; vertical-align:top; }
+  th { background:var(--card); }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem 1.25rem; margin:1rem 0; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem; overflow-x:auto; }
+  .task-list { list-style:none; padding-left:0; }
+  .task { padding:.35rem 0; }
+  .task[data-status="done"] .task-label::before { content: "\2611 "; }
+  .task[data-status="pending"] .task-label::before { content: "\2610 "; }
+  .task[data-status="in-progress"] .task-label::before { content: "\25D1 "; }
+  figure { margin: 1rem 0; }
+  figure img { max-width:100%; border:1px solid var(--border); border-radius:.5rem; }
+  figcaption { color:var(--muted); font-size:.85rem; margin-top:.35rem; }
+  .unit { margin: 1.25rem 0; }
+</style>
+</head>
+<body data-overall-status="draft">
+<div class="doc">
+  <header class="doc-header">
+    <span class="badge badge-type">Spec</span>
+    <h1>03-spec-fuse-lazy-mount</h1>
+    <p class="meta">Sequence 03 · Feature: fuse-lazy-mount · Phase 1</p>
+  </header>
+
+  <section id="introduction">
+    <h2>Introduction/Overview</h2>
+    <p>This feature resolves the remaining Plan 015 blocker by proving whether GitHub-hosted Linux runners can execute real FUSE mounts for the existing DevSpace lazy mount prototype. If hosted Linux is viable, the feature adds an opt-in integration job and FUSE-tagged test coverage for mount traversal, hydration-on-lookup, failure propagation, and clean unmounting.</p>
+  </section>
+
+  <section id="goals">
+    <h2>Goals</h2>
+    <ul>
+      <li>Produce observed GitHub Actions evidence for Linux FUSE GO or NO-GO status.</li>
+      <li>Keep normal local and CI verification FUSE-free.</li>
+      <li>On GO, add an opt-in Linux FUSE integration job with real mount behavior coverage.</li>
+      <li>Update plan, design, proof, and validation artifacts so Plan 015 is no longer blocked.</li>
+    </ul>
+  </section>
+
+  <section id="user-stories">
+    <h2>User Stories</h2>
+    <ul>
+      <li><strong>As a</strong> DevSpace maintainer, <strong>I want to</strong> know whether hosted CI supports the FUSE prototype <strong>so that</strong> I can decide whether to automate real mount testing.</li>
+      <li><strong>As a</strong> CLI contributor, <strong>I want to</strong> run FUSE tests only on capable Linux hosts <strong>so that</strong> normal development remains portable.</li>
+      <li><strong>As a</strong> reviewer, <strong>I want to</strong> see the workflow run, commands, and proof artifacts <strong>so that</strong> the Plan 015 outcome is evidence-based.</li>
+    </ul>
+  </section>
+
+  <section id="demoable-units">
+    <h2>Demoable Units of Work</h2>
+    <p>Each unit is a thin, verifiable slice of the Plan 015 decision path.</p>
+
+    <div class="card unit" id="unit-1">
+      <h3>Unit 1: Hosted Linux FUSE Probe</h3>
+      <p><strong>Purpose:</strong> Determine whether GitHub-hosted Linux can run the real FUSE path.</p>
+      <p><strong>Functional Requirements:</strong></p>
+      <ul>
+        <li>The system shall create a temporary probe workflow that checks <code>/dev/fuse</code>, <code>fusermount3</code>, a minimal <code>go-fuse/v2</code> mount, directory listing, file read, and unmount.</li>
+        <li>The system shall capture the probe run URL, runner image details, and pass/fail output in proof artifacts.</li>
+        <li>The system shall remove the temporary probe workflow before final branch state.</li>
+      </ul>
+      <p><strong>Proof Artifacts:</strong></p>
+      <ul>
+        <li>GitHub Actions run URL and log excerpt demonstrate observed hosted-runner behavior.</li>
+        <li>Git status evidence demonstrates no temporary probe workflow remains.</li>
+      </ul>
+    </div>
+
+    <div class="card unit" id="unit-2">
+      <h3>Unit 2: GO or NO-GO Documentation</h3>
+      <p><strong>Purpose:</strong> Convert the probe result into durable project guidance.</p>
+      <p><strong>Functional Requirements:</strong></p>
+      <ul>
+        <li>The system shall update <code>docs/fuse-lazy-mount.md</code> with a verified CI feasibility section.</li>
+        <li>The system shall update <code>plans/README.md</code> with a final Plan 015 status and one-line rationale.</li>
+        <li>The system shall update SDD-HTML proofs and validation with the final evidence.</li>
+      </ul>
+      <p><strong>Proof Artifacts:</strong></p>
+      <ul>
+        <li>Documentation diff demonstrates the GO or NO-GO decision and supporting evidence.</li>
+        <li>Plan table excerpt demonstrates the Plan 015 status is reconciled.</li>
+      </ul>
+    </div>
+
+    <div class="card unit" id="unit-3">
+      <h3>Unit 3: Linux FUSE Integration Job On GO</h3>
+      <p><strong>Purpose:</strong> Add real mount test coverage only when hosted Linux has proven FUSE support.</p>
+      <p><strong>Functional Requirements:</strong></p>
+      <ul>
+        <li>The system shall add a Linux-only <code>mount-integration</code> job only if the probe is GO.</li>
+        <li>The system shall add a build-tagged <code>mount_fuse_test.go</code> that verifies traversal before hydration, hydration-on-lookup from a local bare Git remote, failed hydration propagation, and clean unmount.</li>
+        <li>The system shall keep <code>make verify</code> and the default CI verify job FUSE-free.</li>
+      </ul>
+      <p><strong>Proof Artifacts:</strong></p>
+      <ul>
+        <li>CI job output demonstrates <code>go test ./internal/devspace -run Fuse -tags fusetest -v</code> passed on a FUSE-capable runner.</li>
+        <li><code>make verify</code> output demonstrates the normal gate remains FUSE-free.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="non-goals">
+    <h2>Non-Goals (Out of Scope)</h2>
+    <ol>
+      <li><strong>macOS FUSE CI:</strong> macOS runner FUSE support remains a future evaluation.</li>
+      <li><strong>Product behavior changes:</strong> The existing <code>devspace mount</code> behavior should not change except for testability fixes required to validate documented behavior.</li>
+      <li><strong>Richer status cards:</strong> dirty repo, missing <code>.env</code>, and setup hint display remain follow-up work.</li>
+      <li><strong>Path-vs-name mount design:</strong> Long-term virtual directory decisions remain out of scope.</li>
+    </ol>
+  </section>
+
+  <section id="design-considerations">
+    <h2>Design Considerations</h2>
+    <p>No specific UI design requirements identified. HTML artifacts should be reviewer-friendly and self-contained.</p>
+  </section>
+
+  <section id="repository-standards">
+    <h2>Repository Standards</h2>
+    <ul>
+      <li>Follow Go formatting and keep tests beside implementation in <code>internal/devspace/</code>.</li>
+      <li>Use <code>make verify</code> as the normal local CI gate.</li>
+      <li>Keep generated build outputs out of source and avoid committing secrets or workspace state.</li>
+      <li>Use Conventional Commit style for implementation commits.</li>
+      <li>Preserve the repository instruction that default CLI flows must work without FUSE.</li>
+    </ul>
+  </section>
+
+  <section id="technical-considerations">
+    <h2>Technical Considerations</h2>
+    <p>The existing prototype uses <code>github.com/hanwen/go-fuse/v2/fs</code>. GitHub-hosted runner software changes over time, so the implementation must rely on observed workflow evidence rather than local inference. Build tags such as <code>linux &amp;&amp; fusetest</code> keep FUSE tests opt-in and portable.</p>
+  </section>
+
+  <section id="security-considerations">
+    <h2>Security Considerations</h2>
+    <ul>
+      <li>Proof artifacts must not include GitHub tokens, hosted tokens, age identities, or real environment values.</li>
+      <li>The probe workflow must not require repository secrets.</li>
+      <li>FUSE tests must use temporary directories and local bare Git remotes only.</li>
+    </ul>
+  </section>
+
+  <section id="success-metrics">
+    <h2>Success Metrics</h2>
+    <ol>
+      <li><strong>Probe outcome:</strong> Linux hosted runner status is documented as GO or NO-GO with an observed run.</li>
+      <li><strong>Default verification:</strong> <code>make verify</code> exits 0 without FUSE.</li>
+      <li><strong>Plan reconciliation:</strong> Plan 015 is no longer BLOCKED without evidence.</li>
+      <li><strong>Review gate:</strong> <code>coderabbit review --agent</code> is run after implementation and still-valid findings are addressed.</li>
+    </ol>
+  </section>
+
+  <section id="open-questions">
+    <h2>Open Questions</h2>
+    <p>No blocking open questions. Assumption: the user authorized temporary branch push and GitHub Actions execution by requesting implementation of this plan.</p>
+  </section>
+</div>
+</body>
+</html>
