@@ -24,7 +24,7 @@ go run ./cmd/devspace --help
 Releases are automated with GoReleaser: pushing a `v*` tag publishes a GitHub
 Release with prebuilt `devspace` archives for Linux and macOS (amd64/arm64),
 SHA256 checksums, and build-provenance attestation. Download archives from the
-[releases page](https://github.com/HexSleeves/devdrop/releases) and verify them
+[releases page](https://github.com/liatrio-forge/devdrop-capstone/releases) and verify them
 with `sha256sum -c` and `gh attestation verify`.
 
 CI (`go test`, `go vet`, build) runs on every PR and push to `main`. The same
@@ -229,7 +229,7 @@ Compatibility alias. Prefer `devspace plan` and `devspace apply`.
 ```bash
 devspace workspace remote set <git-url-or-local-path>
 devspace workspace remote create local ~/Projects/devspace-manifest.git
-devspace workspace remote create github HexSleeves/devspace-manifest --private
+devspace workspace remote create github your-org/devspace-manifest --private
 devspace workspace remote get
 ```
 

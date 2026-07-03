@@ -1,0 +1,20 @@
+version: 2
+
+updates:
+  # Go modules — keep security-relevant deps (age, x/crypto, go-fuse) current.
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: deps
+
+  # GitHub Actions — track checkout/setup-go/goreleaser/golangci-lint bumps.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: ci

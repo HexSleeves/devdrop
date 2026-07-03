@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/HexSleeves/devspace/internal/devspace"
+	"github.com/liatrio-forge/devdrop-capstone/internal/devspace"
 )
 
 var version = "dev"

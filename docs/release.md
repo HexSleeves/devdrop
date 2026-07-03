@@ -102,8 +102,8 @@ repositories, so provenance verification applies to releases cut after the
 repo is made public:
 
 ```bash
-gh attestation verify checksums.txt --repo HexSleeves/devdrop
-gh attestation verify devspace_v0.1.0_<goos>_<goarch>.tar.gz --repo HexSleeves/devdrop
+gh attestation verify checksums.txt --repo liatrio-forge/devdrop-capstone
+gh attestation verify devspace_v0.1.0_<goos>_<goarch>.tar.gz --repo liatrio-forge/devdrop-capstone
 ```
 
 Then unpack and install:

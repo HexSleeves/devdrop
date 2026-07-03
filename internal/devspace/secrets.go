@@ -2,7 +2,7 @@ package devspace
 
 import (
 	"bytes"
-	"crypto/sha1"
+	"crypto/sha1" //nolint:gosec // naming only, see recipientID and stableNameID
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -287,7 +287,7 @@ func EnvPull(projectRef, profile string) (string, error) {
 	for _, k := range keys {
 		fmt.Fprintf(&b, "%s=%s\n", k, sp.Values[k])
 	}
-	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(full), 0o700); err != nil {
 		return "", err
 	}
 	if err := atomicWriteFile(full, []byte(b.String()), 0o600, false); err != nil {
@@ -439,8 +439,17 @@ func parseAgeRecipient(value string) (*age.X25519Recipient, error) {
 	return age.ParseX25519Recipient(value)
 }
 
+// recipientID derives a short, stable identifier for an age recipient string.
+// It uses SHA-1 solely as a stable, collision-resistant *name* — never for
+// integrity or authenticity (those are the age recipient's job, and age
+// recipients are high-entropy public keys). The truncated digest is stored in
+// manifests and secret profiles as the matching key for users/teams, so the
+// hash is deliberately NOT migrated to SHA-256: changing it would silently
+// invalidate every existing manifest's user/team IDs and break recipient
+// matching across already-deployed workspaces. SHA-1's known weaknesses
+// (collision, not preimage) are irrelevant for naming a 256-bit age key.
 func recipientID(ageRecipient string) string {
-	sum := sha1.Sum([]byte(ageRecipient))
+	sum := sha1.Sum([]byte(ageRecipient)) //nolint:gosec // naming only, see doc comment
 	return "user_" + hex.EncodeToString(sum[:])[:12]
 }
 
@@ -664,8 +673,12 @@ func removeProfile(profiles []string, profile string) []string {
 	return kept
 }
 
+// stableNameID derives a short, stable identifier for an arbitrary human
+// name (e.g. a team name). See recipientID for why SHA-1 is used here for
+// *naming only* and is deliberately not upgraded to SHA-256: these IDs persist
+// in manifests, and a hash change would orphan existing access entries.
 func stableNameID(prefix, name string) string {
-	sum := sha1.Sum([]byte(strings.ToLower(strings.TrimSpace(name))))
+	sum := sha1.Sum([]byte(strings.ToLower(strings.TrimSpace(name)))) //nolint:gosec // naming only, see doc comment
 	return prefix + "_" + hex.EncodeToString(sum[:])[:12]
 }
 

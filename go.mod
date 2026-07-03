@@ -1,4 +1,4 @@
-module github.com/HexSleeves/devspace
+module github.com/liatrio-forge/devdrop-capstone
 
 go 1.26
 

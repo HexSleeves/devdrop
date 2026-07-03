@@ -1,13 +1,22 @@
 version: "2"
 
 linters:
+  # default: standard = govet, errcheck, ineffassign, staticcheck, unused.
+  # gosec is added on top for security-focused checks (G*) -- catches things
+  # like weak crypto and subprocess injection that "standard" alone misses.
   default: standard
+  enable:
+    - gosec
   settings:
     errcheck:
       exclude-functions:
         - fmt.Fprintf
         - fmt.Fprintln
         - fmt.Fprint
+    gosec:
+      excludes:
+        - G104  # unhandled errors are covered by errcheck with the exclusions above
+        - G304  # file inclusion via variable is intentional throughout (config/state/manifest paths)
   exclusions:
     rules:
       # Best-effort cleanup paths; keep errcheck active for operational writes.
@@ -44,3 +53,8 @@ linters:
           - unused
         path: internal/devspace/commands.go
         text: "func sortedProjectNames is unused"
+
+      # tests legitimately use weak randomness / hardcoded sample tokens
+      - linters:
+          - gosec
+        path: _test\.go

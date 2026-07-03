@@ -59,7 +59,7 @@ func TestWorkspaceRemoteCreateGitHubRequiresGh(t *testing.T) {
 	hardeningInitWorkspace(t, "code")
 	t.Setenv("PATH", t.TempDir())
 
-	_, err := CreateGitHubManifestRemote("HexSleeves/devspace-manifest", true)
+	_, err := CreateGitHubManifestRemote("your-org/devspace-manifest", true)
 	if err == nil || !strings.Contains(err.Error(), "requires GitHub CLI") {
 		t.Fatalf("github create error = %v", err)
 	}
@@ -67,13 +67,13 @@ func TestWorkspaceRemoteCreateGitHubRequiresGh(t *testing.T) {
 
 func TestManifestRemoteNotReadyErrorGivesCreateCommands(t *testing.T) {
 	err := manifestRemoteNotReadyError(
-		"git@github.com:HexSleeves/devspace-manifest.git",
+		"git@github.com:your-org/devspace-manifest.git",
 		errors.New("ERROR: Repository not found."),
 	)
 	if err == nil || !strings.Contains(err.Error(), "manifest remote is not ready") {
 		t.Fatalf("remote not ready error = %v", err)
 	}
-	if !strings.Contains(err.Error(), "devspace workspace remote create github HexSleeves/devspace-manifest --private") {
+	if !strings.Contains(err.Error(), "devspace workspace remote create github your-org/devspace-manifest --private") {
 		t.Fatalf("missing github recovery command:\n%v", err)
 	}
 	if !strings.Contains(err.Error(), "devspace workspace remote create local ~/Projects/devspace-manifest.git") {
@@ -146,6 +146,79 @@ func TestWorkspacePushIdempotentWhenNothingChanged(t *testing.T) {
 	}
 	if got := workspaceSyncRun(t, cfg.ManifestRepoPath, "git", "rev-list", "--count", "HEAD"); strings.TrimSpace(got) != "1" {
 		t.Fatalf("commit count = %s", got)
+	}
+}
+
+func TestWorkspacePushUsesConfiguredCommitIdentity(t *testing.T) {
+	workspace := hardeningInitWorkspace(t, "code")
+	remote := workspaceSyncBareRepo(t)
+	if _, err := SetManifestRemote(remote); err != nil {
+		t.Fatal(err)
+	}
+	// Configure a custom commit identity before pushing.
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.ManifestCommitEmail = "bot@forge.example"
+	cfg.ManifestCommitName = "Forge Bot"
+	if err := SaveConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := SaveManifest(workspace, Manifest{
+		Version:       ManifestVersion,
+		WorkspaceRoot: workspace,
+		Projects:      []Project{hardeningProject("apps/app", ProjectTypeLocal, "")},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := PushWorkspaceManifest(); err != nil {
+		t.Fatalf("push failed: %v", err)
+	}
+	cfg, err = LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	author := workspaceSyncRun(t, cfg.ManifestRepoPath, "git", "log", "-1", "--format=%ae %an")
+	author = strings.TrimSpace(author)
+	if author != "bot@forge.example Forge Bot" {
+		t.Fatalf("commit author = %q, want %q", author, "bot@forge.example Forge Bot")
+	}
+}
+
+func TestWorkspacePushFallsBackToDefaultCommitIdentity(t *testing.T) {
+	// Isolate git from the developer's real global AND system config so the
+	// "no identity configured" fallback path is actually exercised.
+	// GIT_CONFIG_GLOBAL alone only skips ~/.gitconfig; a machine-level system
+	// gitconfig would still leak through and make this assertion flaky.
+	globalCfg := filepath.Join(t.TempDir(), "git-config")
+	t.Setenv("GIT_CONFIG_GLOBAL", globalCfg)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+
+	workspace := hardeningInitWorkspace(t, "code")
+	remote := workspaceSyncBareRepo(t)
+	if _, err := SetManifestRemote(remote); err != nil {
+		t.Fatal(err)
+	}
+	if err := SaveManifest(workspace, Manifest{
+		Version:       ManifestVersion,
+		WorkspaceRoot: workspace,
+		Projects:      []Project{hardeningProject("apps/app", ProjectTypeLocal, "")},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PushWorkspaceManifest(); err != nil {
+		t.Fatalf("push failed: %v", err)
+	}
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	author := workspaceSyncRun(t, cfg.ManifestRepoPath, "git", "log", "-1", "--format=%ae %an")
+	author = strings.TrimSpace(author)
+	if author != "devspace@example.invalid DevSpace" {
+		t.Fatalf("default commit author = %q, want %q", author, "devspace@example.invalid DevSpace")
 	}
 }
 

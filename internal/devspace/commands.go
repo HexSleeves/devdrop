@@ -1,17 +1,16 @@
 package devspace
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -205,15 +204,19 @@ func newHostedServeCommand() *cobra.Command {
 	var addr string
 	var store string
 	var token string
+	var trustedProxies []string
+	var allowPublicHTTP bool
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Run a local hosted manifest sync prototype server",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if !cmd.Flags().Changed("addr") {
-				if port := strings.TrimSpace(os.Getenv("PORT")); port != "" {
-					addr = "0.0.0.0:" + port
-				}
+			resolved, err := resolveServeAddr(addr, cmd.Flags().Changed("addr"), os.Getenv("PORT"), allowPublicHTTP)
+			if err != nil {
+				return err
+			}
+			if resolved.public {
+				fmt.Fprintln(cmd.ErrOrStderr(), "warning: binding a public address over plain HTTP; terminate TLS at a reverse proxy or tokens will traverse the network in cleartext")
 			}
 			if token == "" {
 				token = strings.TrimSpace(os.Getenv("HOSTED_TOKEN"))
@@ -225,15 +228,23 @@ func newHostedServeCommand() *cobra.Command {
 				}
 				store = filepath.Join(home, "hosted-control-plane")
 			}
-			handler, err := NewHostedSyncServer(HostedSyncServerOptions{StoreDir: store, Token: token})
+			proxyCIDRs, err := parseTrustedProxyCIDRs(trustedProxies)
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Hosted manifest sync listening on http://%s\n", addr)
+			handler, err := NewHostedSyncServer(HostedSyncServerOptions{
+				StoreDir:       store,
+				Token:          token,
+				TrustedProxies: proxyCIDRs,
+			})
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Hosted manifest sync listening on http://%s\n", resolved.addr)
 			fmt.Fprintf(cmd.OutOrStdout(), "Storage: %s\n", store)
 			fmt.Fprintln(cmd.OutOrStdout(), "API: GET/PUT /v1/workspaces/{workspace}/manifest")
 			server := &http.Server{
-				Addr:              addr,
+				Addr:              resolved.addr,
 				Handler:           handler,
 				ReadTimeout:       10 * time.Second,
 				WriteTimeout:      10 * time.Second,
@@ -268,7 +279,61 @@ func newHostedServeCommand() *cobra.Command {
 	cmd.Flags().StringVar(&addr, "addr", "127.0.0.1:8787", "listen address")
 	cmd.Flags().StringVar(&store, "store", "", "directory for hosted manifest storage")
 	cmd.Flags().StringVar(&token, "token", "", "required bearer token")
+	cmd.Flags().StringSliceVar(&trustedProxies, "trusted-proxy", nil, "trusted proxy CIDR (repeatable); enables X-Forwarded-For client identification for rate limiting")
+	cmd.Flags().BoolVar(&allowPublicHTTP, "allow-public-http", false, "allow binding a public (non-loopback) address over plain HTTP; TLS is expected to be terminated by a reverse proxy")
 	return cmd
+}
+
+// serveAddr is the resolved listen address plus whether it is a public bind
+// (a non-loopback host), which the caller may want to warn about.
+type serveAddr struct {
+	addr   string
+	public bool
+}
+
+// resolveServeAddr applies the serve-command address resolution rules and a
+// safety guard against accidental public cleartext binds. Resolution order:
+// an explicit --addr flag wins; otherwise a PORT env var binds all interfaces
+// (the PaaS/proxy model, where TLS is terminated upstream); otherwise the
+// loopback default is used.
+//
+// The guard refuses a non-loopback bind unless the caller opts in with
+// allowPublicHTTP or signals a proxy environment via a non-empty portEnv
+// (which implies TLS termination upstream). This prevents bearer tokens
+// crossing the wire in cleartext when someone runs `--addr 0.0.0.0:8787` on
+// a bare host without a TLS-terminating proxy.
+func resolveServeAddr(addrFlag string, addrFlagChanged bool, portEnv string, allowPublicHTTP bool) (serveAddr, error) {
+	addr := addrFlag
+	public := false
+	if !addrFlagChanged {
+		if port := strings.TrimSpace(portEnv); port != "" {
+			addr = "0.0.0.0:" + port
+		}
+	}
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return serveAddr{}, fmt.Errorf("invalid listen address %q: %w", addr, err)
+	}
+	public = !isLoopbackBindHost(host)
+	if public && !allowPublicHTTP && portEnv == "" {
+		return serveAddr{}, fmt.Errorf("refusing to bind public address %s over plain HTTP; terminate TLS at a reverse proxy or pass --allow-public-http", addr)
+	}
+	return serveAddr{addr: addr, public: public}, nil
+}
+
+// isLoopbackBindHost reports whether host (as returned by net.SplitHostPort)
+// refers to localhost for the purpose of the public-bind guard. It accepts
+// the wildcard all-interfaces bind ("0.0.0.0", "::", "[::]") as non-loopback.
+func isLoopbackBindHost(host string) bool {
+	if host == "" {
+		return false
+	}
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	trimmed := strings.TrimSuffix(strings.TrimPrefix(host, "["), "]")
+	ip := net.ParseIP(trimmed)
+	return ip != nil && ip.IsLoopback()
 }
 
 func newWorkspaceCommand() *cobra.Command {
@@ -349,7 +414,8 @@ func newWorkspaceCommand() *cobra.Command {
 
 func newWorkspaceRemoteCommand() *cobra.Command {
 	cmd := &cobra.Command{Use: "remote", Short: "Manage workspace manifest remote"}
-	cmd.AddCommand(&cobra.Command{
+	var commitEmail, commitName string
+	setCmd := &cobra.Command{
 		Use:   "set <url-or-path>",
 		Short: "Set workspace manifest Git remote",
 		Args:  cobra.ExactArgs(1),
@@ -358,10 +424,29 @@ func newWorkspaceRemoteCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if cmd.Flags().Changed("commit-email") || cmd.Flags().Changed("commit-name") {
+				// Each field is gated on its own flag being passed, not on
+				// the trimmed value being non-empty, so `--commit-email ""`
+				// explicitly clears it back to the default fallback instead
+				// of being a silent no-op.
+				if cmd.Flags().Changed("commit-email") {
+					cfg.ManifestCommitEmail = strings.TrimSpace(commitEmail)
+				}
+				if cmd.Flags().Changed("commit-name") {
+					cfg.ManifestCommitName = strings.TrimSpace(commitName)
+				}
+				cfg.UpdatedAt = nowRFC3339()
+				if err := SaveConfig(cfg); err != nil {
+					return err
+				}
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "%s\n", cfg.ManifestRemote)
 			return nil
 		},
-	})
+	}
+	setCmd.Flags().StringVar(&commitEmail, "commit-email", "", "git author email for manifest commits (default devspace@example.invalid)")
+	setCmd.Flags().StringVar(&commitName, "commit-name", "", "git author name for manifest commits (default DevSpace)")
+	cmd.AddCommand(setCmd)
 	create := &cobra.Command{Use: "create", Short: "Create and set a workspace manifest remote"}
 	create.AddCommand(&cobra.Command{
 		Use:   "local <path>",
@@ -509,74 +594,6 @@ func newMountCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&hydrateOnLookup, "hydrate-on-lookup", true, "hydrate on-demand Git projects when their mount entry is accessed")
 	cmd.Flags().BoolVar(&debug, "debug", false, "enable go-fuse debug logging")
 	return cmd
-}
-
-func printManifestDiff(out io.Writer, diff ManifestDiff) {
-	fmt.Fprintln(out, "Workspace manifest diff:")
-	fmt.Fprintf(out, "Added: %d\n", len(diff.Added))
-	for _, p := range diff.Added {
-		fmt.Fprintf(out, "  + %s (%s)\n", p.Path, p.Name)
-	}
-	fmt.Fprintf(out, "Removed: %d\n", len(diff.Removed))
-	for _, p := range diff.Removed {
-		fmt.Fprintf(out, "  - %s (%s)\n", p.Path, p.Name)
-	}
-	fmt.Fprintf(out, "Changed: %d\n", len(diff.Changed))
-	for _, changed := range diff.Changed {
-		fmt.Fprintf(out, "  ~ %s (%s)\n", changed.Remote.Path, changed.Remote.Name)
-		for _, field := range changed.Changes {
-			fmt.Fprintf(out, "    %s: %q -> %q\n", field.Field, field.Local, field.Remote)
-		}
-	}
-	if len(diff.Added) == 0 && len(diff.Removed) == 0 && len(diff.Changed) == 0 {
-		fmt.Fprintln(out, "No remote manifest differences.")
-	}
-}
-
-func printPlan(out io.Writer, plan Plan) {
-	fmt.Fprintln(out, "Planned changes:")
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, "SAFE:")
-	hasSafe := false
-	for _, a := range plan.Actions {
-		if a.Safety != "safe" {
-			continue
-		}
-		hasSafe = true
-		fmt.Fprintf(out, "%s %s\n", strings.ToUpper(a.Kind), a.Path)
-	}
-	if !hasSafe {
-		fmt.Fprintln(out, "(none)")
-	}
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, "SKIPPED:")
-	hasSkipped := false
-	for _, a := range plan.Actions {
-		if a.Safety != "skipped" {
-			continue
-		}
-		hasSkipped = true
-		fmt.Fprintf(out, "SKIP %s because %s\n", a.Path, a.Reason)
-	}
-	if !hasSkipped {
-		fmt.Fprintln(out, "(none)")
-	}
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, "WARNINGS:")
-	if len(plan.Warnings) == 0 {
-		fmt.Fprintln(out, "(none)")
-	} else {
-		for _, w := range plan.Warnings {
-			fmt.Fprintf(out, "- %s\n", w)
-		}
-	}
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, "No destructive changes will be performed.")
-}
-
-func printApply(out io.Writer, plan Plan) {
-	fmt.Fprintln(out, "Applied safe plan actions.")
-	printPlan(out, plan)
 }
 
 func newProjectCommand() *cobra.Command {
@@ -777,13 +794,6 @@ func newEnvRecipientCommand() *cobra.Command {
 	return cmd
 }
 
-func profileOrDefault(profile string) string {
-	if profile == "" {
-		return "dev"
-	}
-	return profile
-}
-
 func secretInput(errOut io.Writer, key string) (string, error) {
 	stat, err := os.Stdin.Stat()
 	if err != nil {
@@ -954,123 +964,4 @@ func newSetupApplyCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&allowUnknown, "allow-unknown", false, "allow unknown setup commands after review")
 	cmd.Flags().BoolVar(&allowGlobal, "allow-global", false, "allow setup commands that appear to install globally")
 	return cmd
-}
-
-func printSetupPlan(out io.Writer, plan SetupPlan) {
-	fmt.Fprintln(out, "Setup commands:")
-	if len(plan.Projects) == 0 {
-		fmt.Fprintln(out, "(none)")
-		return
-	}
-	for _, p := range plan.Projects {
-		status := "runnable"
-		if !p.Runnable {
-			status = "review required"
-		}
-		fmt.Fprintf(out, "- %s (%s): %s\n", p.Project, p.Path, status)
-		if p.PackageManager != "" {
-			fmt.Fprintf(out, "  package manager: %s\n", p.PackageManager)
-		}
-		if p.InstallCommand != "" {
-			fmt.Fprintf(out, "  install: %s\n", p.InstallCommand)
-		}
-		if p.DevCommand != "" {
-			fmt.Fprintf(out, "  dev: %s\n", p.DevCommand)
-		}
-		if p.Reason != "" {
-			fmt.Fprintf(out, "  reason: %s\n", p.Reason)
-		}
-	}
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, "No setup commands were run.")
-}
-
-func printSetupResult(out io.Writer, result SetupRunResult) {
-	action := "Ran"
-	if result.DryRun {
-		action = "Would run"
-	}
-	fmt.Fprintf(out, "%s `%s` in %s\n", action, result.Command, result.Path)
-}
-
-func confirmSetup(in io.Reader, out io.Writer, prompt, expected string) error {
-	fmt.Fprint(out, prompt)
-	answer, err := bufio.NewReader(in).ReadString('\n')
-	if err != nil && err != io.EOF {
-		return err
-	}
-	if strings.TrimSpace(answer) != expected {
-		return fmt.Errorf("confirmation did not match; no setup commands were run")
-	}
-	return nil
-}
-
-func printStatus(out io.Writer, args []string) error {
-	cfg, err := LoadConfig()
-	if err != nil {
-		return err
-	}
-	m, err := LoadManifest(cfg.WorkspaceRoot)
-	if err != nil {
-		return err
-	}
-	st, err := LoadState()
-	if err != nil && !missing(err) {
-		return err
-	}
-	if st.Projects == nil {
-		st.Projects = map[string]ProjectState{}
-	}
-	if len(args) == 1 {
-		p, ok := findProject(m, args[0])
-		if !ok {
-			return fmt.Errorf("project %q not found", args[0])
-		}
-		ps := st.Projects[p.ID]
-		fmt.Fprintf(out, "Project: %s\nPath: %s\nHydrated: %t\nDirty: %t\nMissing env: %t\n", p.Name, p.Path, ps.Hydrated, ps.Dirty, !ps.EnvFilePresent)
-		return nil
-	}
-	var hydrated, placeholders, dirty, missingEnv, stale int
-	for _, p := range m.Projects {
-		ps := st.Projects[p.ID]
-		if ps.Hydrated {
-			hydrated++
-		}
-		if ps.Placeholder {
-			placeholders++
-		}
-		if ps.Dirty {
-			dirty++
-		}
-		if !ps.EnvFilePresent {
-			missingEnv++
-		}
-		if ps.Stale || ps.Missing {
-			stale++
-		}
-	}
-	fmt.Fprintf(out, "Machine: %s\n", cfg.MachineName)
-	fmt.Fprintf(out, "Workspace: %s\n\n", cfg.WorkspaceRoot)
-	fmt.Fprintf(out, "Projects tracked: %d\n", len(m.Projects))
-	fmt.Fprintf(out, "Hydrated: %d\n", hydrated)
-	fmt.Fprintf(out, "Placeholders: %d\n", placeholders)
-	fmt.Fprintf(out, "Dirty repos: %d\n", dirty)
-	fmt.Fprintf(out, "Missing env files: %d\n", missingEnv)
-	fmt.Fprintf(out, "Outdated repos: %d\n", stale)
-	if st.LastSyncAt != "" {
-		fmt.Fprintf(out, "Last sync: %s\n", st.LastSyncAt)
-	}
-	if st.LastScanAt != "" {
-		fmt.Fprintf(out, "Last scan: %s\n", st.LastScanAt)
-	}
-	return nil
-}
-
-func sortedProjectNames(m Manifest) string {
-	names := make([]string, 0, len(m.Projects))
-	for _, p := range m.Projects {
-		names = append(names, p.Name)
-	}
-	sort.Strings(names)
-	return strings.Join(names, ", ")
 }
