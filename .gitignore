@@ -19,3 +19,6 @@ coverage/
 # Lavish review artifacts (local review surfaces)
 .lavish/
 .claude/
+
+# Local metaharness scaffold (generated, not committed)
+devdrop-capstone-harness/
