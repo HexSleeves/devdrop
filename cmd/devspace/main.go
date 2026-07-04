@@ -1,17 +1,17 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"os"
 
+	"charm.land/fang/v2"
 	"github.com/liatrio-forge/devdrop-capstone/internal/devspace"
 )
 
 var version = "dev"
 
 func main() {
-	if err := devspace.NewRootCommand(version).Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+	if err := fang.Execute(context.Background(), devspace.NewRootCommand(version), fang.WithVersion(version)); err != nil {
 		os.Exit(1)
 	}
 }

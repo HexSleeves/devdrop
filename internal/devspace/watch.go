@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/log/v2"
 	"github.com/fsnotify/fsnotify"
 )
 
@@ -109,10 +110,14 @@ func WatchWorkspace(ctx context.Context, opts WatchOptions, out io.Writer) error
 		return err
 	}
 	trackedProjects, _ := watchProjectPaths(cfg.WorkspaceRoot)
-	fmt.Fprintf(out, "Watching %s (%d directories)\n", cfg.WorkspaceRoot, watched)
-	fmt.Fprintf(out, "Debounce: %s\n", opts.Debounce)
-	fmt.Fprintf(out, "Sync: %s\n", watchSyncDescription(mode))
-	fmt.Fprintln(out, "Watch refreshes manifest/state only; it never pulls, applies plans, hydrates repositories, runs setup commands, or uploads secrets.")
+	logger := newDiagnosticsLogger(out)
+	logger.Info("watching workspace",
+		"workspace", cfg.WorkspaceRoot,
+		"directories", watched,
+		"debounce", opts.Debounce,
+		"sync", watchSyncDescription(mode),
+	)
+	logger.Info("watch refreshes manifest/state only; it never pulls, applies plans, hydrates repositories, runs setup commands, or uploads secrets")
 
 	refreshCount := 0
 	lastFullScan := time.Time{}
@@ -140,7 +145,7 @@ func WatchWorkspace(ctx context.Context, opts WatchOptions, out io.Writer) error
 			if opts.OnRefresh != nil {
 				opts.OnRefresh(result)
 			}
-			printWatchRefresh(out, result)
+			printWatchRefresh(logger, result)
 			return nil
 		})
 	}
@@ -394,32 +399,32 @@ func watchSyncDescription(mode string) string {
 	}
 }
 
-func printWatchRefresh(out io.Writer, result WatchRefresh) {
+func printWatchRefresh(logger *log.Logger, result WatchRefresh) {
 	scope := "scoped"
 	if result.FullScan {
 		scope = "full"
 	}
-	fmt.Fprintf(out, "Refreshed at %s (%s): found %d projects, %d Git repos, %d untracked folders, %d local-only projects, %d projects with env files.\n",
-		result.RefreshStartedAt,
-		scope,
-		result.Summary.FoundProjects,
-		result.Summary.GitRepos,
-		result.Summary.UntrackedFolders,
-		result.Summary.LocalOnlyProjects,
-		result.Summary.ProjectsWithEnv,
+	logger.Info("refreshed workspace metadata",
+		"at", result.RefreshStartedAt,
+		"scope", scope,
+		"projects", result.Summary.FoundProjects,
+		"gitRepos", result.Summary.GitRepos,
+		"untracked", result.Summary.UntrackedFolders,
+		"localOnly", result.Summary.LocalOnlyProjects,
+		"withEnv", result.Summary.ProjectsWithEnv,
 	)
 	switch result.SyncMode {
 	case WatchSyncGit:
 		if result.SyncChanged {
-			fmt.Fprintln(out, "Git manifest sync: pushed changes.")
+			logger.Info("git manifest sync: pushed changes")
 		} else {
-			fmt.Fprintln(out, "Git manifest sync: already up to date.")
+			logger.Info("git manifest sync: already up to date")
 		}
 	case WatchSyncHosted:
 		if result.SyncChanged {
-			fmt.Fprintf(out, "Hosted manifest sync: pushed version %d.\n", result.HostedVersion)
+			logger.Info("hosted manifest sync: pushed", "version", result.HostedVersion)
 		} else {
-			fmt.Fprintf(out, "Hosted manifest sync: already up to date at version %d.\n", result.HostedVersion)
+			logger.Info("hosted manifest sync: already up to date", "version", result.HostedVersion)
 		}
 	}
 }

@@ -57,10 +57,7 @@ func BuildMountEntries() ([]MountEntry, error) {
 	return entries, nil
 }
 
-func MountWorkspace(ctx context.Context, mountpoint string, opts WorkspaceMountOptions, out io.Writer) error {
-	if out == nil {
-		out = io.Discard
-	}
+func MountWorkspace(ctx context.Context, mountpoint string, opts WorkspaceMountOptions) error {
 	if opts.ErrOut == nil {
 		opts.ErrOut = io.Discard
 	}
@@ -102,9 +99,10 @@ func MountWorkspace(ctx context.Context, mountpoint string, opts WorkspaceMountO
 	if err != nil {
 		return fmt.Errorf("FUSE mount failed at %s: %w\n\nFallback: run `devspace mount %s --preview` to inspect tracked mount entries without requiring FUSE", mountpoint, err, mountpoint)
 	}
-	fmt.Fprintf(out, "Mounted DevSpace workspace at %s\n", mountpoint)
-	fmt.Fprintln(out, "Accessing an on-demand Git project through the mount triggers `devspace project hydrate` safety checks.")
-	fmt.Fprintln(out, "Press Ctrl-C to unmount.")
+	logger := newDiagnosticsLogger(opts.ErrOut)
+	logger.Info("mounted workspace", "mountpoint", mountpoint)
+	logger.Info("accessing an on-demand Git project through the mount triggers `devspace project hydrate` safety checks")
+	logger.Info("press ctrl-c to unmount")
 
 	done := make(chan struct{})
 	go func() {
@@ -114,7 +112,7 @@ func MountWorkspace(ctx context.Context, mountpoint string, opts WorkspaceMountO
 	select {
 	case <-ctx.Done():
 		if err := server.Unmount(); err != nil {
-			fmt.Fprintf(opts.ErrOut, "warning: unmount failed: %v\n", err)
+			logger.Warn("unmount failed", "error", err)
 		}
 		<-done
 		return nil

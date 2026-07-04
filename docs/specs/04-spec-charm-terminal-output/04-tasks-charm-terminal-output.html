@@ -120,7 +120,7 @@
       </div>
     </section>
 
-    <section class="parent-task" data-task-id="2.0" data-status="pending">
+    <section class="parent-task" data-task-id="2.0" data-status="done">
       <h3>2.0 Root polish: fang wrapper and charm-log diagnostics</h3>
       <p>Wrap the root command with <code>fang.Execute</code> in <code>cmd/devspace/main.go</code> (styled help/usage/errors, automatic <code>--version</code>, manpage + completion subcommands) while keeping the existing <code>version</code> subcommand as an alias, and route <code>watch</code>/<code>hosted serve</code>/<code>mount</code> diagnostics through <code>charm.land/log/v2</code> to stderr (styled on TTY, logfmt when piped).</p>
       <div class="proof-artifacts">
@@ -135,13 +135,13 @@
       <div class="subtasks">
         <h4>2.0 Tasks</h4>
         <ul class="task-list">
-          <li class="task" data-task-id="2.1" data-status="pending"><span class="task-label">2.1 Replace plain <code>Execute</code> in <code>cmd/devspace/main.go</code> with <code>fang.Execute(context.Background(), NewRootCommand(...))</code>, preserving exit codes; verify manpage and completion subcommands appear in help.</span></li>
-          <li class="task" data-task-id="2.2" data-status="pending"><span class="task-label">2.2 Keep the existing <code>version</code> subcommand as an alias emitting the same version string fang's <code>--version</code> reports (single source of truth for the version value).</span></li>
-          <li class="task" data-task-id="2.3" data-status="pending"><span class="task-label">2.3 Create a shared <code>charm.land/log/v2</code> logger constructor (stderr-bound, styled on TTY, logfmt otherwise) and route diagnostics through it in <code>watch.go</code>, <code>mount.go</code>, and the hosted-serve startup path in <code>commands.go</code>; never pass secret values as log fields.</span></li>
-          <li class="task" data-task-id="2.4" data-status="pending"><span class="task-label">2.4 Update help-text/command-surface assertions in <code>devspace_test.go</code> for fang's (non-TTY, plain) rendering.</span></li>
-          <li class="task" data-task-id="2.5" data-status="pending"><span class="task-label">2.5 Add a test asserting <code>version</code> subcommand output equals the configured version string (alias contract).</span></li>
-          <li class="task" data-task-id="2.6" data-status="pending"><span class="task-label">2.6 Add a test capturing watch startup diagnostics into a buffer and asserting logfmt-formatted, leveled lines in the non-TTY path (extend <code>watch_test.go</code>).</span></li>
-          <li class="task" data-task-id="2.7" data-status="pending"><span class="task-label">2.7 Add a forced-style test: run root help with <code>t.Setenv("CLICOLOR_FORCE", "1")</code> and assert ANSI styling bytes are present in the output, exercising fang's styled rendering path without a real TTY (audit remediation for the TTY-rendering flag).</span></li>
+          <li class="task" data-task-id="2.1" data-status="done"><span class="task-label">2.1 Replace plain <code>Execute</code> in <code>cmd/devspace/main.go</code> with <code>fang.Execute(context.Background(), NewRootCommand(...))</code>, preserving exit codes; verify manpage and completion subcommands appear in help.</span></li>
+          <li class="task" data-task-id="2.2" data-status="done"><span class="task-label">2.2 Keep the existing <code>version</code> subcommand as an alias emitting the same version string fang's <code>--version</code> reports (single source of truth for the version value).</span></li>
+          <li class="task" data-task-id="2.3" data-status="done"><span class="task-label">2.3 Create a shared <code>charm.land/log/v2</code> logger constructor (stderr-bound, styled on TTY, logfmt otherwise) and route diagnostics through it in <code>watch.go</code>, <code>mount.go</code>, and the hosted-serve startup path in <code>commands.go</code>; never pass secret values as log fields.</span></li>
+          <li class="task" data-task-id="2.4" data-status="done"><span class="task-label">2.4 Update help-text/command-surface assertions in <code>devspace_test.go</code> for fang's (non-TTY, plain) rendering.</span></li>
+          <li class="task" data-task-id="2.5" data-status="done"><span class="task-label">2.5 Add a test asserting <code>version</code> subcommand output equals the configured version string (alias contract).</span></li>
+          <li class="task" data-task-id="2.6" data-status="done"><span class="task-label">2.6 Add a test capturing watch startup diagnostics into a buffer and asserting logfmt-formatted, leveled lines in the non-TTY path (extend <code>watch_test.go</code>).</span></li>
+          <li class="task" data-task-id="2.7" data-status="done"><span class="task-label">2.7 Add a forced-style test: run root help with <code>t.Setenv("CLICOLOR_FORCE", "1")</code> and assert ANSI styling bytes are present in the output, exercising fang's styled rendering path without a real TTY (audit remediation for the TTY-rendering flag).</span></li>
         </ul>
       </div>
     </section>

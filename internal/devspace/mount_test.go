@@ -79,7 +79,7 @@ func TestMountWorkspaceRefusesNonEmptyMountpointBeforeFUSE(t *testing.T) {
 	mountpoint := filepath.Join(t.TempDir(), "mnt")
 	hardeningWriteFile(t, filepath.Join(mountpoint, "keep.txt"), "local\n", 0o644)
 
-	err := MountWorkspace(context.Background(), mountpoint, WorkspaceMountOptions{HydrateOnLookup: true}, &bytes.Buffer{})
+	err := MountWorkspace(context.Background(), mountpoint, WorkspaceMountOptions{HydrateOnLookup: true})
 	if err == nil || !strings.Contains(err.Error(), "refusing to hide local files") {
 		t.Fatalf("mountpoint error = %v", err)
 	}

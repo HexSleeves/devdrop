@@ -109,14 +109,13 @@ func startFuseMount(t *testing.T, hydrateOnLookup bool) (string, func(), *syncBu
 	t.Helper()
 	mountpoint := filepath.Join(t.TempDir(), "mnt")
 	ctx, cancel := context.WithCancel(context.Background())
-	var out syncBuffer
 	var errOut syncBuffer
 	done := make(chan error, 1)
 	go func() {
 		done <- MountWorkspace(ctx, mountpoint, WorkspaceMountOptions{
 			HydrateOnLookup: hydrateOnLookup,
 			ErrOut:          &errOut,
-		}, &out)
+		})
 	}()
 	select {
 	case err := <-done:

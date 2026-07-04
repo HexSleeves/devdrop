@@ -1,10 +1,12 @@
 package devspace
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -107,6 +109,32 @@ func TestRefreshProjectsForWatchOnlyTouchesChangedProject(t *testing.T) {
 	}
 	if st.Projects[webProject.ID].EnvFilePresent {
 		t.Fatal("unchanged project state should not be refreshed by scoped refresh")
+	}
+}
+
+func TestWatchDiagnosticsAreLogfmtWhenPiped(t *testing.T) {
+	clearColorEnv(t)
+	hardeningInitWorkspace(t, "code")
+	var diagnostics bytes.Buffer
+
+	err := WatchWorkspace(context.Background(), WatchOptions{
+		SyncMode:   WatchSyncOff,
+		RunInitial: true,
+		Once:       true,
+	}, &diagnostics)
+	if err != nil {
+		t.Fatalf("WatchWorkspace: %v", err)
+	}
+
+	out := diagnostics.String()
+	if strings.ContainsRune(out, 0x1b) {
+		t.Fatalf("expected logfmt diagnostics with no ANSI escape bytes for a non-terminal writer, got %q", out)
+	}
+	if !strings.Contains(out, "msg=\"watching workspace\"") {
+		t.Fatalf("expected logfmt-formatted startup message, got %q", out)
+	}
+	if !strings.Contains(out, "msg=\"refreshed workspace metadata\"") {
+		t.Fatalf("expected logfmt-formatted refresh message, got %q", out)
 	}
 }
 

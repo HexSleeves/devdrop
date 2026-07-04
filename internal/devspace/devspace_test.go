@@ -2,6 +2,7 @@ package devspace
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"charm.land/fang/v2"
 	"filippo.io/age"
 )
 
@@ -1112,6 +1114,49 @@ func TestRootCommandHelp(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "workspace") || !strings.Contains(out.String(), "env") || !strings.Contains(out.String(), "setup") {
 		t.Fatalf("help did not include expected commands:\n%s", out.String())
+	}
+}
+
+func TestVersionSubcommandMatchesConfiguredVersion(t *testing.T) {
+	const want = "v1.2.3-test"
+	cmd := NewRootCommand(want)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetArgs([]string{"version"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(out.String()); got != want {
+		t.Fatalf("version subcommand printed %q, want %q", got, want)
+	}
+}
+
+func TestFangStyledHelpWhenColorForced(t *testing.T) {
+	clearColorEnv(t)
+	t.Setenv("CLICOLOR_FORCE", "1")
+	root := NewRootCommand("test")
+	var buf bytes.Buffer
+	root.SetOut(&buf)
+	root.SetArgs([]string{"--help"})
+	if err := fang.Execute(context.Background(), root, fang.WithVersion("test")); err != nil {
+		t.Fatalf("fang.Execute: %v", err)
+	}
+	if !strings.ContainsRune(buf.String(), 0x1b) {
+		t.Fatalf("expected fang's styled help output to contain ANSI escape bytes when CLICOLOR_FORCE=1 is set, got %q", buf.String())
+	}
+}
+
+func TestFangHelpPlainWhenPiped(t *testing.T) {
+	clearColorEnv(t)
+	root := NewRootCommand("test")
+	var buf bytes.Buffer
+	root.SetOut(&buf)
+	root.SetArgs([]string{"--help"})
+	if err := fang.Execute(context.Background(), root, fang.WithVersion("test")); err != nil {
+		t.Fatalf("fang.Execute: %v", err)
+	}
+	if strings.ContainsRune(buf.String(), 0x1b) {
+		t.Fatalf("expected fang's help output to be plain for a non-terminal writer with no forcing env vars, got %q", buf.String())
 	}
 }
 

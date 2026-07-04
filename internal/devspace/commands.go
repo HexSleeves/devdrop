@@ -107,7 +107,7 @@ func newWatchCommand() *cobra.Command {
 				SyncMode:   syncMode,
 				RunInitial: !noInitial,
 				Once:       once,
-			}, cmd.OutOrStdout())
+			}, cmd.ErrOrStderr())
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return nil
 			}
@@ -226,8 +226,9 @@ func newHostedServeCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			logger := newDiagnosticsLogger(cmd.ErrOrStderr())
 			if resolved.public {
-				fmt.Fprintln(cmd.ErrOrStderr(), "warning: binding a public address over plain HTTP; terminate TLS at a reverse proxy or tokens will traverse the network in cleartext")
+				logger.Warn("binding a public address over plain HTTP; terminate TLS at a reverse proxy or tokens will traverse the network in cleartext")
 			}
 			if token == "" {
 				token = strings.TrimSpace(os.Getenv("HOSTED_TOKEN"))
@@ -251,9 +252,11 @@ func newHostedServeCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Hosted manifest sync listening on http://%s\n", resolved.addr)
-			fmt.Fprintf(cmd.OutOrStdout(), "Storage: %s\n", store)
-			fmt.Fprintln(cmd.OutOrStdout(), "API: GET/PUT /v1/workspaces/{workspace}/manifest")
+			logger.Info("hosted manifest sync listening",
+				"addr", "http://"+resolved.addr,
+				"storage", store,
+				"api", "GET/PUT /v1/workspaces/{workspace}/manifest",
+			)
 			server := &http.Server{
 				Addr:              resolved.addr,
 				Handler:           handler,
@@ -587,7 +590,7 @@ func newMountCommand() *cobra.Command {
 				HydrateOnLookup: hydrateOnLookup,
 				Debug:           debug,
 				ErrOut:          cmd.ErrOrStderr(),
-			}, cmd.OutOrStdout())
+			})
 		},
 	}
 	cmd.Flags().BoolVar(&preview, "preview", false, "print manifest-backed mount entries without mounting FUSE")

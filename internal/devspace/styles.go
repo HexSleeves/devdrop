@@ -42,12 +42,14 @@ type theme struct {
 	Muted  lipgloss.Style
 }
 
-// currentTheme and currentProfile are resolved once per CLI invocation by
-// configureStyles (called from the root PersistentPreRunE). They default to
-// NoTTY so helpers invoked directly from tests render stable plain text.
+// currentTheme, currentProfile, and currentNoColor are resolved once per CLI
+// invocation by configureStyles (called from the root PersistentPreRunE).
+// They default to NoTTY so helpers invoked directly from tests render stable
+// plain text.
 var (
 	currentTheme   = colorTheme(true)
 	currentProfile = colorprofile.NoTTY
+	currentNoColor = false
 )
 
 func colorTheme(darkBackground bool) theme {
@@ -73,12 +75,20 @@ func colorTheme(darkBackground bool) theme {
 // CLICOLOR_FORCE are honored via colorprofile detection; noColor (the root
 // --no-color flag) forces the NoTTY profile regardless of detected capability.
 func configureStyles(out io.Writer, noColor bool) {
-	profile := colorprofile.Detect(out, os.Environ())
-	if noColor {
-		profile = colorprofile.NoTTY
-	}
-	currentProfile = profile
+	currentNoColor = noColor
+	currentProfile = detectProfile(out)
 	currentTheme = colorTheme(hasDarkBackground(out))
+}
+
+// detectProfile resolves the color profile for w, honoring the same
+// NO_COLOR/CLICOLOR/CLICOLOR_FORCE/--no-color rules as configureStyles. It is
+// exported to the package (not just the primary stdout writer) so a second
+// stream such as stderr diagnostics can be judged independently of stdout.
+func detectProfile(w io.Writer) colorprofile.Profile {
+	if currentNoColor {
+		return colorprofile.NoTTY
+	}
+	return colorprofile.Detect(w, os.Environ())
 }
 
 // hasDarkBackground queries the terminal background only when both stdin and
