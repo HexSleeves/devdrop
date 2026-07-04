@@ -100,6 +100,11 @@ func startFuseMount(t *testing.T, hydrateOnLookup bool) (string, func(), *bytes.
 			ErrOut:          &errOut,
 		}, &out)
 	}()
+	select {
+	case err := <-done:
+		t.Fatalf("mount exited early: %v\nstderr:\n%s", err, errOut.String())
+	case <-time.After(200 * time.Millisecond):
+	}
 
 	cleanup := func() {
 		cancel()

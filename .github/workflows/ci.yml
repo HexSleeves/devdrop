@@ -43,6 +43,7 @@ jobs:
 
   mount-integration:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
 
@@ -61,4 +62,4 @@ jobs:
           sudo chmod a+rw /dev/fuse
 
       - name: Test FUSE mount
-        run: go test ./internal/devspace -tags fusetest -v
+        run: go test ./internal/devspace -tags fusetest -timeout 2m -v
