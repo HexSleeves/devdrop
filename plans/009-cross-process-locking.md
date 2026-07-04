@@ -72,6 +72,7 @@ error to either process.
 ## Scope
 
 **In scope**:
+
 - `internal/devspace/lock.go` (create)
 - `internal/devspace/lock_test.go` (create)
 - `internal/devspace/commands.go` (wrap mutating RunE bodies)
@@ -79,6 +80,7 @@ error to either process.
 - `go.mod`, `go.sum`
 
 **Out of scope**:
+
 - `jsonio.go`, `config.go`, domain functions in `workspace.go`/`secrets.go` —
   no lock calls inside them (reentrancy hazard).
 - The hosted **server** (`hosted serve`) — it has its own in-process locking

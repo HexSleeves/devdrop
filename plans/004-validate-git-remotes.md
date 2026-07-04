@@ -52,11 +52,13 @@ them.
 ## Scope
 
 **In scope**:
+
 - `internal/devspace/manifest.go` (new `validateProjectRemote` + call in `ValidateManifest`)
 - `internal/devspace/workspace.go` (defense-in-depth call in `HydrateProject`)
 - `internal/devspace/devspace_test.go` (tests)
 
 **Out of scope**:
+
 - `internal/devspace/git.go` — `cloneRepo` is correct as-is; don't touch.
 - `internal/devspace/workspace_sync.go` — the manifest *sync repo* remote
   (`Config.ManifestRemote`) is user-typed local config, not synced input; a

@@ -130,7 +130,7 @@ Record these fields in the SDD proof artifact or PR comment:
 ## Failure Notes
 
 | Symptom | Likely Cause | Action |
-|---------|--------------|--------|
+| ------- | ------------ | ------ |
 | `macFUSE present`, but no mount attaches | macFUSE was installed but not active yet | Restart macOS, then rerun. |
 | `mount_macfuse` not on `PATH` | macFUSE resources are not exported through the shell path | Prefix `PATH` with `/Library/Filesystems/macfuse.fs/Contents/Resources`. |
 | `--preview` works but real mount fails | FUSE-specific runtime issue | Keep normal CLI workflows unblocked and capture stderr. |

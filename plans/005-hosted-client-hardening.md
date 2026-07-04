@@ -74,11 +74,13 @@ if token == "" {
 ## Scope
 
 **In scope**:
+
 - `internal/devspace/hosted_sync.go`
 - `internal/devspace/commands.go` (only `newHostedConfigCommand`)
 - `internal/devspace/hosted_sync_test.go`
 
 **Out of scope**:
+
 - The hosted **server** (`NewHostedSyncServer` and below) — its hardening
   contract lives in `hardening_test.go`; nothing here should touch it.
 - `SetHostedSync`'s user-facing error strings — reuse them verbatim via the

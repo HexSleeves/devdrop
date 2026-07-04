@@ -92,10 +92,12 @@ rescan.
 ## Scope
 
 **In scope**:
+
 - `internal/devspace/manifest.go` (`mergeProject` only)
 - `internal/devspace/devspace_test.go` (tests)
 
 **Out of scope**:
+
 - `projectFromPath` / `ScanWorkspace` — do not thread "explicitly set" flags
   through the scanner; the merge-side rules above are sufficient and smaller.
 - Any manifest schema change.

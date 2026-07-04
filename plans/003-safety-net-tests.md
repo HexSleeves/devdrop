@@ -69,9 +69,11 @@ if realBack == ".." || strings.HasPrefix(realBack, "../") || filepath.IsAbs(real
 ## Scope
 
 **In scope**:
+
 - `internal/devspace/devspace_test.go` (all new tests go here)
 
 **Out of scope**:
+
 - ANY non-test file. This plan must not change production behavior. If a test
   you write fails against current code, that is a STOP condition (you found a
   real bug — report it), not a license to change the code.

@@ -81,11 +81,13 @@ cmd.AddCommand(&cobra.Command{
 ## Scope
 
 **In scope**:
+
 - `internal/devspace/workspace.go` (new `RemoveProject(ref string) (Project, error)`)
 - `internal/devspace/commands.go` (new subcommand in `newProjectCommand`)
 - `internal/devspace/devspace_test.go` (tests)
 
 **Out of scope**:
+
 - Deleting anything on disk (folders, secrets) — spec forbids it.
 - `ScanWorkspace` auto-pruning — scan stays non-destructive.
 - `Users`/`Teams` entries — they are workspace-level, not project-level; do

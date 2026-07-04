@@ -78,10 +78,12 @@ non-git tree is genuinely separate.
 ## Scope
 
 **In scope**:
+
 - `internal/devspace/workspace.go` (the WalkDir callback only)
 - `internal/devspace/devspace_test.go` (new regression test)
 
 **Out of scope**:
+
 - `hasDependencyMarker`, `projectFromPath`, `upsertProject` — unchanged.
 - Removing already-duplicated entries from existing manifests — that is
   Plan 012's `project remove` territory (manual cleanup), not auto-pruning

@@ -96,11 +96,13 @@ func atomicWriteFile(path string, data []byte, perm os.FileMode, backup bool) er
 ## Scope
 
 **In scope**:
+
 - `internal/devspace/secrets.go` (the two write sites only)
 - `internal/devspace/init.go` (the identity write only)
 - `internal/devspace/devspace_test.go` (new tests)
 
 **Out of scope**:
+
 - `internal/devspace/jsonio.go` — do not modify the helper.
 - Any change to file modes (keep `0o600`) or file content/format.
 

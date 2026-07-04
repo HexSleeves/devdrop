@@ -97,7 +97,7 @@ follow-up safety net for repeatable regression coverage after the macOS-first
 developer path is documented.
 
 | Platform | Status | Guidance |
-|----------|--------|----------|
+| -------- | ------ | -------- |
 | Linux `ubuntu-latest` | GO | Permanent coverage lives in the `mount-integration` job. It installs FUSE support, checks `/dev/fuse`, and runs `go test ./internal/devspace -tags fusetest -v`. |
 | macOS local developer machines | PENDING LOCAL PROOF | Product direction is macOS-first. A real mount proof waits for a developer Mac with macFUSE installed and approved. |
 | macOS hosted runners | DEFERRED | Hosted macOS FUSE CI is not the first target. macFUSE approval and kernel/system extension loading are not reliable assumptions on ephemeral hosted runners. |

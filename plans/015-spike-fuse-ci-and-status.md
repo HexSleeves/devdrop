@@ -61,7 +61,7 @@ answer unlocks (or honestly retires) the rest.
 
 ### Phase B — only on Linux GO
 
-4. A `mount-integration` job in `ci.yml`, Linux-only, running a new
+1. A `mount-integration` job in `ci.yml`, Linux-only, running a new
    build-tagged test file (`//go:build linux && fusetest` or an env-gated
    `t.Skip`) `mount_fuse_test.go` that: mounts a manifest-backed workspace in
    a temp dir, asserts `ls` shows manifest path segments without hydration,
@@ -70,7 +70,7 @@ answer unlocks (or honestly retires) the rest.
    hydration happened, asserts a failed-hydration project surfaces an error
    (not an empty dir — the doc's stated behavior), and unmounts cleanly.
    The normal `verify` job must remain FUSE-free.
-5. Follow-up card (2) — richer `.devspace-status` content (dirty flag, missing
+2. Follow-up card (2) — richer `.devspace-status` content (dirty flag, missing
    `.env`, setup hint from the manifest's `Setup`) — ONLY if the integration
    job from (4) is green and time remains; otherwise record it as the next
    card in the doc.

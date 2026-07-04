@@ -47,11 +47,13 @@ dependency or an unchecked error can land on `main` unnoticed.
 ## Scope
 
 **In scope**:
+
 - `Makefile`
 - `.github/workflows/ci.yml`
 - `.golangci.yml` (create)
 
 **Out of scope**:
+
 - Fixing lint findings beyond the triage rule in Step 3.
 - Adding dependabot config (tracked separately in the plans index backlog).
 - `.goreleaser.yaml` and release workflows.
@@ -90,11 +92,11 @@ Add:
 
 ```make
 lint:
-	golangci-lint run ./...
-	test -z "$$(gofmt -l cmd internal)" || (gofmt -l cmd internal && exit 1)
+ golangci-lint run ./...
+ test -z "$$(gofmt -l cmd internal)" || (gofmt -l cmd internal && exit 1)
 
 vulncheck:
-	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+ go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 ```
 
 Change `verify: test vet build` → `verify: test vet lint build`. Keep

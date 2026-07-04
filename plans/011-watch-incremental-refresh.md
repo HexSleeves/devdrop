@@ -76,12 +76,14 @@ coalesces bursts but never scopes the work.
 ## Scope
 
 **In scope**:
+
 - `internal/devspace/watch.go`
 - `internal/devspace/workspace.go` (ONLY to add `RefreshProjectsForWatch` /
   a scoped-refresh helper; `ScanWorkspace` body unchanged)
 - `internal/devspace/watch_test.go`
 
 **Out of scope**:
+
 - `git.go` — do not "optimize" `gitInfo`'s subprocess count here (separate
   concern, not planned).
 - `ScanWorkspace`'s walk or reconciliation logic.

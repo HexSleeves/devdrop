@@ -77,10 +77,12 @@ array of mutexes indexed by a hash of the workspace ID:
 ## Scope
 
 **In scope**:
+
 - `internal/devspace/hosted_sync.go`
 - `internal/devspace/hosted_sync_test.go`
 
 **Out of scope**:
+
 - The limiter map and its eviction logic — already correct; don't touch.
 - `hardening_test.go` — its contract must pass **unmodified**.
 

@@ -103,11 +103,13 @@ Errors are `fmt.Errorf` with the offending value quoted.
 ## Scope
 
 **In scope** (the only files you should modify):
+
 - `internal/devspace/manifest.go`
 - `internal/devspace/secrets.go`
 - `internal/devspace/devspace_test.go`
 
 **Out of scope** (do NOT touch, even though they look related):
+
 - `internal/devspace/paths.go` — `safeWorkspacePath` is correct; do not "reuse" it for IDs (IDs are single segments, not workspace-relative paths).
 - `internal/devspace/hosted_sync.go` — its `validateHostedWorkspaceID` is a different concern (server workspace IDs, already validated).
 - The `projectID()` generator — do not change how IDs are produced; old manifests must keep validating.
