@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>04-spec-charm-terminal-output</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --fg: #1a1a2e;
+        --muted: #6b7280;
+        --border: #e5e7eb;
+        --card: #f9fafb;
+        --accent: #4f46e5;
+        --pass: #059669;
+        --fail: #dc2626;
+        --warn: #d97706;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0f1117;
+          --fg: #e6e6ef;
+          --muted: #9ca3af;
+          --border: #262a35;
+          --card: #161922;
+          --accent: #818cf8;
+          --pass: #34d399;
+          --fail: #f87171;
+          --warn: #fbbf24;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.6;
+      }
+      .doc {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem 4rem;
+      }
+      header.doc-header {
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 1rem;
+        margin-bottom: 2rem;
+      }
+      h1 {
+        margin: 0.25rem 0;
+        font-size: 1.6rem;
+      }
+      h2 {
+        margin-top: 2rem;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 0.35rem;
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      .badge {
+        display: inline-block;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        padding: 0.25rem 0.6rem;
+        border-radius: 999px;
+      }
+      .badge-type {
+        background: var(--accent);
+        color: #fff;
+      }
+      .status-pass,
+      .status-done,
+      .status-verified {
+        background: var(--pass);
+        color: #fff;
+      }
+      .status-fail,
+      .status-failed {
+        background: var(--fail);
+        color: #fff;
+      }
+      .status-flag,
+      .status-pending,
+      .status-unknown,
+      .status-in-progress {
+        background: var(--warn);
+        color: #111;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1rem 0;
+      }
+      th,
+      td {
+        border: 1px solid var(--border);
+        padding: 0.5rem 0.75rem;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        background: var(--card);
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        padding: 1rem 1.25rem;
+        margin: 1rem 0;
+      }
+      code,
+      pre {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      pre {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        overflow-x: auto;
+      }
+      .task-list {
+        list-style: none;
+        padding-left: 0;
+      }
+      .task {
+        padding: 0.35rem 0;
+      }
+      .task[data-status="done"] .task-label::before {
+        content: "\2611 ";
+      }
+      .task[data-status="pending"] .task-label::before {
+        content: "\2610 ";
+      }
+      .task[data-status="in-progress"] .task-label::before {
+        content: "\25D1 ";
+      }
+      figure {
+        margin: 1rem 0;
+      }
+      figure img {
+        max-width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+      }
+      figcaption {
+        color: var(--muted);
+        font-size: 0.85rem;
+        margin-top: 0.35rem;
+      }
+      .unit {
+        margin: 1.25rem 0;
+      }
+    </style>
+  </head>
+  <body data-overall-status="draft">
+    <div class="doc">
+      <header class="doc-header">
+        <span class="badge badge-type">Spec</span>
+        <h1>04-spec-charm-terminal-output</h1>
+        <p class="meta">
+          Sequence 04 · Feature: charm-terminal-output · Phase 1
+        </p>
+      </header>
+
+      <section id="introduction">
+        <h2>Introduction/Overview</h2>
+        <p>
+          Today the <code>devspace</code> CLI prints plain, unstyled text: no
+          color, no visual hierarchy, bare stdin confirmations, and
+          machine-readable JSON on only two commands. This feature overhauls the
+          terminal experience of every existing command using the Charm v2
+          ecosystem (<code>charm.land</code>): a shared lipgloss theme for all
+          human-readable output, fang-styled help/errors at the root, leveled
+          charm-log diagnostics for long-running commands, huh-based
+          confirmations, and spinners for slow operations — while expanding
+          <code>--json</code> coverage so scripts get a stable interface and
+          keeping piped/<code>NO_COLOR</code> output free of ANSI escape codes.
+          The goal is a CLI that is dramatically easier to scan on a TTY and
+          strictly friendlier to scripts than it is today.
+        </p>
+        <p>
+          A full-screen interactive TUI dashboard is intentionally
+          <strong>not</strong> part of this spec; it is the next spec in the
+          sequence (05) and builds on the theme foundation established here.
+        </p>
+      </section>
+
+      <section id="goals">
+        <h2>Goals</h2>
+        <ul>
+          <li>
+            Every user-facing command renders its human-readable output through
+            one shared visual theme (severity colors, headers, tables) when
+            stdout is a terminal.
+          </li>
+          <li>
+            Piped, redirected, <code>NO_COLOR</code>, and
+            <code>--no-color</code> runs emit clean plain text containing zero
+            ANSI escape sequences.
+          </li>
+          <li>
+            <code>status</code>, <code>doctor</code>,
+            <code>workspace diff</code>, and <code>mount --preview</code> gain
+            <code>--json</code> output with stable field names, joining the
+            existing <code>plan --json</code> and
+            <code>setup plan --json</code> as the documented scripting
+            interface.
+          </li>
+          <li>
+            Confirmations and long-running operations (setup run/apply, project
+            hydrate, scan) get modern interactive treatment with non-interactive
+            fallbacks that keep scripted flows working.
+          </li>
+          <li>
+            <code>make verify</code> stays green: every output-related test
+            assertion is deliberately updated, and plan/apply safety semantics
+            are unchanged.
+          </li>
+        </ul>
+      </section>
+
+      <section id="user-stories">
+        <h2>User Stories</h2>
+        <ul>
+          <li>
+            <strong>As a</strong> developer, <strong>I want to</strong> see
+            <code>devspace status</code> and <code>devspace doctor</code> with
+            color-coded severity and aligned layout <strong>so that</strong> I
+            can spot unhydrated, dirty, or broken projects at a glance.
+          </li>
+          <li>
+            <strong>As a</strong> developer, <strong>I want</strong> styled
+            <code>--help</code>, usage, and error messages
+            <strong>so that</strong> the CLI feels polished and commands are
+            easier to discover.
+          </li>
+          <li>
+            <strong>As a</strong> script author, <strong>I want to</strong> run
+            <code>devspace status --json</code>, <code>doctor --json</code>,
+            <code>workspace diff --json</code>, and
+            <code>mount --preview --json</code> <strong>so that</strong> I can
+            parse results without scraping human-oriented text.
+          </li>
+          <li>
+            <strong>As a</strong> developer whose CI pipes devspace output to a
+            log, <strong>I want</strong> plain deterministic text with no escape
+            codes <strong>so that</strong> logs stay readable and diffs stay
+            stable.
+          </li>
+          <li>
+            <strong>As a</strong> developer running
+            <code>devspace setup run</code>, <strong>I want</strong> a clear
+            interactive confirmation that still defaults to "no"
+            <strong>so that</strong> I never run project-defined commands by
+            accident.
+          </li>
+          <li>
+            <strong>As a</strong> developer hydrating a project,
+            <strong>I want</strong> a spinner with a status line during the
+            clone <strong>so that</strong> I know the operation is progressing
+            rather than hung.
+          </li>
+        </ul>
+      </section>
+
+      <section id="demoable-units">
+        <h2>Demoable Units of Work</h2>
+        <p>
+          Three end-to-end vertical slices. Each is independently demoable on a
+          real terminal and in a piped/CI context.
+        </p>
+
+        <div class="card unit" id="unit-1">
+          <h3>Unit 1: Theme Foundation and Root Command Polish</h3>
+          <p>
+            <strong>Purpose:</strong> Establish the one styling/detection layer
+            every later change builds on, and make the CLI's first impression
+            (help, errors, version) styled — without touching individual command
+            output yet.
+          </p>
+          <p><strong>Functional Requirements:</strong></p>
+          <ul>
+            <li>
+              The system shall add the Charm v2 dependencies to
+              <code>go.mod</code> using <code>charm.land/.../v2</code> import
+              paths exclusively (<code>lipgloss/v2</code>, <code>log/v2</code>,
+              <code>fang/v2</code>, <code>huh/v2</code>,
+              <code>bubbles/v2</code> + <code>bubbletea/v2</code> for the
+              spinner, plus <code>github.com/charmbracelet/colorprofile</code>);
+              v1 <code>github.com/charmbracelet/...</code> paths shall not
+              appear anywhere in the module.
+            </li>
+            <li>
+              The system shall provide a shared theme in a new
+              <code>internal/devspace/styles.go</code>: named lipgloss styles
+              for severity (ok/warn/fail/info), section headers, emphasis, muted
+              text, and table borders, with light/dark-adaptive colors.
+            </li>
+            <li>
+              The system shall detect terminal capability once per invocation
+              via <code>colorprofile.Detect</code> on the output writer and
+              environment, and route all styled output through a
+              colorprofile-aware writer so ANSI is automatically downsampled or
+              stripped (piped output = plain text).
+            </li>
+            <li>
+              The system shall honor <code>NO_COLOR</code>,
+              <code>CLICOLOR</code>, and <code>CLICOLOR_FORCE</code>, and shall
+              add a persistent root flag <code>--no-color</code> that forces
+              plain output even on a TTY.
+            </li>
+            <li>
+              The system shall wrap the root command with
+              <code>fang.Execute</code> in <code>cmd/devspace/main.go</code>,
+              providing styled help/usage/errors, automatic
+              <code>--version</code> from build info, and manpage + completion
+              subcommands; the existing <code>version</code> subcommand shall
+              remain as an alias reporting the same version string.
+            </li>
+            <li>
+              The system shall route diagnostics of long-running surfaces
+              (<code>watch</code>, <code>hosted serve</code>,
+              <code>mount</code>) through <code>charm.land/log/v2</code> to
+              stderr with leveled, timestamped output (plain logfmt when stderr
+              is not a TTY).
+            </li>
+          </ul>
+          <p><strong>Proof Artifacts:</strong></p>
+          <ul>
+            <li>
+              Screenshot: styled <code>devspace --help</code> and a styled error
+              (unknown command) demonstrates fang integration.
+            </li>
+            <li>
+              CLI: <code>devspace --help | cat</code> and
+              <code>NO_COLOR=1 devspace --help</code> transcripts containing
+              zero <code>ESC[</code> sequences demonstrates plain-output
+              compliance.
+            </li>
+            <li>
+              Test: a unit test asserting styled-vs-plain rendering of themed
+              helpers against TTY-like and buffer writers demonstrates the
+              detection layer works.
+            </li>
+          </ul>
+        </div>
+
+        <div class="card unit" id="unit-2">
+          <h3>
+            Unit 2: Redesigned Command Output and Expanded <code>--json</code>
+          </h3>
+          <p>
+            <strong>Purpose:</strong> Move every command's human output onto the
+            shared theme with genuinely better layout (this is the visible
+            payoff), and give scripts a stable JSON interface where they
+            previously had to scrape text.
+          </p>
+          <p><strong>Functional Requirements:</strong></p>
+          <ul>
+            <li>
+              The system shall restyle the output of <code>status</code>,
+              <code>doctor</code>, <code>plan</code>, <code>apply</code>,
+              <code>workspace diff</code>, <code>env list</code>,
+              <code>env recipient list</code>, <code>setup plan</code>, and
+              <code>mount --preview</code> using the shared theme: section
+              headers, aligned key/value groups, and bordered tables where rows
+              are homogeneous (recipient list, setup plan, mount preview).
+            </li>
+            <li>
+              The system shall keep <code>doctor</code> severity semantics
+              visually distinct (OK/WARN/FAIL/INFO badges); wording and layout
+              may change, but every existing check shall remain individually
+              identifiable and the summary shall still state the hard-failure
+              count.
+            </li>
+            <li>
+              The system shall migrate the raw
+              <code>fmt.Fprintf</code> user-facing call sites in
+              <code>commands.go</code>, <code>mount.go</code>,
+              <code>watch.go</code>, <code>doctor.go</code>, and
+              <code>secrets.go</code> onto helpers in <code>output.go</code>;
+              helpers shall keep their <code>io.Writer</code>-based signatures
+              so they stay unit-testable with buffers.
+            </li>
+            <li>
+              The system shall add a <code>--json</code> flag to
+              <code>status</code>, <code>doctor</code>,
+              <code>workspace diff</code>, and <code>mount --preview</code>,
+              emitting via the existing <code>writePrettyJSON</code>
+              (<code>jsonio.go</code>) with stable, documented field names and
+              no ANSI content.
+            </li>
+            <li>
+              The system shall deliberately update every affected output
+              assertion in <code>commands_test.go</code>,
+              <code>doctor_test.go</code>, <code>devspace_test.go</code>,
+              <code>workspace_sync_test.go</code>, <code>mount_test.go</code>,
+              and <code>mount_fuse_test.go</code>, keeping assertion coverage
+              equivalent: every fact asserted before (counts, names, severities,
+              reasons) is still asserted after, against the new wording or the
+              new JSON output.
+            </li>
+          </ul>
+          <p><strong>Proof Artifacts:</strong></p>
+          <ul>
+            <li>
+              Screenshot: side-by-side styled <code>status</code>,
+              <code>doctor</code>, <code>plan</code>, and
+              <code>workspace diff</code> on a real terminal demonstrates the
+              redesigned layouts.
+            </li>
+            <li>
+              CLI:
+              <code>devspace status --json | python3 -m json.tool</code> (same
+              for <code>doctor</code>, <code>workspace diff</code>,
+              <code>mount --preview</code>) demonstrates the machine-readable
+              interface parses.
+            </li>
+            <li>
+              vhs GIF: a recorded tour of the restyled
+              <code>status</code>/<code>doctor</code>/<code>plan</code> output
+              (tape checked in under <code>04-proofs/</code>) demonstrates the
+              new look in motion.
+            </li>
+            <li>
+              CLI: <code>devspace status | cat</code> transcript with zero ANSI
+              sequences demonstrates piped output stays plain.
+            </li>
+            <li>
+              Test: <code>make verify</code> passing demonstrates the redesign
+              is fully covered by the updated suite.
+            </li>
+          </ul>
+        </div>
+
+        <div class="card unit" id="unit-3">
+          <h3>Unit 3: Interactive Prompts and Progress</h3>
+          <p>
+            <strong>Purpose:</strong> Replace bare stdin prompts with modern
+            interactive equivalents and show progress during slow operations,
+            without weakening any safety gate or breaking scripted/CI usage.
+          </p>
+          <p><strong>Functional Requirements:</strong></p>
+          <ul>
+            <li>
+              The system shall replace <code>confirmSetup</code>'s raw prompt
+              with <code>huh/v2</code> forms that preserve current safety
+              semantics: <code>setup run</code> uses a Confirm defaulting to
+              "No"; <code>setup apply</code> (batch) keeps the typed-phrase gate
+              via a huh Input whose validation requires the exact current
+              phrase.
+            </li>
+            <li>
+              The system shall preserve the <code>--yes</code> bypass, and when
+              stdin or stdout is not a TTY it shall fall back to the current
+              plain <code>bufio</code> stdin behavior so piped flows (e.g.
+              <code>echo ... | devspace setup apply</code>) keep working
+              byte-for-byte.
+            </li>
+            <li>
+              The system shall display a <code>bubbles/v2</code> spinner with a
+              status line during <code>project hydrate</code> (git clone) and
+              <code>scan</code> when stdout is a TTY, and plain start/finish
+              lines when it is not.
+            </li>
+            <li>
+              The system shall keep <code>secretInput</code>'s
+              <code>x/term.ReadPassword</code> path unchanged for secret entry
+              (no styling of secret prompts, no echo).
+            </li>
+          </ul>
+          <p><strong>Proof Artifacts:</strong></p>
+          <ul>
+            <li>
+              vhs GIF: <code>setup run</code> huh confirmation and the
+              <code>hydrate</code> spinner recorded with <code>vhs</code>
+              (tapes checked in under <code>04-proofs/</code>) demonstrates the
+              interactive flows.
+            </li>
+            <li>
+              CLI: piped confirmation transcript (non-TTY fallback) demonstrates
+              scripted setup flows are unbroken.
+            </li>
+            <li>
+              Test: unit tests for the confirm fallback and spinner-off paths
+              against buffer writers demonstrate non-TTY behavior.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="non-goals">
+        <h2>Non-Goals (Out of Scope)</h2>
+        <p>
+          Clearly out of scope for this spec to manage expectations and prevent
+          scope creep.
+        </p>
+        <ol>
+          <li>
+            <strong>TUI dashboard mode:</strong> the full-screen bubbletea
+            application (project table, live watch pane, safe actions: scan,
+            hydrate, plan, apply-safe) is deferred to spec 05, which builds on
+            this spec's theme foundation. Nothing in this spec adds an alternate
+            screen or event-loop UI.
+          </li>
+          <li>
+            <strong>Markdown rendering (glamour):</strong> no current command
+            renders markdown; not added.
+          </li>
+          <li>
+            <strong>Hosted server behavior:</strong> the hardened HTTP contract
+            (<code>hardening_test.go</code>) is untouched; only the
+            <code>hosted serve</code> startup/log lines are restyled.
+          </li>
+          <li>
+            <strong>FUSE/mount internals:</strong> only printed output changes;
+            mounting behavior and guards stay as-is.
+          </li>
+          <li>
+            <strong>Safety and path invariants:</strong> no change to plan/apply
+            non-destructive semantics, <code>Safety</code> tagging,
+            <code>safeWorkspacePath</code>, idempotency of
+            <code>init</code>/scan, or secrets encryption/permissions.
+          </li>
+          <li>
+            <strong>Sync/schema changes:</strong> no manifest schema bump, no
+            new sync behavior.
+          </li>
+        </ol>
+      </section>
+
+      <section id="design-considerations">
+        <h2>Design Considerations</h2>
+        <p>
+          Follow the "rich TTY, honest pipe" pattern used by mature CLIs (e.g.
+          <code>gh</code>): the same command renders styled layout on a terminal
+          and clean plain text when piped. One adaptive palette lives in
+          <code>styles.go</code> and is derived from the
+          <strong>Liatrio brand palette</strong> (values verified from
+          liatrio.ai stylesheets and logo assets):
+        </p>
+        <ul>
+          <li>
+            <strong>Accent / headers / ok:</strong> Liatrio green, adaptive pair
+            <code>#89DF00</code> on dark terminal backgrounds /
+            <code>#24AE1D</code> on light backgrounds (the two core greens from
+            the Liatrio logo mark).
+          </li>
+          <li>
+            <strong>fail:</strong> <code>#EF4343</code> (Liatrio's
+            <code>--destructive</code> design token).
+          </li>
+          <li>
+            <strong>warn:</strong> Liatrio defines no warning token; use a
+            complementary amber (<code>#D97706</code> light /
+            <code>#FBBF24</code> dark), tunable at review.
+          </li>
+          <li>
+            <strong>info / muted:</strong> Liatrio neutral slates
+            (<code>#24292E</code> foreground on light, muted grays from the
+            <code>#1A1F23</code> dark-theme family); the brand's yellow-green
+            <code>#C6F135</code> and purple <code>#C068F9</code> accents are
+            reserved for occasional highlights (e.g. table headers or badges),
+            not severity.
+          </li>
+        </ul>
+        <p>
+          Colors must be defined as light/dark adaptive pairs (lipgloss v2
+          explicit background detection) so they read on both terminal themes;
+          all commands must look coherent side by side (same header treatment,
+          same table borders, same badge shapes). Doctor's badges replace
+          today's <code>[OK]/[WARN]/[FAIL]/[INFO]</code> prefixes visually but
+          keep the same four severities. The styled <code>gh pr status</code> /
+          <code>gh repo view</code> look is the reference aesthetic, rendered in
+          Liatrio brand colors.
+        </p>
+      </section>
+
+      <section id="repository-standards">
+        <h2>Repository Standards</h2>
+        <p>Implementation must follow the repository's established patterns:</p>
+        <ul>
+          <li>
+            Single package <code>internal/devspace</code> with a thin
+            <code>cmd/devspace/main.go</code> entrypoint; command wiring stays
+            in <code>commands.go</code>, presentation helpers in
+            <code>output.go</code>.
+          </li>
+          <li>
+            Output helpers take an <code>io.Writer</code> and a domain value and
+            are unit-tested with buffers (see <code>commands_test.go</code>).
+          </li>
+          <li>
+            Tests isolate state with
+            <code>t.Setenv("DEVSPACE_HOME", t.TempDir())</code> and temp
+            workspaces; never touch the real <code>~/.devspace</code>.
+          </li>
+          <li>
+            <code>make verify</code> (test + vet + lint + build) is the local
+            gate; CI runs <code>go test</code>, <code>go vet</code>, and build
+            on every PR; <code>make vulncheck</code> runs in CI and will scan
+            the new dependencies.
+          </li>
+          <li>
+            Conventional-commit style messages (<code>feat:</code>,
+            <code>docs:</code>, <code>chore:</code>) as in recent history.
+          </li>
+        </ul>
+      </section>
+
+      <section id="technical-considerations">
+        <h2>Technical Considerations</h2>
+        <p>
+          Grounded in latest-standards research (verified against charmbracelet
+          repos, July 2026):
+        </p>
+        <ul>
+          <li>
+            <strong>Versions:</strong> the Charm stack is GA on v2 — bubbletea
+            v2.0.8, lipgloss v2.0.5, bubbles v2.1.0, log v2.0.0, huh v2.0.3,
+            fang v2.0.1 — and interoperates cleanly (Go 1.25 directives; the
+            module's Go 1.26 toolchain is fine). Use
+            <code>charm.land/.../v2</code> paths everywhere; v1 and v2 types do
+            not interoperate.
+          </li>
+          <li>
+            <strong>Color detection:</strong> lipgloss v2 removed the implicit
+            global renderer; capability detection is explicit via
+            <code>github.com/charmbracelet/colorprofile</code>
+            (<code>Detect</code>, <code>NewWriter</code>). This is what makes
+            the plain-when-piped requirement natural: test buffers are non-TTY,
+            so helpers render plain text in tests by default.
+          </li>
+          <li>
+            <strong>fang:</strong> depends only on lipgloss + cobra (no TUI
+            stack), so adoption is one wrapper call at the entrypoint and
+            trivially reversible. Its README still says "experimental" despite
+            the stable v2 tag — accepted risk with a documented backout (revert
+            <code>main.go</code> to plain <code>Execute</code>).
+          </li>
+          <li>
+            <strong>charm log:</strong> exposes an <code>slog.Handler</code>;
+            long-running surfaces log through it to stderr, human-styled on TTY
+            and logfmt otherwise.
+          </li>
+          <li>
+            <strong>huh:</strong> the recommended prompt layer; forms run
+            standalone (no bubbletea program needed) and support a non-TTY error
+            path we catch to trigger the bufio fallback.
+          </li>
+          <li>
+            <strong>JSON:</strong> reuse <code>writePrettyJSON</code> and
+            existing domain structs where their JSON tags are already stable
+            (<code>Plan</code>, <code>SetupPlan</code>); define small dedicated
+            report structs for
+            <code>status</code>/<code>doctor</code>/<code>diff</code>/mount
+            preview rather than serializing internal state directly.
+          </li>
+        </ul>
+      </section>
+
+      <section id="security-considerations">
+        <h2>Security Considerations</h2>
+        <ul>
+          <li>
+            Secret values are never styled, logged, or echoed:
+            <code>env list</code> keeps masking, <code>secretInput</code> keeps
+            <code>x/term.ReadPassword</code>, and charm-log calls must never
+            receive env values as fields.
+          </li>
+          <li>
+            Generated <code>.env</code> files remain <code>0600</code>; no
+            change to age encryption or secrets storage.
+          </li>
+          <li>
+            Proof artifacts (transcripts, screenshots, JSON samples) must be
+            produced in throwaway temp workspaces and contain no real tokens,
+            remotes, or credentials.
+          </li>
+          <li>
+            New third-party dependencies are pinned in <code>go.mod</code>/<code
+              >go.sum</code
+            >
+            and covered by CI's <code>govulncheck</code>; fang adds no network
+            or exec behavior.
+          </li>
+          <li>
+            The confirmation redesign must not weaken the safety gate: default
+            remains "No", batch apply keeps its typed phrase, and
+            <code>--yes</code> remains the only bypass.
+          </li>
+        </ul>
+      </section>
+
+      <section id="success-metrics">
+        <h2>Success Metrics</h2>
+        <ol>
+          <li>
+            <strong>Theme coverage:</strong> 100% of user-facing human-readable
+            output flows through <code>output.go</code>/<code>styles.go</code>
+            helpers; no raw user-facing <code>fmt.Fprintf</code> remains in
+            <code>commands.go</code>, <code>mount.go</code>,
+            <code>watch.go</code>, <code>doctor.go</code>,
+            <code>secrets.go</code>.
+          </li>
+          <li>
+            <strong>Plain-output compliance:</strong> automated test proves
+            piped and <code>NO_COLOR</code> output of every restyled command
+            contains zero <code>0x1b</code> escape bytes.
+          </li>
+          <li>
+            <strong>Script interface:</strong> <code>status --json</code>,
+            <code>doctor --json</code>, <code>workspace diff --json</code>, and
+            <code>mount --preview --json</code> parse with a standard JSON
+            parser in CI.
+          </li>
+          <li>
+            <strong>Verification gate:</strong> <code>make verify</code> green
+            with all output assertions deliberately migrated (coverage
+            equivalent to the current ~68 assertions).
+          </li>
+          <li>
+            <strong>Demo readiness:</strong> styled screenshots, transcripts,
+            and vhs-recorded GIFs (with their <code>.tape</code> sources)
+            captured under
+            <code>docs/specs/04-spec-charm-terminal-output/04-proofs/</code>
+            suitable for the capstone demo.
+          </li>
+        </ol>
+      </section>
+
+      <section id="open-questions">
+        <h2>Open Questions</h2>
+        <p>
+          No open questions at this time. (Four earlier questions were resolved
+          during spec review: the palette adapts Liatrio brand colors, the
+          <code>version</code> subcommand stays as an alias, vhs GIFs are
+          required proof artifacts, and <code>mount --preview</code> gains
+          <code>--json</code>.)
+        </p>
+      </section>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>04-tasks-charm-terminal-output</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff; --fg: #1a1a2e; --muted: #6b7280; --border: #e5e7eb;
+    --card: #f9fafb; --accent: #4f46e5; --pass: #059669; --fail: #dc2626; --warn: #d97706;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1117; --fg:#e6e6ef; --muted:#9ca3af; --border:#262a35; --card:#161922; --accent:#818cf8; --pass:#34d399; --fail:#f87171; --warn:#fbbf24; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height:1.6; }
+  .doc { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  header.doc-header { border-bottom: 1px solid var(--border); padding-bottom:1rem; margin-bottom:2rem; }
+  h1 { margin: .25rem 0; font-size:1.6rem; }
+  h2 { margin-top:2rem; border-bottom:1px solid var(--border); padding-bottom:.35rem; }
+  .meta { color:var(--muted); font-size:.9rem; }
+  .badge { display:inline-block; font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:.25rem .6rem; border-radius:999px; }
+  .badge-type { background:var(--accent); color:#fff; }
+  .status-pass, .status-done, .status-verified { background:var(--pass); color:#fff; }
+  .status-fail, .status-failed { background:var(--fail); color:#fff; }
+  .status-flag, .status-pending, .status-unknown, .status-in-progress { background:var(--warn); color:#111; }
+  table { width:100%; border-collapse: collapse; margin: 1rem 0; }
+  th, td { border:1px solid var(--border); padding:.5rem .75rem; text-align:left; vertical-align:top; }
+  th { background:var(--card); }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem 1.25rem; margin:1rem 0; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem; overflow-x:auto; }
+  .task-list { list-style:none; padding-left:0; }
+  .task { padding:.35rem 0; }
+  .task[data-status="done"] .task-label::before { content: "\2611 "; }
+  .task[data-status="pending"] .task-label::before { content: "\2610 "; }
+  .task[data-status="in-progress"] .task-label::before { content: "\25D1 "; }
+  figure { margin: 1rem 0; }
+  figure img { max-width:100%; border:1px solid var(--border); border-radius:.5rem; }
+  figcaption { color:var(--muted); font-size:.85rem; margin-top:.35rem; }
+  .parent-task { border:1px solid var(--border); border-radius:.5rem; padding:1rem 1.25rem; margin:1.25rem 0; }
+  .parent-task > h3 { margin-top:0; }
+  .proof-artifacts ul { margin:.5rem 0; }
+</style>
+</head>
+<body>
+<div class="doc">
+  <header class="doc-header">
+    <span class="badge badge-type">TASKS</span>
+    <h1>04-tasks-charm-terminal-output</h1>
+    <p class="meta">Sequence 04 · Feature: charm-terminal-output · Phase 2 · Sub-tasks generated</p>
+  </header>
+
+  <section id="relevant-files">
+    <h2>Relevant Files</h2>
+    <table>
+      <thead>
+        <tr><th>File</th><th>Why It Is Relevant</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>go.mod</code> / <code>go.sum</code></td><td>Gains the <code>charm.land/.../v2</code> dependencies and <code>github.com/charmbracelet/colorprofile</code>.</td></tr>
+        <tr><td><code>internal/devspace/styles.go</code> (new)</td><td>Shared Liatrio-brand lipgloss theme and colorprofile-aware writer plumbing.</td></tr>
+        <tr><td><code>internal/devspace/styles_test.go</code> (new)</td><td>Unit tests for styled-vs-plain rendering, NO_COLOR, and <code>--no-color</code> behavior.</td></tr>
+        <tr><td><code>internal/devspace/output.go</code></td><td>All presentation helpers are rebuilt here on the shared theme; new report structs for <code>--json</code>.</td></tr>
+        <tr><td><code>internal/devspace/commands.go</code></td><td>Root <code>--no-color</code> flag, <code>--json</code> flags, hosted-serve startup logging, and migration of its 37 raw print sites onto helpers.</td></tr>
+        <tr><td><code>cmd/devspace/main.go</code></td><td>Entrypoint wrapped with <code>fang.Execute</code>.</td></tr>
+        <tr><td><code>internal/devspace/doctor.go</code></td><td>Doctor report restyled with severity badges; JSON report added.</td></tr>
+        <tr><td><code>internal/devspace/mount.go</code></td><td><code>PrintMountPreview</code> restyled as a table + <code>--json</code>; inline error prints moved to charm log.</td></tr>
+        <tr><td><code>internal/devspace/watch.go</code></td><td>Startup/refresh lines restyled; diagnostics via charm log.</td></tr>
+        <tr><td><code>internal/devspace/secrets.go</code></td><td>Single inline error print migrated; <code>secretInput</code> explicitly untouched.</td></tr>
+        <tr><td><code>internal/devspace/setup.go</code></td><td>Setup confirmation flow calls the new huh-based prompts.</td></tr>
+        <tr><td><code>internal/devspace/jsonio.go</code></td><td>Existing <code>writePrettyJSON</code> reused for all new <code>--json</code> output.</td></tr>
+        <tr><td><code>internal/devspace/commands_test.go</code></td><td>Output assertions migrated (12 assertions); new flag tests.</td></tr>
+        <tr><td><code>internal/devspace/doctor_test.go</code></td><td>Severity/summary assertions migrated (16 assertions).</td></tr>
+        <tr><td><code>internal/devspace/devspace_test.go</code></td><td>Help-text and command-surface assertions updated for fang (17 assertions).</td></tr>
+        <tr><td><code>internal/devspace/workspace_sync_test.go</code></td><td>Manifest diff / sync status assertions migrated (14 assertions).</td></tr>
+        <tr><td><code>internal/devspace/mount_test.go</code> / <code>mount_fuse_test.go</code></td><td>Mount preview and hydrate-error assertions migrated (9 assertions).</td></tr>
+        <tr><td><code>README.md</code></td><td>"Supported Commands" reference updated for <code>--json</code> and <code>--no-color</code>.</td></tr>
+        <tr><td><code>docs/specs/04-spec-charm-terminal-output/04-proofs/</code></td><td>Destination for transcripts, screenshots, vhs <code>.tape</code> sources and GIFs.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Notes</h3>
+    <ul>
+      <li>Tests live beside implementation in <code>internal/devspace/</code> as <code>*_test.go</code>, isolate state with <code>t.Setenv("DEVSPACE_HOME", t.TempDir())</code>, and are named for the behavior validated (e.g. <code>TestDoctorReportsMissingManifest</code>).</li>
+      <li>Run <code>make verify</code> (test + vet + lint + vulncheck + build) before every commit; golangci-lint is pinned to v2.12.2 with gosec enabled.</li>
+      <li><code>.golangci.yml</code> excludes <code>fmt.Fprint*</code> from errcheck — new output helpers may keep that idiom.</li>
+      <li>Import discipline: <code>charm.land/.../v2</code> only; never mix with v1 <code>github.com/charmbracelet/...</code> paths (colorprofile, <code>x/exp/teatest/v2</code> (test-only), and x/term are exceptions — they live outside the v2 vanity namespace).</li>
+      <li>Conventional-commit prefixes (<code>feat:</code>, <code>fix:</code>, <code>docs:</code>, <code>refactor:</code>); PRs must include terminal output/screenshots since CLI output changes (AGENTS.md).</li>
+      <li>Piped/non-TTY output is the default in tests (buffers are non-TTY), so plain-text assertions require no TTY simulation; styled-path tests force a profile explicitly.</li>
+    </ul>
+  </section>
+
+  <section id="tasks">
+    <h2>Tasks</h2>
+    <p>Five parent tasks, each a demoable slice. Order matters: 1.0 establishes the theme/detection layer everything else styles with; 2.0–5.0 each depend on 1.0 but are otherwise independently demoable. Spec traceability: 1.0–2.0 cover Unit 1, 3.0–4.0 cover Unit 2, 5.0 covers Unit 3.</p>
+
+    <section class="parent-task" data-task-id="1.0" data-status="pending">
+      <h3>1.0 Charm foundation: dependencies, Liatrio theme, and color-profile plumbing</h3>
+      <p>Add the <code>charm.land/.../v2</code> dependencies, create <code>internal/devspace/styles.go</code> with the Liatrio-brand adaptive palette (ok/accent <code>#89DF00</code>/<code>#24AE1D</code>, fail <code>#EF4343</code>, amber warn, neutral slates), and wire one-per-invocation <code>colorprofile</code> detection plus a persistent root <code>--no-color</code> flag so every styled write auto-strips ANSI when piped, when <code>NO_COLOR</code>/<code>CLICOLOR</code> demand it, or when the flag is set.</p>
+      <div class="proof-artifacts">
+        <h4>1.0 Proof Artifact(s)</h4>
+        <ul>
+          <li>Diff: <code>go.mod</code>/<code>go.sum</code> showing only <code>charm.land/.../v2</code> paths (plus <code>github.com/charmbracelet/colorprofile</code>) demonstrates v2-only import discipline.</li>
+          <li>CLI: <code>go run ./cmd/devspace status | cat</code> and <code>NO_COLOR=1 go run ./cmd/devspace status</code> transcripts with zero <code>0x1b</code> bytes demonstrates plain-output compliance.</li>
+          <li>Test: <code>go test ./internal/devspace -run TestStyles</code> passing (styled-vs-plain rendering against forced-TTY and buffer writers) demonstrates the detection layer works.</li>
+        </ul>
+      </div>
+      <div class="subtasks">
+        <h4>1.0 Tasks</h4>
+        <ul class="task-list">
+          <li class="task" data-task-id="1.1" data-status="pending"><span class="task-label">1.1 Add dependencies with <code>go get charm.land/lipgloss/v2 charm.land/log/v2 charm.land/fang/v2 charm.land/huh/v2 charm.land/bubbles/v2 charm.land/bubbletea/v2 github.com/charmbracelet/colorprofile</code>, run <code>go mod tidy</code>, and confirm <code>go.mod</code> contains no direct v1 <code>github.com/charmbracelet/{lipgloss,bubbletea,bubbles,log,huh,fang}</code> requirements.</span></li>
+          <li class="task" data-task-id="1.2" data-status="pending"><span class="task-label">1.2 Create <code>internal/devspace/styles.go</code> defining a <code>theme</code> struct with named lipgloss styles — <code>OK</code>, <code>Warn</code>, <code>Fail</code>, <code>Info</code>, <code>Header</code>, <code>Emph</code>, <code>Muted</code>, table border — using adaptive light/dark pairs: ok/accent <code>#24AE1D</code> (light bg) / <code>#89DF00</code> (dark bg), fail <code>#EF4343</code>, warn <code>#D97706</code>/<code>#FBBF24</code>, info/muted from the Liatrio neutral slates (<code>#24292E</code> family), with <code>#C6F135</code> and <code>#C068F9</code> as named highlight constants.</span></li>
+          <li class="task" data-task-id="1.3" data-status="pending"><span class="task-label">1.3 Add a profile resolver in <code>styles.go</code>: detect the color profile once per invocation via <code>colorprofile.Detect(w, os.Environ())</code> and expose <code>newStyledWriter(w io.Writer) io.Writer</code> (wrapping <code>colorprofile.NewWriter</code>) so ANSI is downsampled or stripped automatically for non-TTY writers.</span></li>
+          <li class="task" data-task-id="1.4" data-status="pending"><span class="task-label">1.4 Wire the styled writer into command construction in <code>commands.go</code> so RunE handlers pass it to output helpers; helpers keep plain <code>io.Writer</code> parameters.</span></li>
+          <li class="task" data-task-id="1.5" data-status="pending"><span class="task-label">1.5 Add a persistent root flag <code>--no-color</code> in <code>NewRootCommand</code> that forces the no-color profile regardless of TTY; document that <code>NO_COLOR</code>, <code>CLICOLOR</code>, and <code>CLICOLOR_FORCE</code> are honored via colorprofile's environment handling.</span></li>
+          <li class="task" data-task-id="1.6" data-status="pending"><span class="task-label">1.6 Create <code>internal/devspace/styles_test.go</code>: themed output contains ANSI when the profile is forced to TrueColor; zero <code>0x1b</code> bytes against a plain buffer; zero <code>0x1b</code> bytes with <code>t.Setenv("NO_COLOR", "1")</code>; and <code>--no-color</code> forces plain output on a forced-color profile.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="parent-task" data-task-id="2.0" data-status="pending">
+      <h3>2.0 Root polish: fang wrapper and charm-log diagnostics</h3>
+      <p>Wrap the root command with <code>fang.Execute</code> in <code>cmd/devspace/main.go</code> (styled help/usage/errors, automatic <code>--version</code>, manpage + completion subcommands) while keeping the existing <code>version</code> subcommand as an alias, and route <code>watch</code>/<code>hosted serve</code>/<code>mount</code> diagnostics through <code>charm.land/log/v2</code> to stderr (styled on TTY, logfmt when piped).</p>
+      <div class="proof-artifacts">
+        <h4>2.0 Proof Artifact(s)</h4>
+        <ul>
+          <li>Screenshot: styled <code>devspace --help</code> and a styled unknown-command error demonstrates fang integration.</li>
+          <li>CLI: <code>devspace version</code> and <code>devspace --version</code> transcripts reporting the same version string demonstrates the alias requirement.</li>
+          <li>CLI: <code>devspace watch</code> startup lines on TTY vs <code>2&gt;&amp;1 | cat</code> (logfmt) demonstrates leveled charm-log diagnostics.</li>
+          <li>Test: updated help-text assertions in <code>devspace_test.go</code> passing demonstrates command surface is intact under fang; forced-style (<code>CLICOLOR_FORCE=1</code>) help test passing demonstrates the styled rendering path is automatically covered.</li>
+        </ul>
+      </div>
+      <div class="subtasks">
+        <h4>2.0 Tasks</h4>
+        <ul class="task-list">
+          <li class="task" data-task-id="2.1" data-status="pending"><span class="task-label">2.1 Replace plain <code>Execute</code> in <code>cmd/devspace/main.go</code> with <code>fang.Execute(context.Background(), NewRootCommand(...))</code>, preserving exit codes; verify manpage and completion subcommands appear in help.</span></li>
+          <li class="task" data-task-id="2.2" data-status="pending"><span class="task-label">2.2 Keep the existing <code>version</code> subcommand as an alias emitting the same version string fang's <code>--version</code> reports (single source of truth for the version value).</span></li>
+          <li class="task" data-task-id="2.3" data-status="pending"><span class="task-label">2.3 Create a shared <code>charm.land/log/v2</code> logger constructor (stderr-bound, styled on TTY, logfmt otherwise) and route diagnostics through it in <code>watch.go</code>, <code>mount.go</code>, and the hosted-serve startup path in <code>commands.go</code>; never pass secret values as log fields.</span></li>
+          <li class="task" data-task-id="2.4" data-status="pending"><span class="task-label">2.4 Update help-text/command-surface assertions in <code>devspace_test.go</code> for fang's (non-TTY, plain) rendering.</span></li>
+          <li class="task" data-task-id="2.5" data-status="pending"><span class="task-label">2.5 Add a test asserting <code>version</code> subcommand output equals the configured version string (alias contract).</span></li>
+          <li class="task" data-task-id="2.6" data-status="pending"><span class="task-label">2.6 Add a test capturing watch startup diagnostics into a buffer and asserting logfmt-formatted, leveled lines in the non-TTY path (extend <code>watch_test.go</code>).</span></li>
+          <li class="task" data-task-id="2.7" data-status="pending"><span class="task-label">2.7 Add a forced-style test: run root help with <code>t.Setenv("CLICOLOR_FORCE", "1")</code> and assert ANSI styling bytes are present in the output, exercising fang's styled rendering path without a real TTY (audit remediation for the TTY-rendering flag).</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="parent-task" data-task-id="3.0" data-status="pending">
+      <h3>3.0 Redesigned command output on the shared theme</h3>
+      <p>Restyle <code>status</code>, <code>doctor</code>, <code>plan</code>, <code>apply</code>, <code>workspace diff</code>, <code>env list</code>, <code>env recipient list</code>, <code>setup plan</code>, and <code>mount --preview</code> with section headers, aligned key/value groups, severity badges, and bordered tables; migrate the raw user-facing <code>fmt.Fprintf</code> call sites in <code>commands.go</code>, <code>mount.go</code>, <code>watch.go</code>, <code>doctor.go</code>, <code>secrets.go</code> onto <code>io.Writer</code>-based helpers in <code>output.go</code>; deliberately update every affected output assertion keeping coverage equivalent (every previously asserted fact — counts, names, severities, reasons — still asserted).</p>
+      <div class="proof-artifacts">
+        <h4>3.0 Proof Artifact(s)</h4>
+        <ul>
+          <li>Screenshot: styled <code>status</code>, <code>doctor</code>, <code>plan</code>, and <code>workspace diff</code> side by side on a real terminal demonstrates the redesigned layouts.</li>
+          <li>vhs GIF: recorded tour of restyled <code>status</code>/<code>doctor</code>/<code>plan</code> (tape in <code>04-proofs/</code>) demonstrates the new look in motion.</li>
+          <li>CLI: <code>devspace status | cat</code> transcript with zero ANSI bytes demonstrates piped output stays plain.</li>
+          <li>Test: <code>make verify</code> passing with the migrated assertions demonstrates coverage-equivalent test updates.</li>
+        </ul>
+      </div>
+      <div class="subtasks">
+        <h4>3.0 Tasks</h4>
+        <ul class="task-list">
+          <li class="task" data-task-id="3.1" data-status="pending"><span class="task-label">3.1 Rebuild <code>printStatus</code> in <code>output.go</code>: themed header (machine/workspace), aligned key/value block for project counts with severity coloring (dirty/missing-env/outdated), and per-project detail view.</span></li>
+          <li class="task" data-task-id="3.2" data-status="pending"><span class="task-label">3.2 Rebuild the doctor report (<code>doctor.go</code>): OK/WARN/FAIL/INFO badges from the theme per check, keeping every existing check individually identifiable and the summary line stating the hard-failure count.</span></li>
+          <li class="task" data-task-id="3.3" data-status="pending"><span class="task-label">3.3 Rebuild <code>printPlan</code>/<code>printApply</code>: styled SAFE/SKIPPED/WARNINGS sections with action counts, colored action kinds, skip reasons, and the non-destructive footer.</span></li>
+          <li class="task" data-task-id="3.4" data-status="pending"><span class="task-label">3.4 Rebuild <code>printManifestDiff</code>: added/removed/changed groups with +/−/~ markers colored ok/fail/warn and per-field change lines.</span></li>
+          <li class="task" data-task-id="3.5" data-status="pending"><span class="task-label">3.5 Rebuild the homogeneous-row surfaces as bordered lipgloss tables: <code>env list</code> (values stay masked), <code>env recipient list</code>, <code>setup plan</code>, and <code>PrintMountPreview</code> (<code>mount.go</code>).</span></li>
+          <li class="task" data-task-id="3.6" data-status="pending"><span class="task-label">3.6 Migrate the remaining user-facing <code>fmt.Fprintf</code> sites in <code>commands.go</code>, <code>watch.go</code>, and <code>secrets.go</code> onto named <code>output.go</code> helpers; finish with a grep audit showing no user-facing raw prints remain outside <code>output.go</code>/<code>styles.go</code>.</span></li>
+          <li class="task" data-task-id="3.7" data-status="pending"><span class="task-label">3.7 Migrate output assertions coverage-equivalently across <code>commands_test.go</code>, <code>doctor_test.go</code>, <code>devspace_test.go</code>, <code>workspace_sync_test.go</code>, <code>mount_test.go</code>, <code>mount_fuse_test.go</code>: for each of the ~68 existing assertions, re-assert the same fact against the new wording (or the task 4.0 JSON output where that is the better contract).</span></li>
+          <li class="task" data-task-id="3.8" data-status="pending"><span class="task-label">3.8 Capture proofs into <code>04-proofs/</code>: terminal screenshot, piped-transcript files, and the vhs tape + GIF for the status/doctor/plan tour; run <code>make verify</code>.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="parent-task" data-task-id="4.0" data-status="pending">
+      <h3>4.0 Expanded <code>--json</code> scripting interface</h3>
+      <p>Add <code>--json</code> to <code>status</code>, <code>doctor</code>, <code>workspace diff</code>, and <code>mount --preview</code> via small dedicated report structs emitted through the existing <code>writePrettyJSON</code> (<code>jsonio.go</code>), with stable documented field names and no ANSI content; update the README command reference for the new flags (and <code>--no-color</code>).</p>
+      <div class="proof-artifacts">
+        <h4>4.0 Proof Artifact(s)</h4>
+        <ul>
+          <li>CLI: <code>devspace status --json | python3 -m json.tool</code> (same for <code>doctor</code>, <code>workspace diff</code>, <code>mount --preview</code>) demonstrates the machine-readable interface parses.</li>
+          <li>Test: unit tests asserting JSON field names and values for each new report struct demonstrates schema stability.</li>
+          <li>Diff: README "Supported Commands" section updated with the new flags demonstrates documentation stays accurate.</li>
+        </ul>
+      </div>
+      <div class="subtasks">
+        <h4>4.0 Tasks</h4>
+        <ul class="task-list">
+          <li class="task" data-task-id="4.1" data-status="pending"><span class="task-label">4.1 Define dedicated report structs with stable lowercase snake/camel JSON tags (match existing <code>Plan</code>/<code>SetupPlan</code> tag style): <code>statusReport</code>, <code>doctorReport</code> (checks + severities + hard-failure count), <code>diffReport</code>, <code>mountPreviewReport</code>.</span></li>
+          <li class="task" data-task-id="4.2" data-status="pending"><span class="task-label">4.2 Add a <code>--json</code> flag to <code>status</code>, <code>doctor</code>, <code>workspace diff</code>, and <code>mount --preview</code> in <code>commands.go</code>; when set, emit via <code>writePrettyJSON</code> and bypass all styling.</span></li>
+          <li class="task" data-task-id="4.3" data-status="pending"><span class="task-label">4.3 Add unit tests per report asserting exact field names and representative values (schema-stability contract), following the existing <code>plan --json</code> test pattern.</span></li>
+          <li class="task" data-task-id="4.4" data-status="pending"><span class="task-label">4.4 Update README "Supported Commands" for the four new <code>--json</code> flags and the root <code>--no-color</code> flag.</span></li>
+          <li class="task" data-task-id="4.5" data-status="pending"><span class="task-label">4.5 Capture CLI proofs in a temp workspace: each <code>--json</code> output piped through <code>python3 -m json.tool</code> into <code>04-proofs/</code>.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="parent-task" data-task-id="5.0" data-status="pending">
+      <h3>5.0 Interactive prompts and progress</h3>
+      <p>Replace <code>confirmSetup</code> with <code>huh/v2</code> forms preserving safety semantics (<code>setup run</code>: Confirm defaulting to No; <code>setup apply</code>: typed-phrase Input validation), keep the <code>--yes</code> bypass and byte-for-byte <code>bufio</code> fallback when stdin/stdout is not a TTY, add a <code>bubbles/v2</code> spinner for <code>project hydrate</code> and <code>scan</code> on TTY (plain start/finish lines otherwise), and leave <code>secretInput</code>'s <code>x/term.ReadPassword</code> path untouched.</p>
+      <div class="proof-artifacts">
+        <h4>5.0 Proof Artifact(s)</h4>
+        <ul>
+          <li>vhs GIF: <code>setup run</code> huh confirmation and the <code>hydrate</code> spinner (tapes in <code>04-proofs/</code>) demonstrates the interactive flows.</li>
+          <li>CLI: <code>echo "run all" | devspace setup apply</code> transcript in a temp workspace demonstrates the non-TTY fallback keeps scripted flows working.</li>
+          <li>Test: unit tests for confirm fallback and spinner-off paths against buffer writers demonstrates non-TTY behavior; secret-entry tests unchanged demonstrates <code>secretInput</code> is untouched.</li>
+          <li>Test: huh scripted-input and teatest-driven spinner tests passing demonstrates the interactive TTY paths are automatically covered.</li>
+        </ul>
+      </div>
+      <div class="subtasks">
+        <h4>5.0 Tasks</h4>
+        <ul class="task-list">
+          <li class="task" data-task-id="5.1" data-status="pending"><span class="task-label">5.1 Implement a huh Confirm prompt (default No) for <code>setup run</code>, used only when stdin and stdout are both TTYs.</span></li>
+          <li class="task" data-task-id="5.2" data-status="pending"><span class="task-label">5.2 Implement a huh Input prompt for <code>setup apply</code> whose validation requires the exact current confirmation phrase, preserving the typed-phrase safety gate.</span></li>
+          <li class="task" data-task-id="5.3" data-status="pending"><span class="task-label">5.3 Preserve <code>--yes</code> as the only bypass and keep the existing <code>confirmSetup</code> bufio path as the non-TTY fallback with byte-for-byte identical prompt text and matching rules.</span></li>
+          <li class="task" data-task-id="5.4" data-status="pending"><span class="task-label">5.4 Add a spinner helper (<code>bubbles/v2</code> spinner in a minimal bubbletea program) shown during <code>project hydrate</code> clone and <code>scan</code> on TTY; non-TTY path prints plain start/finish lines through <code>output.go</code>.</span></li>
+          <li class="task" data-task-id="5.5" data-status="pending"><span class="task-label">5.5 Tests: piped-stdin fallback for <code>setup run</code>/<code>setup apply</code> (including wrong-phrase rejection), typed-phrase validation unit test, spinner-off plain start/finish lines against buffers, and existing secret-entry tests passing unmodified.</span></li>
+          <li class="task" data-task-id="5.6" data-status="pending"><span class="task-label">5.6 Record vhs tapes for the <code>setup run</code> confirmation and <code>hydrate</code> spinner; save tapes + GIFs under <code>04-proofs/</code>.</span></li>
+          <li class="task" data-task-id="5.7" data-status="pending"><span class="task-label">5.7 Add automated TTY-path tests for the interactive surfaces (audit remediation for the TTY-rendering flag): drive the <code>setup run</code> huh Confirm with scripted input via huh's <code>WithInput</code>/<code>WithOutput</code> options, and drive the hydrate/scan spinner program with <code>github.com/charmbracelet/x/exp/teatest/v2</code> (test-only dependency), asserting spinner frames render and the completion line appears.</span></li>
+        </ul>
+      </div>
+    </section>
+  </section>
+</div>
+</body>
+</html>
