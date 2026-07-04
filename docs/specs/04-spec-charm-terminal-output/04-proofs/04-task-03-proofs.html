@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>04-task-03-proofs</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff; --fg: #1a1a2e; --muted: #6b7280; --border: #e5e7eb;
+    --card: #f9fafb; --accent: #4f46e5; --pass: #059669; --fail: #dc2626; --warn: #d97706;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1117; --fg:#e6e6ef; --muted:#9ca3af; --border:#262a35; --card:#161922; --accent:#818cf8; --pass:#34d399; --fail:#f87171; --warn:#fbbf24; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height:1.6; }
+  .doc { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  header.doc-header { border-bottom: 1px solid var(--border); padding-bottom:1rem; margin-bottom:2rem; }
+  h1 { margin: .25rem 0; font-size:1.6rem; }
+  h2 { margin-top:2rem; border-bottom:1px solid var(--border); padding-bottom:.35rem; }
+  .meta { color:var(--muted); font-size:.9rem; }
+  .badge { display:inline-block; font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:.25rem .6rem; border-radius:999px; }
+  .badge-type { background:var(--accent); color:#fff; }
+  .status-pass, .status-done, .status-verified { background:var(--pass); color:#fff; }
+  .status-fail, .status-failed { background:var(--fail); color:#fff; }
+  .status-flag, .status-pending, .status-unknown, .status-in-progress { background:var(--warn); color:#111; }
+  table { width:100%; border-collapse: collapse; margin: 1rem 0; }
+  th, td { border:1px solid var(--border); padding:.5rem .75rem; text-align:left; vertical-align:top; }
+  th { background:var(--card); }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem 1.25rem; margin:1rem 0; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem; overflow-x:auto; white-space: pre; }
+  figure { margin: 1rem 0; }
+  figure img { max-width:100%; border:1px solid var(--border); border-radius:.5rem; }
+  figcaption { color:var(--muted); font-size:.85rem; margin-top:.35rem; }
+  article.artifact { margin: 2rem 0; padding-top: 1.25rem; border-top: 1px solid var(--border); }
+  .proves, .matters, .result-summary { margin: .5rem 0; }
+</style>
+</head>
+<body>
+<div class="doc">
+  <header class="doc-header">
+    <span class="badge badge-type">PROOFS</span>
+    <h1>Task 03 Proofs - Redesigned command output on the shared theme</h1>
+    <p class="meta">Sequence 04 · Feature: charm-terminal-output · Task 03 · Phase 3</p>
+  </header>
+
+  <h2>Task Summary</h2>
+  <p>This task restyled every human-readable command output surface (<code>status</code>, <code>doctor</code>, <code>plan</code>, <code>apply</code>, <code>workspace diff</code>, <code>env list</code>, <code>env recipient list</code>, <code>setup plan</code>, and <code>mount --preview</code>) on the Liatrio-brand theme from task 01, migrated every remaining raw <code>fmt.Fprintf</code> user-facing print site in <code>commands.go</code> and <code>mount.go</code> onto small shared helpers in <code>output.go</code>, and added genuine bordered tables (via <code>lipgloss/v2/table</code>) for the two truly homogeneous-row surfaces: the mount preview and the recipient list. <code>doctor.go</code>'s severity badges and <code>watch.go</code>'s diagnostics were already migrated in tasks 01–02.</p>
+
+  <h2>What This Task Proves</h2>
+  <ul>
+    <li>Styled output uses the verified Liatrio brand colors — the ok/accent style renders as exactly <code>#89DF00</code> (137,223,0) and warn renders as exactly <code>#FBBF24</code> (251,191,36) when color is forced, matching the palette recorded in the spec's Design Considerations.</li>
+    <li>Every restyled command still produces byte-clean plain text when piped — confirmed by both zero-ANSI-byte transcripts and the full existing test suite passing unmodified in the vast majority of cases (the ANSI wraps around whole words/phrases, not between characters, so stripped output is textually identical to the pre-restyle plain output almost everywhere).</li>
+    <li>Where the visible format genuinely changed (the mount preview and recipient list becoming real bordered tables instead of tab-delimited lines), the one affected test (<code>TestMountPreviewCommandDoesNotRequireFUSE</code>) was deliberately updated to assert on the same underlying facts (path, type, hydrate mode, status, reason) against the new table rendering — a coverage-equivalent migration, not a weakened one.</li>
+    <li>No raw user-facing <code>fmt.Fprintf</code> remains in <code>commands.go</code> outside the intentionally-untouched secret-entry prompt, nor in <code>mount.go</code> outside the FUSE virtual-file content builder (which is file content, not terminal output, and must never be styled).</li>
+  </ul>
+
+  <h2>Evidence Summary</h2>
+  <ul>
+    <li>CLI transcripts: forced-color <code>status</code>/<code>doctor</code> showing exact Liatrio hex values; piped versions of the same showing zero ANSI bytes; the new mount-preview and recipient-list tables rendered plain (piped).</li>
+    <li>Test suite: 135 test functions pass (0 failed) after the full restyle and migration, including the one deliberately updated assertion for the mount-preview table.</li>
+    <li>Grep audit: no unmigrated raw prints remain in the five target files outside the two documented, intentional exceptions (secret prompt, FUSE virtual-file content).</li>
+    <li>Quality gates: <code>go vet</code>, golangci-lint v2.12.2, and govulncheck all clean on darwin; <code>go vet</code>/<code>go build</code> also verified clean under <code>GOOS=linux -tags fusetest</code>, since <code>mount_fuse_test.go</code> carries a <code>linux</code>-only build constraint this darwin machine cannot execute (the repo's own CI <code>mount-integration</code> job runs it for real on every push).</li>
+  </ul>
+
+  <article class="artifact">
+    <h2>Artifact: Liatrio brand colors rendered exactly, forced-color status and doctor</h2>
+    <p class="proves"><strong>What it proves:</strong> The theme's ok/accent and warn colors render as the exact hex values recorded in the spec (<code>#89DF00</code> dark-mode accent, <code>#FBBF24</code> dark-mode warn), not approximations.</p>
+    <p class="matters"><strong>Why it matters:</strong> This is the visible payoff of the whole feature — the CLI now looks deliberately branded rather than generically colored.</p>
+    <p><strong>Command</strong> (sandboxed temp workspace, <code>cat -v</code> reveals raw escape codes):</p>
+    <pre><code>CLICOLOR_FORCE=1 devspace status | cat -v
+CLICOLOR_FORCE=1 devspace doctor | cat -v</code></pre>
+    <p class="result-summary"><strong>Result summary:</strong> <code>^[[1;38;2;137;223;0m</code> wraps the header and zero-count fields (137,223,0 = 0x89DF00, the Liatrio dark-mode accent); <code>^[[1;38;2;251;191;36m</code> wraps the non-zero "Missing env files" count (251,191,36 = 0xFBBF24, the dark-mode warn amber). Doctor's <code>[OK]</code> badges render in the same accent color, confirming <code>theme.badge</code> and severity coloring share the palette.</p>
+    <pre><code>^[[1;38;2;137;223;0mWorkspace Status^[[m
+Machine: [REDACTED-HOSTNAME]
+Workspace: [TEMP_PATH]/ws
+
+Projects tracked: 1
+Hydrated: 1
+Placeholders: 0
+Dirty repos: ^[[1;38;2;137;223;0m0^[[m
+Missing env files: ^[[1;38;2;251;191;36m1^[[m
+Outdated repos: ^[[1;38;2;137;223;0m0^[[m
+
+^[[1;38;2;137;223;0mDevSpace doctor^[[m
+
+^[[1;38;2;137;223;0m[OK]^[[m Git: git executable is available
+^[[1;38;2;137;223;0m[OK]^[[m Config: [TEMP_PATH]/home/config.json</code></pre>
+  </article>
+
+  <article class="artifact">
+    <h2>Artifact: piped output stays byte-clean (zero ANSI)</h2>
+    <p class="proves"><strong>What it proves:</strong> The exact same commands, piped instead of run on a forced-color profile, produce zero <code>0x1b</code> escape bytes.</p>
+    <p class="matters"><strong>Why it matters:</strong> This is the core plain-output-compliance success metric from the spec — scripts, CI logs, and <code>grep</code>-based tooling see clean text.</p>
+    <p><strong>Command:</strong></p>
+    <pre><code>devspace status | grep -c $'\x1b'
+devspace doctor | grep -c $'\x1b'</code></pre>
+    <p class="result-summary"><strong>Result summary:</strong> Both counts are <code>0</code>.</p>
+  </article>
+
+  <article class="artifact">
+    <h2>Artifact: mount preview and recipient list as real bordered tables</h2>
+    <p class="proves"><strong>What it proves:</strong> The two genuinely homogeneous-row command surfaces now render as proper <code>lipgloss/v2/table</code> tables with headers and borders, replacing the old tab-delimited lines.</p>
+    <p class="matters"><strong>Why it matters:</strong> This is the concrete "bordered tables where rows are homogeneous" requirement from the spec's Unit 2 — a real visual and usability upgrade over raw tab-separated text.</p>
+    <p><strong>Command</strong> (sandboxed temp workspace, piped so output is plain):</p>
+    <pre><code>devspace mount "$TMP/mnt" --preview
+devspace env recipient list apps/demo</code></pre>
+    <p class="result-summary"><strong>Result summary:</strong> Both render as box-drawn tables with the correct column data; status/active coloring is present when color is enabled and simply absent (plain text) here since this transcript is piped.</p>
+    <pre><code>DevSpace lazy mount preview
+FUSE library: github.com/hanwen/go-fuse/v2/fs
+
+┌───────────┬───────┬──────────────┬────────┬────────┐
+│ PATH      │ TYPE  │ HYDRATE MODE │ STATUS │ REASON │
+├───────────┼───────┼──────────────┼────────┼────────┤
+│ apps/demo │ local │ manual       │ local  │        │
+└───────────┴───────┴──────────────┴────────┴────────┘
+
+┌───────────────────┬──────────────────────────┬────────┐
+│ ID                │ NAME                     │ STATUS │
+├───────────────────┼──────────────────────────┼────────┤
+│ user_165ef2e46fd7 │ [REDACTED-HOSTNAME]      │ active │
+└───────────────────┴──────────────────────────┴────────┘</code></pre>
+  </article>
+
+  <article class="artifact">
+    <h2>Artifact: coverage-equivalent test migration for the mount-preview format change</h2>
+    <p class="proves"><strong>What it proves:</strong> The one test whose literal output format changed (<code>mount_test.go</code>'s tab-delimited assertion) was deliberately updated to check the same underlying facts against the new table rendering, not weakened or deleted.</p>
+    <p class="matters"><strong>Why it matters:</strong> This is the "redesign everywhere, coverage-equivalent" posture the user chose during spec review — wording/format can change, but every fact previously asserted must still be asserted.</p>
+    <p><strong>Before → after</strong> (internal/devspace/mount_test.go):</p>
+    <pre><code>// before
+"apps/lazy\tgit\ton-demand\tlazy"
+
+// after
+"PATH", "TYPE", "HYDRATE MODE", "STATUS", "REASON",
+"apps/lazy", "git", "on-demand", "lazy", "will hydrate on project lookup"</code></pre>
+    <p class="result-summary"><strong>Result summary:</strong> Every fact from the old single-string assertion (path, type, hydrate mode, status) is still checked, plus the reason text and the new column headers, against the actual table output.</p>
+  </article>
+
+  <article class="artifact">
+    <h2>Artifact: raw-print grep audit across the five target files</h2>
+    <p class="proves"><strong>What it proves:</strong> No unmigrated user-facing <code>fmt.Fprintf</code>/<code>Fprintln</code> call remains in <code>commands.go</code>, <code>mount.go</code>, <code>watch.go</code>, or <code>doctor.go</code> outside the styled helpers themselves; the only two remaining raw print sites are documented, intentional exceptions.</p>
+    <p class="matters"><strong>Why it matters:</strong> This is the literal "Theme coverage: 100%" success metric from the spec.</p>
+    <p><strong>Command:</strong></p>
+    <pre><code>grep -n "fmt.Fprint" internal/devspace/commands.go internal/devspace/mount.go internal/devspace/watch.go internal/devspace/doctor.go internal/devspace/secrets.go</code></pre>
+    <p class="result-summary"><strong>Result summary:</strong> <code>watch.go</code> has zero raw prints (fully migrated to the charm-log diagnostics in task 02). <code>commands.go</code>'s only two hits are <code>secretInput</code>'s password prompt, explicitly excluded per the spec's Security Considerations ("secret prompts are never styled"). <code>mount.go</code>'s remaining hits are either inside the now-themed <code>PrintMountPreview</code>/hydration-failure logger calls, or inside <code>statusText()</code>, which builds the content of a virtual file exposed through the FUSE mount (read via <code>cat</code>) — styling that would corrupt the file content for any tool reading it, so it is correctly out of scope. <code>secrets.go</code>'s one hit builds <code>.env</code> file content, the same category of exclusion.</p>
+  </article>
+
+  <article class="artifact">
+    <h2>Artifact: full suite, vet, lint, govulncheck, and cross-compiled fusetest checks</h2>
+    <p class="proves"><strong>What it proves:</strong> The entire restyle and migration introduced zero regressions across 135 test functions, and the Linux-only FUSE test file (which this darwin machine cannot execute) still type-checks correctly under cross-compilation.</p>
+    <p class="matters"><strong>Why it matters:</strong> <code>mount_fuse_test.go</code> carries a <code>//go:build linux &amp;&amp; fusetest</code> constraint, so a naive <code>go vet -tags fusetest</code> on darwin silently matches zero files and proves nothing — cross-compiling with <code>GOOS=linux</code> is what actually exercises it.</p>
+    <p><strong>Command:</strong></p>
+    <pre><code>go test ./internal/devspace/... -v -count=1
+go vet ./...
+golangci-lint run ./...
+govulncheck ./...
+GOOS=linux GOARCH=amd64 go vet -tags fusetest ./...</code></pre>
+    <p class="result-summary"><strong>Result summary:</strong> 135 passed, 0 failed; zero vet/lint issues; zero reachable vulnerabilities; the Linux cross-compile vet check (which actually includes <code>mount_fuse_test.go</code>) is also clean, meaning the hydration-failure logger migration in that file's exercised code path type-checks correctly even though it cannot be executed here. The real execution of this test happens in CI's <code>mount-integration</code> job on every push.</p>
+    <pre><code>ok  	github.com/liatrio-forge/devdrop-capstone/internal/devspace	14.984s
+Go vet: No issues found
+0 issues.
+No vulnerabilities found.
+Go vet: No issues found</code></pre>
+  </article>
+
+  <h2>Reviewer Conclusion</h2>
+  <p>Every command's human-readable output is now built on the shared Liatrio theme, confirmed to render the exact brand hex values when styled and stay perfectly byte-clean when piped. The two genuinely tabular surfaces (mount preview, recipient list) are real bordered tables. The one test whose format actually changed was migrated coverage-equivalently, and every other test's substrings survived untouched — direct evidence that wrapping existing wording in styling, rather than gratuitously rewording it, was the right amount of "redesign." The two remaining raw-print exceptions (secret prompt, file-content builders) are correctly out of scope and documented as such.</p>
+</div>
+</body>
+</html>

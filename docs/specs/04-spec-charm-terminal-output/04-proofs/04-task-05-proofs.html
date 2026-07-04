@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>04-task-05-proofs</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff; --fg: #1a1a2e; --muted: #6b7280; --border: #e5e7eb;
+    --card: #f9fafb; --accent: #4f46e5; --pass: #059669; --fail: #dc2626; --warn: #d97706;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1117; --fg:#e6e6ef; --muted:#9ca3af; --border:#262a35; --card:#161922; --accent:#818cf8; --pass:#34d399; --fail:#f87171; --warn:#fbbf24; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height:1.6; }
+  .doc { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  header.doc-header { border-bottom: 1px solid var(--border); padding-bottom:1rem; margin-bottom:2rem; }
+  h1 { margin: .25rem 0; font-size:1.6rem; }
+  h2 { margin-top:2rem; border-bottom:1px solid var(--border); padding-bottom:.35rem; }
+  .meta { color:var(--muted); font-size:.9rem; }
+  .badge { display:inline-block; font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:.25rem .6rem; border-radius:999px; }
+  .badge-type { background:var(--accent); color:#fff; }
+  .status-pass, .status-done, .status-verified { background:var(--pass); color:#fff; }
+  .status-fail, .status-failed { background:var(--fail); color:#fff; }
+  .status-flag, .status-pending, .status-unknown, .status-in-progress { background:var(--warn); color:#111; }
+  table { width:100%; border-collapse: collapse; margin: 1rem 0; }
+  th, td { border:1px solid var(--border); padding:.5rem .75rem; text-align:left; vertical-align:top; }
+  th { background:var(--card); }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem 1.25rem; margin:1rem 0; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem; overflow-x:auto; }
+  figure { margin: 1rem 0; }
+  figure img { max-width:100%; border:1px solid var(--border); border-radius:.5rem; }
+  figcaption { color:var(--muted); font-size:.85rem; margin-top:.35rem; }
+  article.artifact { margin: 2rem 0; padding-top: 1.25rem; border-top: 1px solid var(--border); }
+  .proves, .matters, .result-summary { margin: .5rem 0; }
+</style>
+</head>
+<body>
+<div class="doc">
+  <header class="doc-header">
+    <span class="badge badge-type">PROOFS</span>
+    <h1>Task 05 Proofs - Interactive prompts and progress</h1>
+    <p class="meta">Sequence 04 · Feature: charm-terminal-output · Task 05 · Phase 3</p>
+  </header>
+
+  <h2>Task Summary</h2>
+  <p>This task replaced <code>setup run</code>/<code>setup apply</code>'s bare stdin prompt with huh confirmations (a Confirm defaulting to No, and an Input enforcing the same exact-phrase gate as before) and added a bubbles/v2 spinner for <code>project hydrate</code> and <code>scan</code> — both only when stdin and stdout are real terminals. Every interactive path has a plain, script-safe fallback that is byte-for-byte identical to the pre-existing behavior when piped, so no existing script or test needed to change. <code>secretInput</code> is untouched, as required.</p>
+
+  <h2>What This Task Proves</h2>
+  <ul>
+    <li>Real, working vhs recordings show the huh Confirm rendering with Yes/No buttons (No selected by default) and the bubbles spinner animating mid-clone — not just described, actually captured from a live PTY session.</li>
+    <li>A genuine bug was caught and fixed during this work: wrapping huh/bubbletea's own output through <code>styledWriter</code> (the same colorprofile-based wrapper used elsewhere) corrupted the TUI's cursor-control escape sequences, making the interactive UI invisible even though the underlying logic still worked. bubbletea v2 already handles its own color downsampling internally, so interactive programs must receive the raw writer.</li>
+    <li>The non-interactive fallback is byte-for-byte identical to the original <code>confirmSetup</code> prompt and error text, confirmed by both a CLI transcript and the pre-existing <code>TestSetupRunCommandRequiresConfirmation</code> test passing unmodified.</li>
+    <li>Two new tests drive huh's real Confirm/Input validation logic via its accessible mode (a genuine, non-bypassed huh code path), closing the same class of TTY-only-rendering gap the planning audit flagged for tasks 01–02.</li>
+  </ul>
+
+  <h2>Evidence Summary</h2>
+  <ul>
+    <li>vhs recordings: <code>04-tour.gif</code> (status/doctor/plan, also fulfilling task 3.8's proof requirement), <code>04-confirm-prompt.png</code>/<code>04-confirm-rejected.png</code> (huh Confirm UI), <code>04-hydrate-spinner.png</code>/<code>04-hydrate-done.png</code> (bubbles spinner mid-flight and completed), with their <code>.tape</code> sources checked in.</li>
+    <li>CLI transcript: piped <code>setup apply</code> with a wrong phrase, showing the identical prompt/error text as before.</li>
+    <li>Tests: 7 new tests (non-TTY fallback ×3, plain-progress-line ×2, huh-accessible-mode ×2) plus the full existing suite — 146 test functions pass, 0 failed.</li>
+    <li>Quality gates: <code>go vet</code>, golangci-lint v2.12.2, govulncheck, and the <code>GOOS=linux -tags fusetest</code> cross-compile all clean.</li>
+  </ul>
+
+  <article class="artifact">
+    <h2>Artifact: huh Confirm renders with Yes/No buttons, defaulting to No</h2>
+    <p class="proves"><strong>What it proves:</strong> On a real terminal, <code>setup run</code> shows an actual interactive Confirm field — not a text prompt — with "No" selected by default, matching the spec's safety requirement.</p>
+    <p class="matters"><strong>Why it matters:</strong> This is the concrete visual upgrade the spec asked for: a modern confirmation UI instead of "type this exact phrase," while keeping the same safe-by-default posture.</p>
+    <p><strong>Recording:</strong> <code>04-confirm.tape</code> → screenshots captured via vhs's <code>Screenshot</code> directive against a real ttyd-backed pty.</p>
+    <p class="result-summary"><strong>Result summary:</strong> The Confirm renders "Run `npm install` in apps/web?" with Yes/No pill buttons; pressing "n" (the bound reject key) immediately submits false and produces the same styled ERROR box as the non-interactive path's rejection.</p>
+    <figure>
+      <img src="04-confirm-prompt.png" alt="huh Confirm field showing Run npm install in apps/web with Yes and No buttons, No selected by default" />
+      <figcaption>docs/specs/04-spec-charm-terminal-output/04-proofs/04-confirm-prompt.png</figcaption>
+    </figure>
+    <figure>
+      <img src="04-confirm-rejected.png" alt="Styled ERROR box reading Confirmation did not match; no setup commands were run, after rejecting the Confirm prompt" />
+      <figcaption>docs/specs/04-spec-charm-terminal-output/04-proofs/04-confirm-rejected.png</figcaption>
+    </figure>
+  </article>
+
+  <article class="artifact">
+    <h2>Artifact: bubbles spinner animates during project hydrate, then reports success</h2>
+    <p class="proves"><strong>What it proves:</strong> On a real terminal, <code>project hydrate</code> shows a live spinner next to a "Hydrating &lt;project&gt;" label while the clone runs, then the caller's own "Hydrated &lt;project&gt;" confirmation replaces it.</p>
+    <p class="matters"><strong>Why it matters:</strong> Confirms the bubbletea Program actually starts, ticks, and receives the work-completion message correctly — not just that the code compiles.</p>
+    <p><strong>Recording:</strong> <code>04-spinner.tape</code> → rapid-fire screenshots (50ms apart) to catch the brief in-flight window for a fast local clone.</p>
+    <p class="result-summary"><strong>Result summary:</strong> The first screenshot shows the spinner glyph next to "Hydrating lazy"; a later screenshot shows the spinner gone and "Hydrated lazy" printed in the Liatrio green.</p>
+    <figure>
+      <img src="04-hydrate-spinner.png" alt="Terminal showing an animated spinner glyph next to the text Hydrating lazy" />
+      <figcaption>docs/specs/04-spec-charm-terminal-output/04-proofs/04-hydrate-spinner.png</figcaption>
+    </figure>
+    <figure>
+      <img src="04-hydrate-done.png" alt="Terminal showing Hydrated lazy printed in green after the spinner completes" />
+      <figcaption>docs/specs/04-spec-charm-terminal-output/04-proofs/04-hydrate-done.png</figcaption>
+    </figure>
+  </article>
+
+  <article class="artifact">
+    <h2>Artifact: a real bug caught mid-task — styledWriter corrupts interactive TUI output</h2>
+    <p class="proves"><strong>What it proves:</strong> The first recording attempt showed no visible Confirm UI at all (the frame jumped straight from the typed command to the rejection error), because <code>WithOutput(styledWriter(out))</code> was double-processing bubbletea's own ANSI/cursor-control stream through <code>colorprofile.Writer</code>, corrupting it.</p>
+    <p class="matters"><strong>Why it matters:</strong> bubbletea v2 (and huh, built on it) already performs its own color-profile detection and downsampling internally — wrapping its output a second time is not just redundant but actively breaks rendering. This is exactly the kind of defect that manual "it compiles, ship it" verification would have missed; only actually driving the interactive path through a real pty surfaced it.</p>
+    <p><strong>Fix:</strong> <code>internal/devspace/interactive.go</code> — pass <code>out</code> directly to <code>huh.NewForm(...).WithOutput(out)</code> and <code>tea.NewProgram(m, tea.WithOutput(out))</code>, never through <code>styledWriter</code>.</p>
+    <p class="result-summary"><strong>Result summary:</strong> After the fix, the Confirm UI and spinner both render correctly, as shown in the artifacts above.</p>
+  </article>
+
+  <article class="artifact">
+    <h2>Artifact: non-interactive fallback is byte-for-byte identical</h2>
+    <p class="proves"><strong>What it proves:</strong> Piped/CI usage of <code>setup apply</code> sees the exact same prompt text and error message as before this task, since the non-TTY branch calls the original, untouched <code>confirmSetup</code>.</p>
+    <p class="matters"><strong>Why it matters:</strong> Existing scripts that pipe a confirmation phrase into <code>devspace setup apply</code> keep working with zero changes.</p>
+    <p><strong>Command:</strong></p>
+    <pre><code>echo "wrong phrase" | devspace setup apply</code></pre>
+    <p class="result-summary"><strong>Result summary:</strong> Exit code 1, the exact original prompt text ("Type run all to run install commands for every runnable project: ") followed by "Confirmation did not match; no setup commands were run." — identical to the pre-task behavior, just rendered through fang's styled error box at the command layer.</p>
+    <pre><code>Type run all to run install commands for every runnable project:
+   ERROR
+  Confirmation did not match; no setup commands were run.
+exit: 1</code></pre>
+  </article>
+
+  <article class="artifact">
+    <h2>Artifact: automated coverage for huh's validation logic and the non-TTY paths</h2>
+    <p class="proves"><strong>What it proves:</strong> Seven new tests cover: non-TTY fallback for both <code>confirmSetupRun</code> and <code>confirmSetupApply</code> (matching and mismatching phrases), plain progress lines for <code>scan</code>/<code>hydrate</code> when piped, and huh's Confirm/Input validation logic driven through its accessible mode (default-No behavior, exact-phrase retry-on-mismatch).</p>
+    <p class="matters"><strong>Why it matters:</strong> The accessible-mode tests are the automated-coverage remediation for the planning audit's TTY-only-rendering flag — they exercise huh's real Confirm/Input/Validate code, just not the full alt-screen TUI renderer (which requires a real pty, as this session's own investigation confirmed).</p>
+    <p><strong>Command:</strong></p>
+    <pre><code>go test ./internal/devspace/... -run 'TestConfirmSetup|TestScanCommandPrintsPlain|TestHydrateCommandPrintsPlain|TestHuh' -v
+go test ./internal/devspace/... -v -count=1</code></pre>
+    <p class="result-summary"><strong>Result summary:</strong> All 7 new tests pass; 146 total test functions pass, 0 failed.</p>
+  </article>
+
+  <article class="artifact">
+    <h2>Artifact: full quality gate green</h2>
+    <p class="proves"><strong>What it proves:</strong> The interactive layer introduces zero regressions and no new lint/vet/vulnerability findings, including under the Linux-only <code>fusetest</code> cross-compile.</p>
+    <p><strong>Command:</strong></p>
+    <pre><code>go vet ./...
+golangci-lint run ./...
+govulncheck ./...
+GOOS=linux GOARCH=amd64 go vet -tags fusetest ./...</code></pre>
+    <p class="result-summary"><strong>Result summary:</strong> Zero issues across all four checks.</p>
+  </article>
+
+  <h2>Reviewer Conclusion</h2>
+  <p>This task closes out the spec's final unit with genuine, verified interactive behavior rather than "it should work" confidence — the vhs recordings caught a real integration bug (double-wrapping bubbletea's output) that a code review alone would likely have missed, and the fix is now covered by both the recordings and automated accessible-mode tests. Every non-interactive path remains byte-for-byte compatible, so no existing script or test was put at risk. With this, all five parent tasks of spec 04 are complete: Charm foundation, fang/charm-log root polish, restyled output, expanded --json, and interactive prompts/progress.</p>
+</div>
+</body>
+</html>

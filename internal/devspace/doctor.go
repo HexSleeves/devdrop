@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"charm.land/lipgloss/v2"
 )
 
 type doctorSeverity string
@@ -21,15 +23,15 @@ const (
 )
 
 type doctorCheck struct {
-	Severity doctorSeverity
-	Subject  string
-	Detail   string
-	Hard     bool
+	Severity doctorSeverity `json:"severity"`
+	Subject  string         `json:"subject"`
+	Detail   string         `json:"detail"`
+	Hard     bool           `json:"hard"`
 }
 
 type doctorReport struct {
-	Checks       []doctorCheck
-	HardFailures int
+	Checks       []doctorCheck `json:"checks"`
+	HardFailures int           `json:"hardFailures"`
 }
 
 type projectDoctorState struct {
@@ -319,17 +321,32 @@ func projectStateDetail(p projectDoctorState) string {
 }
 
 func printDoctorReport(out io.Writer, report doctorReport) {
-	fmt.Fprintln(out, "DevSpace doctor")
+	out = styledWriter(out)
+	fmt.Fprintln(out, currentTheme.Header.Render("DevSpace doctor"))
 	fmt.Fprintln(out)
 	for _, check := range report.Checks {
-		fmt.Fprintf(out, "[%s] %s: %s\n", check.Severity, check.Subject, check.Detail)
+		fmt.Fprintf(out, "%s %s: %s\n", currentTheme.badge(doctorSeverityStyle(check.Severity), string(check.Severity)), check.Subject, check.Detail)
 	}
 	fmt.Fprintln(out)
 	if report.HardFailures == 0 {
-		fmt.Fprintln(out, "Result: ready; warnings above do not block core commands.")
+		fmt.Fprintln(out, currentTheme.OK.Render("Result: ready; warnings above do not block core commands."))
 		return
 	}
-	fmt.Fprintf(out, "Result: %d hard failure(s); fix these before running core commands.\n", report.HardFailures)
+	fmt.Fprintln(out, currentTheme.Fail.Render(fmt.Sprintf("Result: %d hard failure(s); fix these before running core commands.", report.HardFailures)))
+}
+
+// doctorSeverityStyle maps a doctor check severity to its badge color.
+func doctorSeverityStyle(severity doctorSeverity) lipgloss.Style {
+	switch severity {
+	case doctorOK:
+		return currentTheme.OK
+	case doctorWarn:
+		return currentTheme.Warn
+	case doctorFail:
+		return currentTheme.Fail
+	default: // doctorInfo
+		return currentTheme.Info
+	}
 }
 
 func (r *doctorReport) add(severity doctorSeverity, subject, detail string, hard bool) {

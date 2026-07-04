@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,21 +19,21 @@ import (
 const syncedManifestName = "manifest.json"
 
 type ManifestDiff struct {
-	Added   []Project
-	Removed []Project
-	Changed []ProjectDiff
+	Added   []Project     `json:"added"`
+	Removed []Project     `json:"removed"`
+	Changed []ProjectDiff `json:"changed"`
 }
 
 type ProjectDiff struct {
-	Local   Project
-	Remote  Project
-	Changes []FieldChange
+	Local   Project       `json:"local"`
+	Remote  Project       `json:"remote"`
+	Changes []FieldChange `json:"changes"`
 }
 
 type FieldChange struct {
-	Field  string
-	Local  string
-	Remote string
+	Field  string `json:"field"`
+	Local  string `json:"local"`
+	Remote string `json:"remote"`
 }
 
 func SetManifestRemote(remote string) (Config, error) {
@@ -555,27 +556,17 @@ func manifestRemoteNotReadyError(remote string, err error) error {
 	return fmt.Errorf("manifest remote is not ready: %s\n\nCreate it first, then rerun sync:\n  devspace workspace remote create github %s --private\n  devspace workspace push\n\nOr use a local bare repo:\n  devspace workspace remote create local ~/Projects/devspace-manifest.git\n  devspace workspace push\n\nOriginal error:\n%s", redactRemote(remote), githubRepoSlug(remote), msg)
 }
 
-// redactRemote strips credentials from the authority component of an http(s)
-// or ssh remote URL so tokens never reach error messages. SSH scp-style
-// remotes (git@host:owner/repo) carry no secret and are returned unchanged.
+// redactRemote strips credentials from the userinfo component of a remote URL
+// so tokens never reach error messages. SSH scp-style remotes
+// (git@host:owner/repo) fail url.Parse and are returned unchanged; they carry
+// no secret.
 func redactRemote(remote string) string {
-	for _, scheme := range []string{"https://", "http://", "ssh://"} {
-		if !strings.HasPrefix(remote, scheme) {
-			continue
-		}
-		rest := remote[len(scheme):]
-		authority := rest
-		tail := ""
-		if slash := strings.IndexByte(rest, '/'); slash >= 0 {
-			authority = rest[:slash]
-			tail = rest[slash:]
-		}
-		if at := strings.LastIndexByte(authority, '@'); at >= 0 {
-			authority = "***@" + authority[at+1:]
-		}
-		return scheme + authority + tail
+	u, err := url.Parse(remote)
+	if err != nil || u.User == nil {
+		return remote
 	}
-	return remote
+	u.User = url.User("redacted")
+	return u.String()
 }
 
 // sanitizeRemoteInText replaces any occurrence of a credentialed remote in free

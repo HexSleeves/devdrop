@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>04-audit-charm-terminal-output</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff; --fg: #1a1a2e; --muted: #6b7280; --border: #e5e7eb;
+    --card: #f9fafb; --accent: #4f46e5; --pass: #059669; --fail: #dc2626; --warn: #d97706;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1117; --fg:#e6e6ef; --muted:#9ca3af; --border:#262a35; --card:#161922; --accent:#818cf8; --pass:#34d399; --fail:#f87171; --warn:#fbbf24; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height:1.6; }
+  .doc { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  header.doc-header { border-bottom: 1px solid var(--border); padding-bottom:1rem; margin-bottom:2rem; }
+  h1 { margin: .25rem 0; font-size:1.6rem; }
+  h2 { margin-top:2rem; border-bottom:1px solid var(--border); padding-bottom:.35rem; }
+  .meta { color:var(--muted); font-size:.9rem; }
+  .badge { display:inline-block; font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:.25rem .6rem; border-radius:999px; }
+  .badge-type { background:var(--accent); color:#fff; }
+  .status-pass, .status-done, .status-verified { background:var(--pass); color:#fff; }
+  .status-fail, .status-failed { background:var(--fail); color:#fff; }
+  .status-flag, .status-pending, .status-unknown, .status-in-progress { background:var(--warn); color:#111; }
+  table { width:100%; border-collapse: collapse; margin: 1rem 0; }
+  th, td { border:1px solid var(--border); padding:.5rem .75rem; text-align:left; vertical-align:top; }
+  th { background:var(--card); }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem 1.25rem; margin:1rem 0; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem; overflow-x:auto; }
+  .task-list { list-style:none; padding-left:0; }
+  .task { padding:.35rem 0; }
+  .task[data-status="done"] .task-label::before { content: "\2611 "; }
+  .task[data-status="pending"] .task-label::before { content: "\2610 "; }
+  .task[data-status="in-progress"] .task-label::before { content: "\25D1 "; }
+  figure { margin: 1rem 0; }
+  figure img { max-width:100%; border:1px solid var(--border); border-radius:.5rem; }
+  figcaption { color:var(--muted); font-size:.85rem; margin-top:.35rem; }
+  .gate-row td:nth-child(2) { white-space:nowrap; }
+  .finding { border-left: 3px solid var(--warn); padding-left:.75rem; margin:.75rem 0; }
+  .finding-required { border-left-color: var(--fail); }
+  .finding-flag { border-left-color: var(--warn); }
+  .remediation-status { font-weight:700; }
+</style>
+</head>
+<body data-overall-status="PASS">
+<div class="doc">
+  <header class="doc-header">
+    <span class="badge badge-type">AUDIT</span>
+    <h1>04-audit-charm-terminal-output</h1>
+    <p class="meta">Sequence 04 · Feature: charm-terminal-output · Phase 2 · Planning Audit · Run 2</p>
+  </header>
+
+  <section id="executive-summary" class="card">
+    <h2>Executive Summary</h2>
+    <p>Overall Status: <span class="badge status-pass" data-role="overall-status">PASS</span></p>
+    <p>Required Gate Failures: <strong>0</strong></p>
+    <p>Flagged Risks: <strong>0</strong> (1 flag from Run 1 resolved by user-approved remediation)</p>
+  </section>
+
+  <section id="gateboard">
+    <h2>Gateboard</h2>
+    <table>
+      <thead>
+        <tr><th>Gate</th><th>Status</th><th>Why it failed (&lt;=10 words)</th><th>Exact fix target</th></tr>
+      </thead>
+      <tbody>
+        <tr class="gate-row"><td>Requirement-to-test traceability</td><td><span class="badge status-pass">PASS</span></td><td>-</td><td>-</td></tr>
+        <tr class="gate-row"><td>Proof artifact verifiability</td><td><span class="badge status-pass">PASS</span></td><td>-</td><td>-</td></tr>
+        <tr class="gate-row"><td>Repository standards consistency</td><td><span class="badge status-pass">PASS</span></td><td>-</td><td>-</td></tr>
+        <tr class="gate-row"><td>Open question resolution</td><td><span class="badge status-pass">PASS</span></td><td>-</td><td>-</td></tr>
+        <tr class="gate-row"><td>Regression-risk blind spots</td><td><span class="badge status-pass">PASS</span></td><td>-</td><td>-</td></tr>
+        <tr class="gate-row"><td>Non-goal leakage</td><td><span class="badge status-pass">PASS</span></td><td>-</td><td>-</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="traceability">
+    <h2>Requirement-to-Test Traceability (Evidence)</h2>
+    <table>
+      <thead>
+        <tr><th>Spec requirement</th><th>Task(s)</th><th>Planned test artifact</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>U1: v2-only Charm dependencies</td><td>1.1</td><td><code>go.mod</code> audit in 1.1 + <code>make verify</code> build/lint (3.8)</td></tr>
+        <tr><td>U1: shared Liatrio theme</td><td>1.2</td><td><code>styles_test.go</code> (1.6)</td></tr>
+        <tr><td>U1: colorprofile detection + styled writer</td><td>1.3, 1.4</td><td><code>styles_test.go</code> forced-profile vs buffer cases (1.6)</td></tr>
+        <tr><td>U1: NO_COLOR/CLICOLOR/<code>--no-color</code></td><td>1.5</td><td><code>styles_test.go</code> NO_COLOR + flag cases (1.6)</td></tr>
+        <tr><td>U1: fang root + <code>version</code> alias</td><td>2.1, 2.2</td><td>help assertions (2.4) + alias test (2.5)</td></tr>
+        <tr><td>U1: charm-log diagnostics</td><td>2.3</td><td>logfmt stderr-buffer test (2.6)</td></tr>
+        <tr><td>U2: restyled nine command surfaces</td><td>3.1–3.5</td><td>migrated assertions in six test files (3.7)</td></tr>
+        <tr><td>U2: doctor severities + hard-failure count</td><td>3.2</td><td><code>doctor_test.go</code> migration (3.7)</td></tr>
+        <tr><td>U2: raw print migration to <code>output.go</code></td><td>3.6</td><td>grep audit (3.6) + full suite via <code>make verify</code> (3.8)</td></tr>
+        <tr><td>U2: <code>--json</code> on status/doctor/diff/mount-preview</td><td>4.1, 4.2</td><td>schema-stability unit tests (4.3)</td></tr>
+        <tr><td>U2: coverage-equivalent assertion migration</td><td>3.7</td><td>3.7 itself (fact-for-fact re-assertion rule)</td></tr>
+        <tr><td>U3: huh Confirm / typed-phrase gates</td><td>5.1, 5.2</td><td>validation + piped-stdin tests (5.5)</td></tr>
+        <tr><td>U3: <code>--yes</code> bypass + non-TTY fallback</td><td>5.3</td><td>piped fallback tests incl. wrong-phrase rejection (5.5)</td></tr>
+        <tr><td>U3: spinner TTY / plain non-TTY</td><td>5.4</td><td>spinner-off plain-lines test (5.5)</td></tr>
+        <tr><td>U3: <code>secretInput</code> unchanged</td><td>5.5</td><td>existing secret-entry tests pass unmodified (5.5)</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="standards-evidence">
+    <h2>Standards Evidence Table (Required)</h2>
+    <table>
+      <thead>
+        <tr><th>Source File</th><th>Read</th><th>Standards Extracted</th><th>Conflicts</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>AGENTS.md</code></td><td>yes</td><td>gofmt on changed files; behavior-named tests; PRs include terminal output when CLI output changes</td><td>none</td></tr>
+        <tr><td><code>README.md</code> (root)</td><td>yes</td><td>"Supported Commands" reference must stay accurate; env vars documented; safety guarantees stated</td><td>none</td></tr>
+        <tr><td><code>Makefile</code> + <code>.github/workflows/ci.yml</code></td><td>yes</td><td><code>make verify</code> = test+vet+lint+vulncheck+build; golangci-lint pinned v2.12.2</td><td><code>CLAUDE.md</code> says vulncheck is CI-only; Makefile includes it in <code>verify</code>. Precedence decision: Makefile is authoritative; tasks use full <code>make verify</code>.</td></tr>
+        <tr><td><code>.golangci.yml</code></td><td>yes</td><td>gosec enabled; errcheck excludes <code>fmt.Fprint*</code>; tests exempt from gosec</td><td>none</td></tr>
+        <tr><td><code>CONTRIBUTING.md</code>, <code>.github/pull_request_template.md</code></td><td>not found</td><td>-</td><td>-</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="remediation-plan">
+    <h2>User-Approved Remediation Plan</h2>
+    <p class="remediation-status" data-role="remediation-status">Approved — via Lavish annotation on Run 1 ("Make sure we add test for this flag") — and applied.</p>
+    <p>Run 1 flagged that TTY-only rendering paths (fang styled help, huh prompts, live spinner) were validated only by manual vhs/screenshot evidence. Approved remediation added automated coverage:</p>
+    <ul>
+      <li><strong>Task 2.7</strong> — forced-style root-help test (<code>CLICOLOR_FORCE=1</code>) asserting ANSI styling bytes, exercising fang's styled path without a real TTY.</li>
+      <li><strong>Task 5.7</strong> — huh Confirm driven with scripted input via <code>WithInput</code>/<code>WithOutput</code>, and spinner program driven with <code>github.com/charmbracelet/x/exp/teatest/v2</code> (test-only dependency), asserting frames render and the completion line appears.</li>
+      <li>Proof artifacts for parent tasks 2.0 and 5.0 updated to include these tests; manual vhs/screenshot evidence retained as demo artifacts.</li>
+    </ul>
+  </section>
+
+  <section id="reaudit-delta">
+    <h2>Re-Audit Delta (Runs 2+ only)</h2>
+    <ul>
+      <li>Changed gate statuses since previous run: Regression-risk blind spots <strong>FLAG → PASS</strong> (tasks 2.7 and 5.7 add automated TTY-path tests).</li>
+      <li>Still-failing REQUIRED gates: none.</li>
+      <li>Newly introduced findings: none (teatest/v2 remains experimental; contained as a test-only dependency, noted in the tasks import-discipline notes).</li>
+    </ul>
+  </section>
+</div>
+</body>
+</html>

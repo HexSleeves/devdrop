@@ -12,6 +12,8 @@ import (
 	"syscall"
 	"time"
 
+	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/table"
 	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
@@ -57,10 +59,7 @@ func BuildMountEntries() ([]MountEntry, error) {
 	return entries, nil
 }
 
-func MountWorkspace(ctx context.Context, mountpoint string, opts WorkspaceMountOptions, out io.Writer) error {
-	if out == nil {
-		out = io.Discard
-	}
+func MountWorkspace(ctx context.Context, mountpoint string, opts WorkspaceMountOptions) error {
 	if opts.ErrOut == nil {
 		opts.ErrOut = io.Discard
 	}
@@ -102,9 +101,10 @@ func MountWorkspace(ctx context.Context, mountpoint string, opts WorkspaceMountO
 	if err != nil {
 		return fmt.Errorf("FUSE mount failed at %s: %w\n\nFallback: run `devspace mount %s --preview` to inspect tracked mount entries without requiring FUSE", mountpoint, err, mountpoint)
 	}
-	fmt.Fprintf(out, "Mounted DevSpace workspace at %s\n", mountpoint)
-	fmt.Fprintln(out, "Accessing an on-demand Git project through the mount triggers `devspace project hydrate` safety checks.")
-	fmt.Fprintln(out, "Press Ctrl-C to unmount.")
+	logger := newDiagnosticsLogger(opts.ErrOut)
+	logger.Info("mounted workspace", "mountpoint", mountpoint)
+	logger.Info("accessing an on-demand Git project through the mount triggers `devspace project hydrate` safety checks")
+	logger.Info("press ctrl-c to unmount")
 
 	done := make(chan struct{})
 	go func() {
@@ -114,7 +114,7 @@ func MountWorkspace(ctx context.Context, mountpoint string, opts WorkspaceMountO
 	select {
 	case <-ctx.Done():
 		if err := server.Unmount(); err != nil {
-			fmt.Fprintf(opts.ErrOut, "warning: unmount failed: %v\n", err)
+			logger.Warn("unmount failed", "error", err)
 		}
 		<-done
 		return nil
@@ -124,19 +124,47 @@ func MountWorkspace(ctx context.Context, mountpoint string, opts WorkspaceMountO
 }
 
 func PrintMountPreview(out io.Writer, entries []MountEntry) {
-	fmt.Fprintln(out, "DevSpace lazy mount preview")
-	fmt.Fprintln(out, "FUSE library: github.com/hanwen/go-fuse/v2/fs")
+	out = styledWriter(out)
+	fmt.Fprintln(out, currentTheme.Header.Render("DevSpace lazy mount preview"))
+	fmt.Fprintln(out, currentTheme.Muted.Render("FUSE library: github.com/hanwen/go-fuse/v2/fs"))
 	fmt.Fprintln(out)
 	if len(entries) == 0 {
 		fmt.Fprintln(out, "(no tracked projects)")
 		return
 	}
+	rows := make([][]string, 0, len(entries))
 	for _, entry := range entries {
-		fmt.Fprintf(out, "%s\t%s\t%s\t%s", entry.Path, entry.Type, entry.HydrateMode, entry.Status)
-		if entry.Reason != "" {
-			fmt.Fprintf(out, "\t%s", entry.Reason)
-		}
-		fmt.Fprintln(out)
+		rows = append(rows, []string{entry.Path, entry.Type, entry.HydrateMode, entry.Status, entry.Reason})
+	}
+	tbl := table.New().
+		Headers("PATH", "TYPE", "HYDRATE MODE", "STATUS", "REASON").
+		Rows(rows...).
+		BorderStyle(currentTheme.Muted).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			if row == table.HeaderRow {
+				return currentTheme.Header.Padding(0, 1)
+			}
+			if col == 3 {
+				return mountStatusStyle(rows[row][3]).Padding(0, 1)
+			}
+			return lipgloss.NewStyle().Padding(0, 1)
+		})
+	fmt.Fprintln(out, tbl.Render())
+}
+
+// mountStatusStyle colors a mount entry's status column: hydrated is good,
+// placeholder/lazy are pending (something will happen on lookup), local is
+// informational, and missing is a problem.
+func mountStatusStyle(status string) lipgloss.Style {
+	switch status {
+	case "hydrated":
+		return currentTheme.OK
+	case "placeholder", "lazy":
+		return currentTheme.Warn
+	case "missing":
+		return currentTheme.Fail
+	default: // "local"
+		return currentTheme.Info
 	}
 }
 
@@ -270,28 +298,29 @@ func (n *workspaceMountNode) children() []mountChild {
 }
 
 func (n *workspaceMountNode) projectInode(ctx context.Context, p Project) (*fs.Inode, syscall.Errno) {
+	logger := newDiagnosticsLogger(n.hydrationFailures)
 	full, _, err := safeWorkspacePath(n.workspace, p.Path)
 	if err != nil {
-		fmt.Fprintf(n.hydrationFailures, "devspace mount: %s\n", err)
+		logger.Warn("mount lookup failed", "path", p.Path, "error", err)
 		return nil, syscall.EIO
 	}
 	if n.shouldHydrate(full, p) {
 		if _, err := HydrateProject(p.ID); err != nil {
-			fmt.Fprintf(n.hydrationFailures, "devspace mount: hydrate %s failed: %s\n", p.Path, err)
+			logger.Warn(fmt.Sprintf("hydrate %s failed", p.Path), "error", err)
 			return nil, syscall.EIO
 		}
 	}
 	if stat, err := os.Stat(full); err == nil && stat.IsDir() {
 		loopbackRoot, err := fs.NewLoopbackRoot(full)
 		if err != nil {
-			fmt.Fprintf(n.hydrationFailures, "devspace mount: loopback %s failed: %s\n", p.Path, err)
+			logger.Warn(fmt.Sprintf("loopback %s failed", p.Path), "error", err)
 			return nil, syscall.EIO
 		}
 		return n.NewInode(ctx, loopbackRoot, fs.StableAttr{Mode: syscall.S_IFDIR}), fs.OK
 	}
 	status, err := mountEntryForProject(n.workspace, p)
 	if err != nil {
-		fmt.Fprintf(n.hydrationFailures, "devspace mount: %s\n", err)
+		logger.Warn("mount lookup failed", "path", p.Path, "error", err)
 		return nil, syscall.EIO
 	}
 	stub := &projectStatusNode{project: p, entry: status}

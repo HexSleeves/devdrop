@@ -20,17 +20,20 @@ import (
 )
 
 func NewRootCommand(version string) *cobra.Command {
+	var noColor bool
 	cmd := &cobra.Command{
 		Use:          "devspace",
 		Short:        "Synchronize local developer workspace metadata",
 		SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			configureStyles(cmd.OutOrStdout(), noColor)
 			if err := migrateLegacyHome(); err != nil {
 				return fmt.Errorf("legacy home migration failed: %w", err)
 			}
 			return nil
 		},
 	}
+	cmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable styled output regardless of terminal capability")
 	cmd.AddCommand(newVersionCommand(version))
 	cmd.AddCommand(newInitCommand())
 	cmd.AddCommand(newScanCommand())
@@ -53,7 +56,7 @@ func newVersionCommand(version string) *cobra.Command {
 		Use:   "version",
 		Short: "Print version",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Fprintln(cmd.OutOrStdout(), version)
+			printLine(cmd.OutOrStdout(), "%s", version)
 		},
 	}
 }
@@ -72,8 +75,8 @@ func newInitCommand() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "Initialized DevSpace workspace: %s\n", cfg.WorkspaceRoot)
-				fmt.Fprintf(cmd.OutOrStdout(), "Machine: %s (%s)\n", cfg.MachineName, cfg.MachineID)
+				printOK(cmd.OutOrStdout(), "Initialized DevSpace workspace: %s", cfg.WorkspaceRoot)
+				printLine(cmd.OutOrStdout(), "Machine: %s (%s)", cfg.MachineName, cfg.MachineID)
 				return nil
 			})
 		},
@@ -104,7 +107,7 @@ func newWatchCommand() *cobra.Command {
 				SyncMode:   syncMode,
 				RunInitial: !noInitial,
 				Once:       once,
-			}, cmd.OutOrStdout())
+			}, cmd.ErrOrStderr())
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return nil
 			}
@@ -132,10 +135,10 @@ func newHostedCommand() *cobra.Command {
 					return err
 				}
 				if result.Changed {
-					fmt.Fprintf(cmd.OutOrStdout(), "Pushed hosted manifest version %d.\n", result.Version)
+					printOK(cmd.OutOrStdout(), "Pushed hosted manifest version %d.", result.Version)
 					return nil
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "Hosted manifest already up to date at version %d.\n", result.Version)
+				printLine(cmd.OutOrStdout(), "Hosted manifest already up to date at version %d.", result.Version)
 				return nil
 			})
 		},
@@ -151,11 +154,11 @@ func newHostedCommand() *cobra.Command {
 					return err
 				}
 				if result.Changed {
-					fmt.Fprintf(cmd.OutOrStdout(), "Pulled hosted manifest version %d.\n", result.Version)
+					printOK(cmd.OutOrStdout(), "Pulled hosted manifest version %d.", result.Version)
 				} else {
-					fmt.Fprintf(cmd.OutOrStdout(), "Local manifest already matches hosted version %d.\n", result.Version)
+					printLine(cmd.OutOrStdout(), "Local manifest already matches hosted version %d.", result.Version)
 				}
-				fmt.Fprintln(cmd.OutOrStdout(), "Next: devspace plan && devspace apply")
+				printLine(cmd.OutOrStdout(), "Next: devspace plan && devspace apply")
 				return nil
 			})
 		},
@@ -181,8 +184,8 @@ func newHostedConfigCommand() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "Endpoint: %s\n", cfg.HostedSyncEndpoint)
-				fmt.Fprintf(cmd.OutOrStdout(), "Workspace: %s\n", cfg.HostedSyncWorkspace)
+				printLine(cmd.OutOrStdout(), "Endpoint: %s", cfg.HostedSyncEndpoint)
+				printLine(cmd.OutOrStdout(), "Workspace: %s", cfg.HostedSyncWorkspace)
 				return nil
 			})
 		},
@@ -199,9 +202,9 @@ func newHostedConfigCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Endpoint: %s\n", cfg.HostedSyncEndpoint)
-			fmt.Fprintf(cmd.OutOrStdout(), "Workspace: %s\n", cfg.HostedSyncWorkspace)
-			fmt.Fprintln(cmd.OutOrStdout(), "Token: configured")
+			printLine(cmd.OutOrStdout(), "Endpoint: %s", cfg.HostedSyncEndpoint)
+			printLine(cmd.OutOrStdout(), "Workspace: %s", cfg.HostedSyncWorkspace)
+			printLine(cmd.OutOrStdout(), "Token: configured")
 			return nil
 		},
 	})
@@ -223,8 +226,9 @@ func newHostedServeCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			logger := newDiagnosticsLogger(cmd.ErrOrStderr())
 			if resolved.public {
-				fmt.Fprintln(cmd.ErrOrStderr(), "warning: binding a public address over plain HTTP; terminate TLS at a reverse proxy or tokens will traverse the network in cleartext")
+				logger.Warn("binding a public address over plain HTTP; terminate TLS at a reverse proxy or tokens will traverse the network in cleartext")
 			}
 			if token == "" {
 				token = strings.TrimSpace(os.Getenv("HOSTED_TOKEN"))
@@ -248,9 +252,11 @@ func newHostedServeCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Hosted manifest sync listening on http://%s\n", resolved.addr)
-			fmt.Fprintf(cmd.OutOrStdout(), "Storage: %s\n", store)
-			fmt.Fprintln(cmd.OutOrStdout(), "API: GET/PUT /v1/workspaces/{workspace}/manifest")
+			logger.Info("hosted manifest sync listening",
+				"addr", "http://"+resolved.addr,
+				"storage", store,
+				"api", "GET/PUT /v1/workspaces/{workspace}/manifest",
+			)
 			server := &http.Server{
 				Addr:              resolved.addr,
 				Handler:           handler,
@@ -358,10 +364,10 @@ func newWorkspaceCommand() *cobra.Command {
 					return err
 				}
 				if changed {
-					fmt.Fprintln(cmd.OutOrStdout(), "Pushed workspace manifest.")
+					printOK(cmd.OutOrStdout(), "Pushed workspace manifest.")
 					return nil
 				}
-				fmt.Fprintln(cmd.OutOrStdout(), "Workspace manifest already up to date.")
+				printLine(cmd.OutOrStdout(), "Workspace manifest already up to date.")
 				return nil
 			})
 		},
@@ -375,13 +381,14 @@ func newWorkspaceCommand() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				fmt.Fprintln(cmd.OutOrStdout(), "Pulled workspace manifest.")
-				fmt.Fprintln(cmd.OutOrStdout(), "Next: devspace plan && devspace apply")
+				printOK(cmd.OutOrStdout(), "Pulled workspace manifest.")
+				printLine(cmd.OutOrStdout(), "Next: devspace plan && devspace apply")
 				return nil
 			})
 		},
 	})
-	cmd.AddCommand(&cobra.Command{
+	var diffJSON bool
+	diffCmd := &cobra.Command{
 		Use:   "diff",
 		Short: "Preview differences from the configured workspace manifest remote",
 		Args:  cobra.NoArgs,
@@ -390,39 +397,15 @@ func newWorkspaceCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if diffJSON {
+				return writePrettyJSON(cmd.OutOrStdout(), diff)
+			}
 			printManifestDiff(cmd.OutOrStdout(), diff)
 			return nil
 		},
-	})
-	var dryRun bool
-	syncCmd := &cobra.Command{
-		Use:        "sync",
-		Short:      "Compatibility alias for plan/apply",
-		Deprecated: "use `devspace plan` and `devspace apply` instead",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return withAppLock(func() error {
-				plan, err := BuildPlan()
-				if err != nil {
-					return err
-				}
-				if err := SaveLastPlan(plan); err != nil {
-					return err
-				}
-				if dryRun {
-					printPlan(cmd.OutOrStdout(), plan)
-					return nil
-				}
-				applied, err := ApplyLastPlan()
-				if err != nil {
-					return err
-				}
-				printApply(cmd.OutOrStdout(), applied)
-				return nil
-			})
-		},
 	}
-	syncCmd.Flags().BoolVar(&dryRun, "dry-run", false, "show planned actions without changing files")
-	cmd.AddCommand(syncCmd)
+	diffCmd.Flags().BoolVar(&diffJSON, "json", false, "print machine-readable manifest diff")
+	cmd.AddCommand(diffCmd)
 	return cmd
 }
 
@@ -455,7 +438,7 @@ func newWorkspaceRemoteCommand() *cobra.Command {
 						return err
 					}
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "%s\n", cfg.ManifestRemote)
+				printLine(cmd.OutOrStdout(), "%s", cfg.ManifestRemote)
 				return nil
 			})
 		},
@@ -474,7 +457,7 @@ func newWorkspaceRemoteCommand() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "%s\n", cfg.ManifestRemote)
+				printLine(cmd.OutOrStdout(), "%s", cfg.ManifestRemote)
 				return nil
 			})
 		},
@@ -494,7 +477,7 @@ func newWorkspaceRemoteCommand() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "%s\n", cfg.ManifestRemote)
+				printLine(cmd.OutOrStdout(), "%s", cfg.ManifestRemote)
 				return nil
 			})
 		},
@@ -512,7 +495,7 @@ func newWorkspaceRemoteCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "%s\n", cfg.ManifestRemote)
+			printLine(cmd.OutOrStdout(), "%s", cfg.ManifestRemote)
 			return nil
 		},
 	})
@@ -525,16 +508,21 @@ func newScanCommand() *cobra.Command {
 		Short: "Scan workspace projects",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withAppLock(func() error {
-				s, err := ScanWorkspace()
+				var s ScanSummary
+				err := runWithSpinner(cmd.OutOrStdout(), "Scanning workspace", func() error {
+					var scanErr error
+					s, scanErr = ScanWorkspace()
+					return scanErr
+				})
 				if err != nil {
 					return err
 				}
 				out := cmd.OutOrStdout()
-				fmt.Fprintf(out, "Found %d projects\n", s.FoundProjects)
-				fmt.Fprintf(out, "%d Git repos\n", s.GitRepos)
-				fmt.Fprintf(out, "%d untracked folders\n", s.UntrackedFolders)
-				fmt.Fprintf(out, "%d local-only projects\n", s.LocalOnlyProjects)
-				fmt.Fprintf(out, "%d projects with env files\n", s.ProjectsWithEnv)
+				printLine(out, "Found %d projects", s.FoundProjects)
+				printLine(out, "%d Git repos", s.GitRepos)
+				printLine(out, "%d untracked folders", s.UntrackedFolders)
+				printLine(out, "%d local-only projects", s.LocalOnlyProjects)
+				printLine(out, "%d projects with env files", s.ProjectsWithEnv)
 				return nil
 			})
 		},
@@ -586,6 +574,7 @@ func newApplyCommand() *cobra.Command {
 
 func newMountCommand() *cobra.Command {
 	var preview bool
+	var previewJSON bool
 	var hydrateOnLookup bool
 	var debug bool
 	cmd := &cobra.Command{
@@ -604,6 +593,9 @@ func newMountCommand() *cobra.Command {
 				if err != nil {
 					return err
 				}
+				if previewJSON {
+					return writePrettyJSON(cmd.OutOrStdout(), entries)
+				}
 				PrintMountPreview(cmd.OutOrStdout(), entries)
 				return nil
 			}
@@ -613,10 +605,11 @@ func newMountCommand() *cobra.Command {
 				HydrateOnLookup: hydrateOnLookup,
 				Debug:           debug,
 				ErrOut:          cmd.ErrOrStderr(),
-			}, cmd.OutOrStdout())
+			})
 		},
 	}
 	cmd.Flags().BoolVar(&preview, "preview", false, "print manifest-backed mount entries without mounting FUSE")
+	cmd.Flags().BoolVar(&previewJSON, "json", false, "with --preview, print machine-readable mount entries")
 	cmd.Flags().BoolVar(&hydrateOnLookup, "hydrate-on-lookup", true, "hydrate on-demand Git projects when their mount entry is accessed")
 	cmd.Flags().BoolVar(&debug, "debug", false, "enable go-fuse debug logging")
 	return cmd
@@ -634,7 +627,7 @@ func newProjectCommand() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "Added project %s at %s\n", p.Name, p.Path)
+				printOK(cmd.OutOrStdout(), "Added project %s at %s", p.Name, p.Path)
 				return nil
 			})
 		},
@@ -645,13 +638,18 @@ func newProjectCommand() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withAppLock(func() error {
-				p, err := HydrateProject(args[0])
+				var p Project
+				err := runWithSpinner(cmd.OutOrStdout(), fmt.Sprintf("Hydrating %s", args[0]), func() error {
+					var hydrateErr error
+					p, hydrateErr = HydrateProject(args[0])
+					return hydrateErr
+				})
 				if err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "Hydrated %s\n", p.Name)
+				printOK(cmd.OutOrStdout(), "Hydrated %s", p.Name)
 				if p.Setup.InstallCommand != "" {
-					fmt.Fprintf(cmd.OutOrStdout(), "Suggested setup: %s\n", p.Setup.InstallCommand)
+					printLine(cmd.OutOrStdout(), "Suggested setup: %s", p.Setup.InstallCommand)
 				}
 				return nil
 			})
@@ -667,14 +665,14 @@ func newProjectCommand() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "Removed project %s (%s) from the manifest. Files on disk were not touched.\n", p.Name, p.Path)
+				printOK(cmd.OutOrStdout(), "Removed project %s (%s) from the manifest. Files on disk were not touched.", p.Name, p.Path)
 				cfg, err := LoadConfig()
 				if err != nil {
 					return err
 				}
 				secretDir := filepath.Join(workspaceDevdrop(cfg.WorkspaceRoot), "secrets", p.ID)
 				if entries, err := os.ReadDir(secretDir); err == nil && len(entries) > 0 {
-					fmt.Fprintf(cmd.OutOrStdout(), "Note: encrypted env profiles remain at %s; delete them manually if no longer needed.\n", secretDir)
+					printCaution(cmd.OutOrStdout(), "Note: encrypted env profiles remain at %s; delete them manually if no longer needed.", secretDir)
 				} else if err != nil && !os.IsNotExist(err) {
 					return err
 				}
@@ -709,7 +707,7 @@ func newEnvCommand() *cobra.Command {
 				if err := EnvSet(args[0], args[1], profile, strings.NewReader(secret)); err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "Stored %s for %s/%s\n", args[1], args[0], profileOrDefault(profile))
+				printOK(cmd.OutOrStdout(), "Stored %s for %s/%s", args[1], args[0], profileOrDefault(profile))
 				return nil
 			})
 		},
@@ -727,7 +725,7 @@ func newEnvCommand() *cobra.Command {
 				return err
 			}
 			for _, key := range keys {
-				fmt.Fprintf(cmd.OutOrStdout(), "%s=****\n", key)
+				printLine(cmd.OutOrStdout(), "%s=%s", key, currentTheme.Muted.Render("****"))
 			}
 			return nil
 		},
@@ -745,7 +743,7 @@ func newEnvCommand() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "Wrote %s\n", path)
+				printOK(cmd.OutOrStdout(), "Wrote %s", path)
 				return nil
 			})
 		},
@@ -767,9 +765,9 @@ func newEnvRecipientCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Name: %s\n", recipient.Name)
-			fmt.Fprintf(cmd.OutOrStdout(), "ID: %s\n", recipient.ID)
-			fmt.Fprintf(cmd.OutOrStdout(), "Age recipient: %s\n", recipient.AgeRecipient)
+			printLine(cmd.OutOrStdout(), "Name: %s", recipient.Name)
+			printLine(cmd.OutOrStdout(), "ID: %s", recipient.ID)
+			printLine(cmd.OutOrStdout(), "Age recipient: %s", recipient.AgeRecipient)
 			return nil
 		},
 	})
@@ -783,13 +781,7 @@ func newEnvRecipientCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			for _, recipient := range recipients {
-				status := "active"
-				if recipient.RevokedAt != "" {
-					status = "revoked"
-				}
-				fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\n", recipient.ID, recipient.Name, status)
-			}
+			printRecipientTable(cmd.OutOrStdout(), recipients)
 			return nil
 		},
 	}
@@ -808,7 +800,7 @@ func newEnvRecipientCommand() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "Invited %s (%s) to %s/%s.\n", recipient.Name, recipient.ID, args[0], profileOrDefault(inviteProfile))
+				printOK(cmd.OutOrStdout(), "Invited %s (%s) to %s/%s.", recipient.Name, recipient.ID, args[0], profileOrDefault(inviteProfile))
 				return nil
 			})
 		},
@@ -829,8 +821,8 @@ func newEnvRecipientCommand() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "Revoked %s (%s) from %s/%s.\n", recipient.Name, recipient.ID, args[0], profileOrDefault(revokeProfile))
-				fmt.Fprintln(cmd.OutOrStdout(), "Already copied ciphertext, pulled .env files, and previously decrypted values cannot be clawed back.")
+				printCaution(cmd.OutOrStdout(), "Revoked %s (%s) from %s/%s.", recipient.Name, recipient.ID, args[0], profileOrDefault(revokeProfile))
+				printCaution(cmd.OutOrStdout(), "Already copied ciphertext, pulled .env files, and previously decrypted values cannot be clawed back.")
 				return nil
 			})
 		},
@@ -849,7 +841,7 @@ func newEnvRecipientCommand() *cobra.Command {
 				if err := EnvRotateRecipients(args[0], rotateProfile); err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "Rewrapped %s/%s for current active recipients.\n", args[0], profileOrDefault(rotateProfile))
+				printOK(cmd.OutOrStdout(), "Rewrapped %s/%s for current active recipients.", args[0], profileOrDefault(rotateProfile))
 				return nil
 			})
 		},
@@ -881,23 +873,46 @@ func secretInput(errOut io.Writer, key string) (string, error) {
 }
 
 func newStatusCommand() *cobra.Command {
-	return &cobra.Command{
+	var jsonOut bool
+	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show workspace health",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if jsonOut {
+				report, err := buildWorkspaceStatusReport()
+				if err != nil {
+					return err
+				}
+				return writePrettyJSON(cmd.OutOrStdout(), report)
+			}
 			return printStatus(cmd.OutOrStdout(), nil)
 		},
 	}
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "print machine-readable workspace status")
+	return cmd
 }
 
 func newDoctorCommand() *cobra.Command {
-	return &cobra.Command{
+	var jsonOut bool
+	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Diagnose local DevSpace readiness",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if jsonOut {
+				report := buildDoctorReport()
+				if err := writePrettyJSON(cmd.OutOrStdout(), report); err != nil {
+					return err
+				}
+				if report.HardFailures > 0 {
+					return fmt.Errorf("doctor found %d hard failure(s)", report.HardFailures)
+				}
+				return nil
+			}
 			return RunDoctor(cmd.OutOrStdout())
 		},
 	}
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "print machine-readable doctor report")
+	return cmd
 }
 
 func newSetupCommand() *cobra.Command {
@@ -953,7 +968,7 @@ func newSetupRunCommand() *cobra.Command {
 				return err
 			}
 			if !dryRun && !yes {
-				if err := confirmSetup(cmd.InOrStdin(), cmd.ErrOrStderr(), fmt.Sprintf("Type %s to run `%s` in %s: ", result.Project, result.Command, result.Path), result.Project); err != nil {
+				if err := confirmSetupRun(cmd.InOrStdin(), cmd.ErrOrStderr(), result.Project, result.Command, result.Path); err != nil {
 					return err
 				}
 			}
@@ -995,11 +1010,11 @@ func newSetupApplyCommand() *cobra.Command {
 				return err
 			}
 			if len(plan.Projects) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "No setup commands detected.")
+				printLine(cmd.OutOrStdout(), "No setup commands detected.")
 				return nil
 			}
 			if !dryRun && !yes {
-				if err := confirmSetup(cmd.InOrStdin(), cmd.ErrOrStderr(), "Type run all to run install commands for every runnable project: ", "run all"); err != nil {
+				if err := confirmSetupApply(cmd.InOrStdin(), cmd.ErrOrStderr(), "Type run all to run install commands for every runnable project: ", "run all"); err != nil {
 					return err
 				}
 			}
@@ -1015,7 +1030,7 @@ func newSetupApplyCommand() *cobra.Command {
 				return err
 			}
 			if len(results) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "No runnable install commands detected.")
+				printLine(cmd.OutOrStdout(), "No runnable install commands detected.")
 				return nil
 			}
 			for _, result := range results {

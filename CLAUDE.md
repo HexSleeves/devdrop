@@ -62,7 +62,7 @@ a placeholder into a real checkout via `git clone`. Plans are persisted to
 ### Sync — two independent backends
 
 - **Git remote** (`workspace_sync.go`): push/pull the manifest through a
-  user-owned Git repo (`devspace workspace push/pull/sync`, `remote set/create`).
+  user-owned Git repo (`devspace workspace push/pull`, `remote set/create`).
 - **Hosted control-plane** (`hosted_sync.go`): opt-in HTTP prototype. The client
   side is configured via `devspace hosted config`; the server is
   `NewHostedSyncServer` exposed through `devspace hosted serve` and also shipped

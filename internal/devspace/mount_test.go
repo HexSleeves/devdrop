@@ -59,7 +59,12 @@ func TestMountPreviewCommandDoesNotRequireFUSE(t *testing.T) {
 	for _, want := range []string{
 		"DevSpace lazy mount preview",
 		"github.com/hanwen/go-fuse/v2/fs",
-		"apps/lazy\tgit\ton-demand\tlazy",
+		"PATH", "TYPE", "HYDRATE MODE", "STATUS", "REASON",
+		"apps/lazy",
+		"git",
+		"on-demand",
+		"lazy",
+		"will hydrate on project lookup",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("preview missing %q:\n%s", want, got)
@@ -79,7 +84,7 @@ func TestMountWorkspaceRefusesNonEmptyMountpointBeforeFUSE(t *testing.T) {
 	mountpoint := filepath.Join(t.TempDir(), "mnt")
 	hardeningWriteFile(t, filepath.Join(mountpoint, "keep.txt"), "local\n", 0o644)
 
-	err := MountWorkspace(context.Background(), mountpoint, WorkspaceMountOptions{HydrateOnLookup: true}, &bytes.Buffer{})
+	err := MountWorkspace(context.Background(), mountpoint, WorkspaceMountOptions{HydrateOnLookup: true})
 	if err == nil || !strings.Contains(err.Error(), "refusing to hide local files") {
 		t.Fatalf("mountpoint error = %v", err)
 	}

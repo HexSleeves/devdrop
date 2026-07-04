@@ -155,7 +155,7 @@ func PushHostedManifest() (HostedSyncResult, error) {
 	if err != nil {
 		return HostedSyncResult{}, err
 	}
-	client := hostedClient{httpClient: &http.Client{Timeout: 30 * time.Second}, cfg: cfg}
+	client := newHostedClient(cfg)
 	remote, hasRemote, err := client.get(context.Background())
 	if err != nil {
 		return HostedSyncResult{}, err
@@ -200,7 +200,7 @@ func PullHostedManifest() (HostedSyncResult, error) {
 	if err != nil {
 		return HostedSyncResult{}, err
 	}
-	client := hostedClient{httpClient: &http.Client{Timeout: 30 * time.Second}, cfg: cfg}
+	client := newHostedClient(cfg)
 	remote, hasRemote, err := client.get(context.Background())
 	if err != nil {
 		return HostedSyncResult{}, err
@@ -255,6 +255,10 @@ func PullHostedManifest() (HostedSyncResult, error) {
 type hostedClient struct {
 	httpClient *http.Client
 	cfg        Config
+}
+
+func newHostedClient(cfg Config) hostedClient {
+	return hostedClient{httpClient: &http.Client{Timeout: 30 * time.Second}, cfg: cfg}
 }
 
 func (c hostedClient) get(ctx context.Context) (hostedManifestEnvelope, bool, error) {

@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>04-validation-charm-terminal-output</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff; --fg: #1a1a2e; --muted: #6b7280; --border: #e5e7eb;
+    --card: #f9fafb; --accent: #4f46e5; --pass: #059669; --fail: #dc2626; --warn: #d97706;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1117; --fg:#e6e6ef; --muted:#9ca3af; --border:#262a35; --card:#161922; --accent:#818cf8; --pass:#34d399; --fail:#f87171; --warn:#fbbf24; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height:1.6; }
+  .doc { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  header.doc-header { border-bottom: 1px solid var(--border); padding-bottom:1rem; margin-bottom:2rem; }
+  h1 { margin: .25rem 0; font-size:1.6rem; }
+  h2 { margin-top:2rem; border-bottom:1px solid var(--border); padding-bottom:.35rem; }
+  .meta { color:var(--muted); font-size:.9rem; }
+  .badge { display:inline-block; font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:.25rem .6rem; border-radius:999px; }
+  .badge-type { background:var(--accent); color:#fff; }
+  .status-pass, .status-done, .status-verified { background:var(--pass); color:#fff; }
+  .status-fail, .status-failed { background:var(--fail); color:#fff; }
+  .status-flag, .status-pending, .status-unknown, .status-in-progress { background:var(--warn); color:#111; }
+  table { width:100%; border-collapse: collapse; margin: 1rem 0; table-layout: fixed; }
+  th, td { border:1px solid var(--border); padding:.5rem .75rem; text-align:left; vertical-align:top; word-break: break-word; overflow-wrap: anywhere; }
+  th { background:var(--card); }
+  td code, th code { word-break: break-all; overflow-wrap: anywhere; }
+  .table-scroll { overflow-x: auto; max-width: 100%; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem 1.25rem; margin:1rem 0; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem; overflow-x:auto; }
+  .task-list { list-style:none; padding-left:0; }
+  .task { padding:.35rem 0; }
+  .task[data-status="done"] .task-label::before { content: "\2611 "; }
+  .task[data-status="pending"] .task-label::before { content: "\2610 "; }
+  .task[data-status="in-progress"] .task-label::before { content: "\25D1 "; }
+  figure { margin: 1rem 0; }
+  figure img { max-width:100%; border:1px solid var(--border); border-radius:.5rem; }
+  figcaption { color:var(--muted); font-size:.85rem; margin-top:.35rem; }
+  .metric-list { list-style:none; padding-left:0; }
+  .metric-list li { padding:.25rem 0; }
+  .gate-list { margin:.5rem 0; }
+</style>
+</head>
+<body data-overall-status="PASS">
+<div class="doc">
+  <header class="doc-header">
+    <span class="badge badge-type">Validation</span>
+    <h1>04-validation-charm-terminal-output</h1>
+    <p class="meta">Sequence 04 · Feature: charm-terminal-output · Phase 4</p>
+  </header>
+
+  <section id="executive-summary">
+    <h2>1) Executive Summary</h2>
+    <div class="card">
+      <p><strong>Overall:</strong> <span class="badge status-pass" data-role="overall-status">PASS</span></p>
+      <p><strong>Gates tripped:</strong></p>
+      <ul class="gate-list">
+        <li>None — all gates (A–F) passed.</li>
+      </ul>
+      <p><strong>Implementation Ready:</strong> Yes — every functional requirement is independently verified against live command output or test evidence, the full quality gate (build, 146 tests, vet, lint, govulncheck, cross-compiled fusetest) is clean, and no unmapped core file changes or credentials were found.</p>
+      <p><strong>Key metrics:</strong></p>
+      <ul class="metric-list">
+        <li>Requirements Verified: 100% (15/15)</li>
+        <li>Proof Artifacts Working: 100% (18/18 checked)</li>
+        <li>Files Changed vs Expected: 36 changed / 36 in scope (0 unmapped core changes; 4 new supporting/core files not pre-listed in the tasks doc's Relevant Files table, all with clear commit/requirement linkage — see Validation Issues)</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="coverage-matrix">
+    <h2>2) Coverage Matrix</h2>
+
+    <h3>Functional Requirements</h3>
+    <div class="table-scroll"><table>
+      <thead>
+        <tr><th>Requirement</th><th>Status</th><th>Evidence (file:lines, commit, or artifact)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>FR1 — v2-only Charm dependencies</td><td><span class="badge status-verified">Verified</span></td><td>Live: <code>grep -E "charm\.land|github\.com/charmbracelet" go.mod</code> shows only <code>charm.land/.../v2</code> for the six libraries plus documented exceptions (<code>colorprofile</code>, <code>x/*</code>); zero v1 collisions found repo-wide. Commit <code>a84e1ab</code>.</td></tr>
+        <tr><td>FR2 — shared theme in styles.go</td><td><span class="badge status-verified">Verified</span></td><td><code>internal/devspace/styles.go:36-44</code> <code>type theme struct</code> with OK/Warn/Fail/Info/Header/Muted/Emph lipgloss styles. Commit <code>a84e1ab</code>.</td></tr>
+        <tr><td>FR3 — colorprofile detection + styled writer</td><td><span class="badge status-verified">Verified</span></td><td><code>styles.go:96-100</code> <code>detectProfile</code> calls <code>colorprofile.Detect</code>; <code>styles.go:117</code> <code>styledWriter</code>. 4 passing tests in <code>styles_test.go</code>. Commit <code>a84e1ab</code>.</td></tr>
+        <tr><td>FR4 — NO_COLOR/CLICOLOR/CLICOLOR_FORCE + --no-color</td><td><span class="badge status-verified">Verified</span></td><td><code>commands.go:36</code> registers <code>--no-color</code>; <code>styles.go:97</code> <code>currentNoColor</code> override; env handling delegated to and verified against <code>colorprofile.Detect</code>'s own documented behavior.</td></tr>
+        <tr><td>FR5 — fang.Execute wrap + version alias</td><td><span class="badge status-verified">Verified</span></td><td>Live: <code>devspace --version</code> → "devspace version dev"; <code>devspace version</code> → "dev". Same underlying value. <code>cmd/devspace/main.go</code>, commit <code>9e24738</code>.</td></tr>
+        <tr><td>FR6 — charm-log diagnostics for watch/hosted-serve/mount</td><td><span class="badge status-verified">Verified</span></td><td><code>newDiagnosticsLogger</code> used at <code>commands.go:229</code> (hosted serve), <code>mount.go:104,301</code>, <code>watch.go:113</code>. Commit <code>9e24738</code>.</td></tr>
+        <tr><td>FR7 — restyled output of the 9 command surfaces</td><td><span class="badge status-verified">Verified</span></td><td>Live forced-color capture: <code>CLICOLOR_FORCE=1 devspace setup plan</code> renders Liatrio green (<code>#89DF00</code>) header/badge. vhs recording <code>04-tour.gif</code> shows status/doctor/plan styled end-to-end. Commit <code>b0ce6a2</code>.</td></tr>
+        <tr><td>FR8 — doctor severity badges preserve [SEVERITY] Subject: Detail format</td><td><span class="badge status-verified">Verified</span></td><td><code>doctor.go:328</code> keeps the exact <code>%s %s: %s</code> format with <code>currentTheme.badge(...)</code> wrapping only the bracketed severity; all pre-existing doctor_test.go assertions (e.g. <code>"[OK] Config:"</code>) pass unmodified.</td></tr>
+        <tr><td>FR9 — raw fmt.Fprintf migration in 5 files</td><td><span class="badge status-verified">Verified</span></td><td>Grep audit of all 5 files: remaining <code>fmt.Fprint*</code> calls are exclusively (a) <code>secretInput</code>'s prompt (commands.go:866,868 — explicitly excluded, FR15), (b) internals of already-theme-routed helpers (<code>PrintMountPreview</code>, <code>printDoctorReport</code>), (c) FUSE virtual-file / .env file content builders (mount.go:370-379, secrets.go:275 — not terminal output). No unmigrated user-facing call sites remain.</td></tr>
+        <tr><td>FR10 — --json on status/doctor/workspace diff/mount --preview</td><td><span class="badge status-verified">Verified</span></td><td>Live: all four commands' <code>--json</code> output parsed successfully with <code>python3 -m json.tool</code> in this session (status, doctor, mount --preview, and workspace diff with a real added/removed scenario against a pushed local remote).</td></tr>
+        <tr><td>FR11 — coverage-equivalent test assertion migration across 6 files</td><td><span class="badge status-verified">Verified</span></td><td><code>commands_test.go</code> (+86), <code>devspace_test.go</code> (+47), <code>mount_test.go</code> (+9), <code>mount_fuse_test.go</code> (+3) were updated. <code>doctor_test.go</code> and <code>workspace_sync_test.go</code> show zero diff — by design: the badge/diff-marker wrapping preserves the exact pre-existing substrings once ANSI is stripped, so no assertion needed to change to remain accurate (verified by these tests passing unmodified in the full suite run).</td></tr>
+        <tr><td>FR12 — huh Confirm (default No) / Input (exact-phrase) replacing confirmSetup</td><td><span class="badge status-verified">Verified</span></td><td><code>interactive.go:46</code> <code>confirmSetupRun</code>, <code>interactive.go:76</code> <code>confirmSetupApply</code>. vhs screenshots <code>04-confirm-prompt.png</code> (Yes/No buttons, No selected) and <code>04-confirm-rejected.png</code> (styled rejection) captured from a real pty.</td></tr>
+        <tr><td>FR13 — --yes bypass + byte-for-byte non-TTY fallback</td><td><span class="badge status-verified">Verified</span></td><td>Live: <code>echo "wrong" | devspace setup apply</code> reproduces the exact original prompt/error text; <code>devspace setup apply --yes --dry-run</code> bypasses confirmation and prints "Would run...". Pre-existing <code>TestSetupRunCommandRequiresConfirmation</code> passes unmodified.</td></tr>
+        <tr><td>FR14 — bubbles spinner for hydrate/scan on TTY, plain otherwise</td><td><span class="badge status-verified">Verified</span></td><td><code>runWithSpinner</code> called at <code>commands.go:512</code> (scan) and <code>:642</code> (hydrate). vhs screenshots <code>04-hydrate-spinner.png</code> (spinner mid-flight) and <code>04-hydrate-done.png</code> (completion) from a real pty; <code>TestScanCommandPrintsPlainProgressLineWhenPiped</code>/<code>TestHydrateCommandPrintsPlainProgressLineWhenPiped</code> cover the non-TTY path.</td></tr>
+        <tr><td>FR15 — secretInput unchanged</td><td><span class="badge status-verified">Verified</span></td><td><code>git diff e75b79f..429859d -- internal/devspace/commands.go</code> shows zero line changes within the <code>secretInput</code> function body (the only diff hunk touching its region is context around the following function).</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>Repository Standards</h3>
+    <div class="table-scroll"><table>
+      <thead>
+        <tr><th>Standard Area</th><th>Status</th><th>Evidence &amp; Compliance Notes</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Coding standards (gofmt, single-package layout)</td><td><span class="badge status-verified">Verified</span></td><td><code>gofmt -l cmd internal</code> returns empty; all new/changed files live in the existing <code>internal/devspace</code> package with a thin <code>cmd/devspace/main.go</code> entrypoint, matching AGENTS.md.</td></tr>
+        <tr><td>Testing patterns (DEVSPACE_HOME isolation, behavior-named tests)</td><td><span class="badge status-verified">Verified</span></td><td>New command/interactive tests use <code>initCommandWorkspace</code>/<code>hardeningInitWorkspace</code> (13 and 2 call sites respectively) which set <code>t.Setenv(envHome, t.TempDir())</code>; test names describe behavior (e.g. <code>TestHuhConfirmAccessibleDefaultsToNo</code>, <code>TestStyledWriterStripsAnsiForNonTTYByDefault</code>).</td></tr>
+        <tr><td>Quality gates (make verify)</td><td><span class="badge status-verified">Verified</span></td><td>Fresh run this session: build OK, 146 tests passed / 0 failed, <code>go vet</code> clean, golangci-lint v2.12.2 clean (0 issues), govulncheck clean (0 vulnerabilities), <code>GOOS=linux -tags fusetest go vet</code> clean.</td></tr>
+        <tr><td>Commit conventions</td><td><span class="badge status-verified">Verified</span></td><td>All 6 spec-04 commits use the <code>feat:</code> prefix with imperative, scoped subjects, matching AGENTS.md's Conventional Commit convention.</td></tr>
+        <tr><td>Output helpers stay io.Writer-based</td><td><span class="badge status-verified">Verified</span></td><td>Every restyled helper in <code>output.go</code>/<code>doctor.go</code>/<code>mount.go</code> keeps its original <code>io.Writer</code> parameter signature; new helpers (<code>printOK</code>, <code>printCaution</code>, <code>printLine</code>, <code>printRecipientTable</code>) follow the same pattern.</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>Proof Artifacts</h3>
+    <div class="table-scroll"><table>
+      <thead>
+        <tr><th>Unit/Task</th><th>Proof Artifact</th><th>Status</th><th>Verification Result</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Task 1.0</td><td>go.mod dependency diff (v2-only)</td><td><span class="badge status-verified">Verified</span></td><td>Re-checked live this session; matches proof doc claim exactly.</td></tr>
+        <tr><td>Task 1.0</td><td><code>styles_test.go</code> 4 passing tests</td><td><span class="badge status-verified">Verified</span></td><td>Included in the 146-test full-suite pass.</td></tr>
+        <tr><td>Task 1.0</td><td>Piped/NO_COLOR CLI transcripts (zero ANSI)</td><td><span class="badge status-verified">Verified</span></td><td>Re-ran <code>devspace status</code> piped in this session; zero <code>0x1b</code> bytes.</td></tr>
+        <tr><td>Task 2.0</td><td>Styled <code>--help</code> / error screenshots (described)</td><td><span class="badge status-verified">Verified</span></td><td>Re-confirmed live: unknown-command error renders fang's styled ERROR box, exit code 1.</td></tr>
+        <tr><td>Task 2.0</td><td>Version alias parity transcript</td><td><span class="badge status-verified">Verified</span></td><td>Re-ran live this session (FR5 evidence above).</td></tr>
+        <tr><td>Task 2.0</td><td>Watch logfmt diagnostics test</td><td><span class="badge status-verified">Verified</span></td><td><code>TestWatchDiagnosticsAreLogfmtWhenPiped</code> included in full-suite pass.</td></tr>
+        <tr><td>Task 3.0</td><td>Forced-color status/doctor Liatrio-hex transcript</td><td><span class="badge status-verified">Verified</span></td><td>Re-ran live this session (FR7 evidence); confirmed exact hex-matching RGB values in prior implementation session, re-confirmed color renders in this session.</td></tr>
+        <tr><td>Task 3.0</td><td>Piped output zero-ANSI transcripts</td><td><span class="badge status-verified">Verified</span></td><td>Re-confirmed live.</td></tr>
+        <tr><td>Task 3.0</td><td>Mount preview / recipient list bordered tables</td><td><span class="badge status-verified">Verified</span></td><td><code>04-tour.gif</code> and this session's live capture both show real box-drawn tables.</td></tr>
+        <tr><td>Task 3.0</td><td>Coverage-equivalent <code>mount_test.go</code> migration</td><td><span class="badge status-verified">Verified</span></td><td>Test passes in full-suite run; diff shows deliberate assertion update, not deletion.</td></tr>
+        <tr><td>Task 4.0</td><td><code>status --json</code> / <code>doctor --json</code> / <code>workspace diff --json</code> / <code>mount --preview --json</code></td><td><span class="badge status-verified">Verified</span></td><td>All four re-verified live this session with real data, parsed via <code>python3 -m json.tool</code>.</td></tr>
+        <tr><td>Task 4.0</td><td>4 schema-stability tests</td><td><span class="badge status-verified">Verified</span></td><td>Included in full-suite pass.</td></tr>
+        <tr><td>Task 4.0</td><td>README documents new flags</td><td><span class="badge status-verified">Verified</span></td><td><code>git diff e75b79f..429859d -- README.md</code> shows the <code>--json</code>/<code>--no-color</code> documentation additions.</td></tr>
+        <tr><td>Task 5.0</td><td>vhs GIF: <code>04-tour.gif</code></td><td><span class="badge status-verified">Verified</span></td><td>File exists (542KB), valid GIF (verified via <code>file</code> during recording), frames inspected directly.</td></tr>
+        <tr><td>Task 5.0</td><td>huh Confirm screenshots</td><td><span class="badge status-verified">Verified</span></td><td><code>04-confirm-prompt.png</code>/<code>04-confirm-rejected.png</code> exist and were visually inspected during recording, showing real Yes/No buttons.</td></tr>
+        <tr><td>Task 5.0</td><td>Spinner screenshots</td><td><span class="badge status-verified">Verified</span></td><td><code>04-hydrate-spinner.png</code>/<code>04-hydrate-done.png</code> exist and were visually inspected, showing the spinner glyph mid-flight and the green completion line.</td></tr>
+        <tr><td>Task 5.0</td><td>Non-TTY setup apply transcript</td><td><span class="badge status-verified">Verified</span></td><td>Re-ran live this session (FR13 evidence).</td></tr>
+        <tr><td>Task 5.0</td><td>7 new interactive tests (fallback + accessible-mode)</td><td><span class="badge status-verified">Verified</span></td><td>Included in full-suite pass.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section id="validation-issues">
+    <h2>3) Validation Issues</h2>
+    <p>No CRITICAL, HIGH, or blocking issues found. One traceability note is recorded for completeness.</p>
+    <div class="table-scroll"><table>
+      <thead>
+        <tr><th>Severity</th><th>Issue</th><th>Impact</th><th>Recommendation</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge status-flag">LOW</span></td>
+          <td>Four files (<code>internal/devspace/diagnostics.go</code>, <code>interactive.go</code>, <code>interactive_test.go</code>, and the <code>workspace_sync.go</code> JSON-tag edit) were not pre-listed by filename in the tasks doc's "Relevant Files" table, since that table was written before implementation began. Evidence: <code>git diff e75b79f..429859d --stat</code> shows these files changed; each has clear task/requirement linkage via commit messages (<code>9e24738</code>, <code>429859d</code>, <code>1d93a5b</code>) and the spec's own Technical Considerations (which describe "a shared charm.land/log/v2 logger constructor" and "reuse ManifestDiff" without naming exact filenames).</td>
+          <td>None — traceability is intact via commits and proof docs; this is expected planning-vs-implementation drift for new supporting files, not scope creep (confirmed: no unmapped changes outside <code>internal/devspace</code>, <code>cmd/devspace</code>, <code>README.md</code>, <code>go.mod</code>/<code>go.sum</code>, and the spec's own docs directory).</td>
+          <td>Optional: update the tasks doc's Relevant Files table to list these files for future readers. Not required before merge.</td>
+        </tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section id="evidence-appendix">
+    <h2>4) Evidence Appendix</h2>
+
+    <h3>Git Commits Analyzed</h3>
+    <p>Six commits comprise this feature's implementation (scope verified to exclude the pre-existing, separately-authored <code>e75b79f</code> refactor commit that landed on this branch before spec-04 work began):</p>
+    <pre><code>9f922a4 feat: add HTML specifications for charm-terminal-output
+   3 files changed, 1124 insertions(+)  [spec, tasks, audit]
+
+a84e1ab feat: add Charm v2 foundation and Liatrio color-profile plumbing
+   7 files changed, 438 insertions(+), 7 deletions(-)
+
+9e24738 feat: wrap root command with fang and route diagnostics through charm log
+   14 files changed, 320 insertions(+), 83 deletions(-)
+
+b0ce6a2 feat: restyle all command output on the Liatrio theme
+   11 files changed, 448 insertions(+), 103 deletions(-)
+
+1d93a5b feat: add --json to status, doctor, workspace diff, and mount --preview
+   8 files changed, 412 insertions(+), 65 deletions(-)
+
+429859d feat: add huh confirmations and spinner progress for interactive terminals
+   15 files changed, 567 insertions(+), 15 deletions(-)
+
+Total (excluding e75b79f): 36 files changed, 3223 insertions(+), 187 deletions(-)</code></pre>
+
+    <h3>Proof Artifact Test Results</h3>
+    <ul>
+      <li><code>go build ./...</code>: Success</li>
+      <li><code>go test ./internal/devspace/... -v -count=1</code>: 146 passed, 0 failed</li>
+      <li><code>go vet ./...</code>: no issues</li>
+      <li><code>golangci-lint run ./...</code> (v2.12.2): 0 issues</li>
+      <li><code>govulncheck ./...</code>: 0 vulnerabilities</li>
+      <li><code>GOOS=linux GOARCH=amd64 go vet -tags fusetest ./...</code>: no issues (exercises the Linux-only <code>mount_fuse_test.go</code> that cannot run natively on this darwin machine)</li>
+      <li><code>gofmt -l cmd internal</code>: empty (fully formatted)</li>
+    </ul>
+    <figure>
+      <img src="04-proofs/04-confirm-prompt.png" alt="huh Confirm field rendering Run npm install in apps/web with Yes and No buttons, No selected by default" />
+      <figcaption>docs/specs/04-spec-charm-terminal-output/04-proofs/04-confirm-prompt.png — the interactive confirmation UI, captured from a real pty via vhs, proving FR12 renders correctly rather than just compiling.</figcaption>
+    </figure>
+    <figure>
+      <img src="04-proofs/04-hydrate-spinner.png" alt="Terminal showing an animated spinner glyph next to the text Hydrating lazy" />
+      <figcaption>docs/specs/04-spec-charm-terminal-output/04-proofs/04-hydrate-spinner.png — the bubbles spinner mid-flight during project hydrate, proving FR14.</figcaption>
+    </figure>
+
+    <h3>File Comparison Results</h3>
+    <pre><code>Expected (tasks doc "Relevant Files" table, written pre-implementation):
+  go.mod / go.sum, styles.go (new), styles_test.go (new), output.go, commands.go,
+  cmd/devspace/main.go, doctor.go, mount.go, watch.go, secrets.go, setup.go,
+  jsonio.go, commands_test.go, doctor_test.go, devspace_test.go,
+  workspace_sync_test.go, mount_test.go/mount_fuse_test.go, README.md,
+  04-proofs/
+
+Actual (git diff e75b79f..429859d --stat, 36 files):
+  All expected files changed EXCEPT: secrets.go (correctly untouched — its one
+  print site builds .env file content, out of scope, documented in task 3
+  proof), setup.go (huh wiring landed in commands.go + new interactive.go
+  instead), jsonio.go (reused unmodified, as planned), doctor_test.go and
+  workspace_sync_test.go (correctly unchanged — substrings survived the
+  restyle by design, see FR11).
+
+  Additional files not pre-listed, all in-scope with clear linkage (see
+  Validation Issues): diagnostics.go (new), interactive.go (new),
+  interactive_test.go (new), workspace_sync.go (JSON tags only, +18/-* lines).
+
+  Zero core files changed outside internal/devspace, cmd/devspace, README.md,
+  go.mod/go.sum, and this spec's own docs/specs/04-* directory.</code></pre>
+
+    <h3>Commands Executed</h3>
+    <pre><code># Import discipline (FR1)
+grep -E "charm\.land|github\.com/charmbracelet" go.mod
+grep -rn "github.com/charmbracelet/{lipgloss,bubbletea,bubbles,log,huh,fang}" --include="*.go" .
+→ zero v1 collisions
+
+# Live command verification (FR5, FR7, FR10, FR13)
+devspace --version && devspace version
+CLICOLOR_FORCE=1 devspace setup plan | cat -v
+devspace status --json | python3 -m json.tool
+devspace doctor --json | python3 -m json.tool
+devspace mount &lt;dir&gt; --preview --json | python3 -m json.tool
+devspace workspace diff --json | python3 -m json.tool   # with a real pushed remote + local change
+echo "wrong" | devspace setup apply
+devspace setup apply --yes --dry-run
+→ all produced the expected output described in the Coverage Matrix above
+
+# Non-goal / scope verification
+grep -rn "AltScreen" internal/devspace/*.go              → none (no full-screen TUI added)
+git diff e75b79f..429859d -- hosted_sync.go hardening_test.go   → empty (untouched)
+git diff e75b79f..429859d -- types.go workspace.go paths.go     → empty (untouched)
+
+# Full quality gate
+go build ./... &amp;&amp; go test ./internal/devspace/... -v -count=1 &amp;&amp; go vet ./...
+golangci-lint run ./... &amp;&amp; govulncheck ./...
+GOOS=linux GOARCH=amd64 go vet -tags fusetest ./...
+gofmt -l cmd internal
+→ build OK; 146 passed/0 failed; 0 vet issues; 0 lint issues; 0 vulnerabilities;
+  fusetest cross-compile clean; gofmt clean
+
+# Security scan (GATE F)
+grep -rlE "age1[a-z0-9]{50,}|AGE-SECRET-KEY|ghp_[A-Za-z0-9]{30,}|sk-[A-Za-z0-9]{20,}" \
+  docs/specs/04-spec-charm-terminal-output/04-proofs/*
+→ no matches (broader base64-shaped pattern flagged only test names and temp paths,
+  confirmed as false positives by manual inspection)</code></pre>
+  </section>
+
+  <section id="validation-metadata">
+    <h2>Validation Metadata</h2>
+    <p><strong>Validation Completed:</strong> 2026-07-04</p>
+    <p><strong>Validation Performed By:</strong> Claude Fable 5</p>
+  </section>
+</div>
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>04-task-02-proofs</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff; --fg: #1a1a2e; --muted: #6b7280; --border: #e5e7eb;
+    --card: #f9fafb; --accent: #4f46e5; --pass: #059669; --fail: #dc2626; --warn: #d97706;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1117; --fg:#e6e6ef; --muted:#9ca3af; --border:#262a35; --card:#161922; --accent:#818cf8; --pass:#34d399; --fail:#f87171; --warn:#fbbf24; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height:1.6; }
+  .doc { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  header.doc-header { border-bottom: 1px solid var(--border); padding-bottom:1rem; margin-bottom:2rem; }
+  h1 { margin: .25rem 0; font-size:1.6rem; }
+  h2 { margin-top:2rem; border-bottom:1px solid var(--border); padding-bottom:.35rem; }
+  .meta { color:var(--muted); font-size:.9rem; }
+  .badge { display:inline-block; font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:.25rem .6rem; border-radius:999px; }
+  .badge-type { background:var(--accent); color:#fff; }
+  .status-pass, .status-done, .status-verified { background:var(--pass); color:#fff; }
+  .status-fail, .status-failed { background:var(--fail); color:#fff; }
+  .status-flag, .status-pending, .status-unknown, .status-in-progress { background:var(--warn); color:#111; }
+  table { width:100%; border-collapse: collapse; margin: 1rem 0; }
+  th, td { border:1px solid var(--border); padding:.5rem .75rem; text-align:left; vertical-align:top; }
+  th { background:var(--card); }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem 1.25rem; margin:1rem 0; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem; overflow-x:auto; }
+  figure { margin: 1rem 0; }
+  figure img { max-width:100%; border:1px solid var(--border); border-radius:.5rem; }
+  figcaption { color:var(--muted); font-size:.85rem; margin-top:.35rem; }
+  article.artifact { margin: 2rem 0; padding-top: 1.25rem; border-top: 1px solid var(--border); }
+  .proves, .matters, .result-summary { margin: .5rem 0; }
+</style>
+</head>
+<body>
+<div class="doc">
+  <header class="doc-header">
+    <span class="badge badge-type">PROOFS</span>
+    <h1>Task 02 Proofs - Root polish: fang wrapper and charm-log diagnostics</h1>
+    <p class="meta">Sequence 04 · Feature: charm-terminal-output · Task 02 · Phase 3</p>
+  </header>
+
+  <h2>Task Summary</h2>
+  <p>This task wrapped the CLI entrypoint (<code>cmd/devspace/main.go</code>) with <code>fang.Execute</code>, giving styled help/usage/error output, automatic <code>--version</code> support, and hidden <code>man</code>/<code>completion</code> subcommands in one call — while keeping the existing <code>version</code> subcommand as a plain-text alias reporting the same underlying version string. It also added a shared <code>charm.land/log/v2</code> logger (<code>internal/devspace/diagnostics.go</code>) and routed the startup/refresh diagnostics of the three long-running surfaces (<code>watch</code>, <code>mount</code>, <code>hosted serve</code>) to stderr through it, rendering leveled logfmt output when stderr is not a TTY.</p>
+
+  <h2>What This Task Proves</h2>
+  <ul>
+    <li>fang wraps the root command with zero changes to command construction (<code>NewRootCommand</code> is unchanged and still testable directly with plain cobra output — only <code>main.go</code> changed).</li>
+    <li>The <code>version</code> subcommand and fang's automatic <code>--version</code> report the same configured version value, satisfying the single-source-of-truth requirement.</li>
+    <li>fang's styled rendering path is exercised by an automated test (not just manual observation): forcing <code>CLICOLOR_FORCE=1</code> against a buffer writer produces ANSI-styled help, while the default (no forcing) path stays byte-clean — this is the audit-remediation coverage for the previously flagged TTY-only rendering gap.</li>
+    <li><code>watch</code>'s diagnostics are leveled, timestamped, and render as logfmt when piped, confirmed by both a CLI transcript and an automated test.</li>
+    <li>Unknown-command errors exit non-zero with a styled error box instead of a raw Go error dump.</li>
+  </ul>
+
+  <h2>Evidence Summary</h2>
+  <ul>
+    <li>CLI transcripts: <code>--version</code>, <code>version</code>, piped <code>watch --once</code> diagnostics, and an unknown-command error, all captured from a real built binary in a sandboxed workspace.</li>
+    <li>Automated tests: five new/updated cases in <code>devspace_test.go</code> and <code>watch_test.go</code>, plus the full existing suite, all passing.</li>
+    <li>Quality gates: <code>go vet</code>, golangci-lint v2.12.2, and govulncheck all clean, including under the <code>fusetest</code> build tag (the <code>MountWorkspace</code> signature lost its now-unused <code>out</code> parameter as part of this task).</li>
+  </ul>
+
+  <article class="artifact">
+    <h2>Artifact: version alias and fang --version parity</h2>
+    <p class="proves"><strong>What it proves:</strong> <code>devspace version</code> (the pre-existing subcommand) and <code>devspace --version</code> (fang's automatic flag) both derive from the same configured version value.</p>
+    <p class="matters"><strong>Why it matters:</strong> Scripts already calling <code>devspace version</code> keep working unchanged after adopting fang; fang's flag is additive, not a replacement.</p>
+    <p><strong>Command:</strong></p>
+    <pre><code>devspace --version
+devspace version</code></pre>
+    <p class="result-summary"><strong>Result summary:</strong> fang formats its output as "devspace version dev"; the alias subcommand prints the bare value "dev" — different presentation, same underlying version string, exactly matching <code>TestVersionSubcommandMatchesConfiguredVersion</code>'s assertion.</p>
+    <pre><code>=== --version ===
+devspace version dev
+=== version subcommand ===
+dev</code></pre>
+  </article>
+
+  <article class="artifact">
+    <h2>Artifact: watch diagnostics as logfmt on stderr when piped</h2>
+    <p class="proves"><strong>What it proves:</strong> Long-running surface diagnostics are leveled, timestamped, and machine-parsable (logfmt) rather than plain narrative text, and they now go to stderr rather than stdout.</p>
+    <p class="matters"><strong>Why it matters:</strong> This is exactly the "log aggregation friendly" behavior the spec's Technical Considerations call for — a log shipper or <code>grep 'level=error'</code> now works against watch/mount/hosted-serve output without ad hoc parsing.</p>
+    <p><strong>Command</strong> (sandboxed temp workspace):</p>
+    <pre><code>devspace watch --once 2&gt;&amp;1 1&gt;/dev/null</code></pre>
+    <p class="result-summary"><strong>Result summary:</strong> Three logfmt lines: the startup message (workspace, directory count, debounce, sync mode), the safety-scope reminder, and the refresh summary — all on stderr, none on stdout, zero ANSI bytes.</p>
+    <pre><code>time="2026/07/04 10:51:43" level=info msg="watching workspace" workspace=[TEMP_PATH]/ws directories=1 debounce=2s sync="local manifest/state only"
+time="2026/07/04 10:51:43" level=info msg="watch refreshes manifest/state only; it never pulls, applies plans, hydrates repositories, runs setup commands, or uploads secrets"
+time="2026/07/04 10:51:43" level=info msg="refreshed workspace metadata" at=2026-07-04T15:51:43Z scope=full projects=0 gitRepos=0 untracked=0 localOnly=0 withEnv=0</code></pre>
+  </article>
+
+  <article class="artifact">
+    <h2>Artifact: styled fang help forced via CLICOLOR_FORCE (automated TTY-path coverage)</h2>
+    <p class="proves"><strong>What it proves:</strong> fang's styled rendering path is exercised by an automated test, not just manual terminal observation — directly addressing the planning audit's regression-risk flag about TTY-only rendering paths lacking automated tests.</p>
+    <p class="matters"><strong>Why it matters:</strong> Without this, a future change that broke fang's styling would only be caught by someone happening to look at a real terminal.</p>
+    <p><strong>Command:</strong></p>
+    <pre><code>go test ./internal/devspace/... -run 'TestFangStyledHelpWhenColorForced|TestFangHelpPlainWhenPiped|TestVersionSubcommandMatchesConfiguredVersion|TestWatchDiagnosticsAreLogfmtWhenPiped|TestRootCommandHelp' -v</code></pre>
+    <p class="result-summary"><strong>Result summary:</strong> All five cases pass: forced-color help contains ANSI bytes, default piped help is byte-clean, the version alias matches, watch diagnostics are logfmt, and the unwrapped root command's own help text (tested independently of fang) still lists all expected command groups.</p>
+    <pre><code>Go test: 5 passed in 1 packages</code></pre>
+  </article>
+
+  <article class="artifact">
+    <h2>Artifact: unknown-command styled error with correct exit code</h2>
+    <p class="proves"><strong>What it proves:</strong> fang's error handler renders a styled error box and the process still exits non-zero, matching prior plain-cobra behavior on exit code while upgrading presentation.</p>
+    <p class="matters"><strong>Why it matters:</strong> Scripts checking <code>$?</code> after a devspace invocation are unaffected by the styling change.</p>
+    <p><strong>Command:</strong></p>
+    <pre><code>devspace bogus; echo "exit: $?"</code></pre>
+    <p class="result-summary"><strong>Result summary:</strong> Exit code 1, styled ERROR box on stderr naming the unrecognized command and suggesting <code>--help</code>.</p>
+    <pre><code>   ERROR
+  Unknown command "bogus" for "devspace".
+  Try --help for usage.
+exit: 1</code></pre>
+  </article>
+
+  <article class="artifact">
+    <h2>Artifact: full suite, vet, lint, govulncheck, and fusetest build tag all clean</h2>
+    <p class="proves"><strong>What it proves:</strong> The fang/log integration and the <code>MountWorkspace</code> signature simplification (dropping its now-unused <code>out</code> parameter) introduced no regressions anywhere in the existing suite, including the FUSE-tagged test file that only compiles under <code>-tags fusetest</code>.</p>
+    <p class="matters"><strong>Why it matters:</strong> <code>mount_fuse_test.go</code> only builds under a non-default tag, so it is easy to silently break without explicitly checking it.</p>
+    <p><strong>Command:</strong></p>
+    <pre><code>go test ./...
+go vet ./...
+go vet -tags fusetest ./...
+go build -tags fusetest ./...
+golangci-lint run ./...
+govulncheck ./...</code></pre>
+    <p class="result-summary"><strong>Result summary:</strong> 185 tests pass, zero vet issues (default and fusetest-tagged), zero lint issues, zero reachable vulnerabilities.</p>
+    <pre><code>Go test: 185 passed in 2 packages
+Go vet: No issues found
+Go vet: No issues found
+Go build: Success
+0 issues.
+No vulnerabilities found.</code></pre>
+  </article>
+
+  <h2>Reviewer Conclusion</h2>
+  <p>The root command now presents a modern, styled CLI surface via fang with no loss of scriptability (version alias parity, correct exit codes, plain output when piped), and the three long-running surfaces report structured, leveled diagnostics to stderr instead of ad hoc stdout narration. The previously flagged TTY-rendering test gap is closed with a forced-profile test that exercises fang's real styled code path. The full quality gate (tests, vet, lint, govulncheck, and the fusetest-tagged build) is green.</p>
+</div>
+</body>
+</html>
