@@ -55,9 +55,11 @@ Current product priority: **macOS first**. DevSpace is primarily developed on
 macOS, so the mount prototype should be evaluated first as a local developer
 experience, not as a hosted CI feature.
 
-The current local machine is macOS `26.6` (`25G5052e`). macFUSE is not installed:
-`/Library/Filesystems/macfuse.fs` is missing and `mount_macfuse` is not on
-`PATH`. No system installation or security-policy change was attempted.
+A developer Mac needs macFUSE installed and approved before a real mount can be
+smoke-tested. DevSpace does not install macFUSE, ask for elevated macOS
+permissions, or alter system extension policy automatically. Local readiness
+proofs are recorded in
+`docs/specs/03-spec-fuse-lazy-mount/03-proofs/03-task-01-proofs.html`.
 
 Recommended local proof path after macFUSE is installed and approved:
 
@@ -87,19 +89,18 @@ future spike, but it is separate from this Plan 015 resolution.
 
 Current automation status: **GO** for GitHub-hosted Linux CI. Linux is the
 follow-up safety net for repeatable regression coverage after the macOS-first
-developer path is documented. A temporary probe workflow on PR #25 verified
-`/dev/fuse`, `fusermount3`, a minimal `go-fuse/v2` loopback mount, directory
-listing, file read, and clean unmount on `ubuntu-latest`.
+developer path is documented.
 
-| Platform | Status | Evidence |
+| Platform | Status | Guidance |
 |----------|--------|----------|
-| Linux `ubuntu-latest` | GO | GitHub Actions run `28685409454` on PR #25 passed. Runner image: `ubuntu-24.04`, version `20260628.225.1`. The probe observed `/dev/fuse`, `fusermount3 version: 3.14.0`, mounted a `go-fuse/v2` loopback filesystem, listed `entry: hello.txt`, read `fuse ok`, and printed `unmounted`. |
-| macOS local developer machines | PENDING LOCAL PROOF | Current machine is macOS `26.6` (`25G5052e`) and does not have macFUSE installed. Product direction is macOS-first, but real mount proof waits for a developer Mac with macFUSE installed and approved. |
+| Linux `ubuntu-latest` | GO | Permanent coverage lives in the `mount-integration` job. It installs FUSE support, checks `/dev/fuse`, and runs `go test ./internal/devspace -tags fusetest -v`. |
+| macOS local developer machines | PENDING LOCAL PROOF | Product direction is macOS-first. A real mount proof waits for a developer Mac with macFUSE installed and approved. |
 | macOS hosted runners | DEFERRED | Hosted macOS FUSE CI is not the first target. macFUSE approval and kernel/system extension loading are not reliable assumptions on ephemeral hosted runners. |
 
 The temporary probe workflow was removed after the Linux GO result was recorded.
-Permanent coverage now lives in the `mount-integration` CI job, which keeps the
-default `verify` job and `make verify` FUSE-free.
+Detailed probe and CI evidence is kept in the SDD proof artifacts under
+`docs/specs/03-spec-fuse-lazy-mount/03-proofs/`. The default `verify` job and
+`make verify` remain FUSE-free.
 
 Future options:
 

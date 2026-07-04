@@ -4,10 +4,11 @@ DevDrop ships the local-first CLI as a `devspace` binary built from the existing
 Go module. Releases are **automated with GoReleaser**: pushing a version tag
 builds multi-platform archives and publishes them to GitHub Releases with
 checksums, a generated changelog, and build-provenance attestation. GoReleaser is
-the single source of truth for release artifacts (there is no separate manual
-release path). This workflow packages the CLI; the hosted server is published
-separately as a container image. It does not add a daemon, FUSE behavior, managed
-team identity, or dependency install behavior.
+the single source of truth for release artifacts. Stable releases are driven by
+the release-please flow; manual prerelease tags are the exception for preview
+binary publication. This workflow packages the CLI; the hosted server is
+published separately as a container image. It does not add a daemon, FUSE
+behavior, managed team identity, or dependency install behavior.
 
 ## Automated release (primary)
 
@@ -35,9 +36,9 @@ named `devspace_<version>_<os>_<arch>.tar.gz`, plus a `checksums.txt` file
 Windows. Tags with a prerelease suffix (for example `v0.1.0-rc.1`) are marked
 as GitHub prereleases automatically.
 
-### Cutting a release
+### Cutting a stable release
 
-Versioning is automatic — you do not tag by hand.
+Stable versioning is automatic — you do not tag stable releases by hand.
 
 1. Land feature PRs on `main` with conventional-commit titles (`feat:`/`fix:`).
 2. `release-please` opens/updates a **release PR** with the next version and
@@ -49,8 +50,12 @@ Versioning is automatic — you do not tag by hand.
    review"** on the `production` environment — approve it in the Actions run to
    deploy the image to Railway. Prerelease (`-rc`) tags skip the deploy.
 
-To publish binaries without a live deploy (e.g. a preview), push a prerelease
-tag by hand: `git tag v0.1.0-rc.3 && git push origin v0.1.0-rc.3`.
+### Cutting a prerelease preview
+
+To publish binaries without a live deploy, push a prerelease tag by hand:
+`git tag v0.1.0-rc.3 && git push origin v0.1.0-rc.3`. Prerelease tags still run
+the same GoReleaser artifact path, but they are marked as GitHub prereleases and
+skip the Railway deploy job.
 
 ### Setup prerequisites (one-time)
 
