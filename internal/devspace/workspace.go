@@ -428,22 +428,6 @@ func ApplyLastPlan() (Plan, error) {
 	return applied, nil
 }
 
-func PlanSync() ([]PlanAction, error) {
-	plan, err := BuildPlan()
-	if err != nil {
-		return nil, err
-	}
-	return plan.Actions, nil
-}
-
-func ApplySync() ([]PlanAction, error) {
-	plan, err := ApplyLastPlan()
-	if err != nil {
-		return nil, err
-	}
-	return plan.Actions, nil
-}
-
 func HydrateProject(ref string) (Project, error) {
 	cfg, err := LoadConfig()
 	if err != nil {

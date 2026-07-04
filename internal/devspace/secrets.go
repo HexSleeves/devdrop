@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -17,9 +18,7 @@ import (
 )
 
 func EnvSet(projectRef, key, profile string, in io.Reader) error {
-	if profile == "" {
-		profile = "dev"
-	}
+	profile = profileOrDefault(profile)
 	if err := validSecretName(profile); err != nil {
 		return err
 	}
@@ -60,7 +59,7 @@ func EnvSet(projectRef, key, profile string, in io.Reader) error {
 		return err
 	}
 	m = ensureManifestLocalUserAccess(cfg, m, p.ID, profile)
-	if !contains(p.EnvProfiles, profile) {
+	if !slices.Contains(p.EnvProfiles, profile) {
 		p.EnvProfiles = append(p.EnvProfiles, profile)
 		sort.Strings(p.EnvProfiles)
 		for i := range m.Projects {
@@ -82,9 +81,7 @@ func EnvRecipientExport() (SecretRecipient, error) {
 }
 
 func EnvRecipients(projectRef, profile string) ([]SecretRecipient, error) {
-	if profile == "" {
-		profile = "dev"
-	}
+	profile = profileOrDefault(profile)
 	if err := validSecretName(profile); err != nil {
 		return nil, err
 	}
@@ -107,9 +104,7 @@ func EnvRecipients(projectRef, profile string) ([]SecretRecipient, error) {
 }
 
 func EnvInvite(projectRef, profile, name, recipientText, teamName string) (SecretRecipient, error) {
-	if profile == "" {
-		profile = "dev"
-	}
+	profile = profileOrDefault(profile)
 	if err := validSecretName(profile); err != nil {
 		return SecretRecipient{}, err
 	}
@@ -147,7 +142,7 @@ func EnvInvite(projectRef, profile, name, recipientText, teamName string) (Secre
 	}
 	m = ensureManifestLocalUserAccess(cfg, m, p.ID, profile)
 	m = upsertManifestSharedAccess(m, p.ID, profile, shared, teamName, now)
-	if !contains(p.EnvProfiles, profile) {
+	if !slices.Contains(p.EnvProfiles, profile) {
 		p.EnvProfiles = append(p.EnvProfiles, profile)
 		sort.Strings(p.EnvProfiles)
 		for i := range m.Projects {
@@ -164,9 +159,7 @@ func EnvInvite(projectRef, profile, name, recipientText, teamName string) (Secre
 }
 
 func EnvRevoke(projectRef, profile, recipientRef, reason string) (SecretRecipient, error) {
-	if profile == "" {
-		profile = "dev"
-	}
+	profile = profileOrDefault(profile)
 	if err := validSecretName(profile); err != nil {
 		return SecretRecipient{}, err
 	}
@@ -217,9 +210,7 @@ func EnvRevoke(projectRef, profile, recipientRef, reason string) (SecretRecipien
 }
 
 func EnvRotateRecipients(projectRef, profile string) error {
-	if profile == "" {
-		profile = "dev"
-	}
+	profile = profileOrDefault(profile)
 	if err := validSecretName(profile); err != nil {
 		return err
 	}
@@ -236,9 +227,7 @@ func EnvRotateRecipients(projectRef, profile string) error {
 }
 
 func EnvList(projectRef, profile string) ([]string, error) {
-	if profile == "" {
-		profile = "dev"
-	}
+	profile = profileOrDefault(profile)
 	if err := validSecretName(profile); err != nil {
 		return nil, err
 	}
@@ -259,9 +248,7 @@ func EnvList(projectRef, profile string) ([]string, error) {
 }
 
 func EnvPull(projectRef, profile string) (string, error) {
-	if profile == "" {
-		profile = "dev"
-	}
+	profile = profileOrDefault(profile)
 	if err := validSecretName(profile); err != nil {
 		return "", err
 	}
@@ -714,13 +701,4 @@ func loadIdentity(path string) (*age.X25519Identity, error) {
 		return age.ParseX25519Identity(line)
 	}
 	return nil, fmt.Errorf("no age identity found in %s", path)
-}
-
-func contains(values []string, value string) bool {
-	for _, v := range values {
-		if v == value {
-			return true
-		}
-	}
-	return false
 }

@@ -778,3 +778,18 @@ func workspaceSyncRun(t *testing.T, dir, name string, args ...string) string {
 	}
 	return out.String()
 }
+
+func TestRedactRemoteStripsCredentials(t *testing.T) {
+	cases := map[string]string{
+		"https://user:token@github.com/o/r.git": "https://redacted@github.com/o/r.git",
+		"ssh://git@github.com:22/o/r.git":       "ssh://redacted@github.com:22/o/r.git",
+		"https://github.com/o/r.git":            "https://github.com/o/r.git",
+		"git@github.com:o/r.git":                "git@github.com:o/r.git",
+		"/local/bare/repo.git":                  "/local/bare/repo.git",
+	}
+	for in, want := range cases {
+		if got := redactRemote(in); got != want {
+			t.Errorf("redactRemote(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

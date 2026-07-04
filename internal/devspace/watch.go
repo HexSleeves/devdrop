@@ -39,7 +39,7 @@ type WatchRefresh struct {
 	FullScan         bool
 }
 
-var (
+const (
 	watchFullScanEvery       = 10
 	watchFullScanMaxInterval = 5 * time.Minute
 )

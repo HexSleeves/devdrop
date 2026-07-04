@@ -394,35 +394,6 @@ func newWorkspaceCommand() *cobra.Command {
 			return nil
 		},
 	})
-	var dryRun bool
-	syncCmd := &cobra.Command{
-		Use:        "sync",
-		Short:      "Compatibility alias for plan/apply",
-		Deprecated: "use `devspace plan` and `devspace apply` instead",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return withAppLock(func() error {
-				plan, err := BuildPlan()
-				if err != nil {
-					return err
-				}
-				if err := SaveLastPlan(plan); err != nil {
-					return err
-				}
-				if dryRun {
-					printPlan(cmd.OutOrStdout(), plan)
-					return nil
-				}
-				applied, err := ApplyLastPlan()
-				if err != nil {
-					return err
-				}
-				printApply(cmd.OutOrStdout(), applied)
-				return nil
-			})
-		},
-	}
-	syncCmd.Flags().BoolVar(&dryRun, "dry-run", false, "show planned actions without changing files")
-	cmd.AddCommand(syncCmd)
 	return cmd
 }
 

@@ -572,12 +572,12 @@ func TestSyncCreatesPlaceholderAndHydrateClonesLocalRemote(t *testing.T) {
 	if err := SaveLastPlan(plan); err != nil {
 		t.Fatal(err)
 	}
-	actions, err := ApplySync()
+	applied, err := ApplyLastPlan()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(actions) != 1 || actions[0].Kind != "placeholder" {
-		t.Fatalf("unexpected sync actions: %+v", actions)
+	if len(applied.Actions) != 1 || applied.Actions[0].Kind != "placeholder" {
+		t.Fatalf("unexpected sync actions: %+v", applied.Actions)
 	}
 	if !exists(filepath.Join(workspace, "work", "app")) {
 		t.Fatal("placeholder not created")
