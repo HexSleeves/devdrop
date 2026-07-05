@@ -218,7 +218,7 @@ func ReconcileWorkspaceManifest(force string, apply bool) (ReconcilePlan, error)
 		return ReconcilePlan{}, err
 	}
 	source := reconcileGitRemoteSource(cfg)
-	if previous, ok := reusableReconcilePlan(local, source); ok {
+	if previous, ok := reusableReconcilePlan(local, "git", source); ok {
 		plan := ReconcilePlan{
 			Version:       1,
 			CreatedAt:     nowRFC3339(),
@@ -302,15 +302,151 @@ func ReconcileWorkspaceManifest(force string, apply bool) (ReconcilePlan, error)
 	return plan, nil
 }
 
-func reusableReconcilePlan(local Manifest, source ReconcileRemoteSource) (ReconcilePlan, bool) {
+func ReconcileHostedManifest(force string, apply bool) (ReconcilePlan, error) {
+	if force != "" && force != "local" && force != "remote" {
+		return ReconcilePlan{}, fmt.Errorf("force must be one of: local, remote")
+	}
+	cfg, err := GetHostedSync()
+	if err != nil {
+		return ReconcilePlan{}, err
+	}
+	local, err := LoadManifest(cfg.WorkspaceRoot)
+	if err != nil {
+		return ReconcilePlan{}, err
+	}
+	hash, err := ManifestHash(cfg.WorkspaceRoot)
+	if err != nil {
+		return ReconcilePlan{}, err
+	}
+	client := newHostedClient(cfg)
+	envelope, hasRemote, err := client.get(context.Background())
+	if err != nil {
+		return ReconcilePlan{}, err
+	}
+	if !hasRemote {
+		return ReconcilePlan{}, fmt.Errorf("nothing to reconcile; push first")
+	}
+	remote := localizeSyncedManifest(envelope.Manifest, cfg)
+	if err := validateHostedManifest(remote); err != nil {
+		return ReconcilePlan{}, fmt.Errorf("hosted manifest failed validation: %w", err)
+	}
+	source := ReconcileRemoteSource{
+		Endpoint: redactRemote(cfg.HostedSyncEndpoint),
+		Version:  envelope.Version,
+	}
+	if previous, ok := reusableReconcilePlan(local, "hosted", source); ok {
+		plan := ReconcilePlan{
+			Version:       1,
+			CreatedAt:     nowRFC3339(),
+			Backend:       "hosted",
+			ManifestHash:  hash,
+			RemoteSource:  source,
+			TwoWay:        previous.TwoWay,
+			Merged:        local,
+			WorkspaceRoot: cfg.WorkspaceRoot,
+		}
+		if err := SaveReconcilePlan(plan); err != nil {
+			return ReconcilePlan{}, err
+		}
+		return plan, nil
+	}
+	baseManifest, hasBase, err := loadBaseManifest()
+	if err != nil {
+		return ReconcilePlan{}, err
+	}
+	var base *Manifest
+	if hasBase {
+		base = &baseManifest
+	}
+	result, err := reconcileManifests(base, local, remote)
+	if err != nil {
+		return ReconcilePlan{}, err
+	}
+	if force != "" && len(result.Conflicts) > 0 {
+		result.Merged = forceReconcileConflicts(result.Merged, result.Conflicts, local, remote, force)
+		result.Conflicts = nil
+		if err := ValidateManifest(result.Merged); err != nil {
+			return ReconcilePlan{}, fmt.Errorf("forced merged manifest failed validation: %w", err)
+		}
+		result.Ops = diffReconcileOps(local, result.Merged)
+	}
+	plan := ReconcilePlan{
+		Version:       1,
+		CreatedAt:     nowRFC3339(),
+		Backend:       "hosted",
+		ManifestHash:  hash,
+		RemoteSource:  source,
+		Ops:           result.Ops,
+		Conflicts:     result.Conflicts,
+		TwoWay:        result.TwoWay,
+		Merged:        result.Merged,
+		WorkspaceRoot: cfg.WorkspaceRoot,
+	}
+	if err := SaveReconcilePlan(plan); err != nil {
+		return ReconcilePlan{}, err
+	}
+	if !apply {
+		return plan, nil
+	}
+	if len(plan.Conflicts) > 0 {
+		return plan, fmt.Errorf("unresolved reconcile conflicts:\n%s", formatReconcileConflictErrors(plan.Conflicts))
+	}
+	current, err := LoadManifest(cfg.WorkspaceRoot)
+	if err != nil {
+		return ReconcilePlan{}, err
+	}
+	currentHash, err := ManifestHash(cfg.WorkspaceRoot)
+	if err != nil {
+		return ReconcilePlan{}, err
+	}
+	if currentHash != plan.ManifestHash {
+		return ReconcilePlan{}, fmt.Errorf("manifest changed since reconcile was generated; run `devspace hosted reconcile` again before apply")
+	}
+	backup, err := manifestBackupPath()
+	if err != nil {
+		return ReconcilePlan{}, err
+	}
+	if err := writeJSON(backup, current, 0o600); err != nil {
+		return ReconcilePlan{}, err
+	}
+	normalized := manifestForSync(plan.Merged)
+	if err := validateHostedManifest(normalized); err != nil {
+		return ReconcilePlan{}, fmt.Errorf("merged hosted manifest failed validation: %w", err)
+	}
+	updated, err := client.put(context.Background(), envelope.Version, normalized)
+	if err != nil {
+		return ReconcilePlan{}, err
+	}
+	if err := SaveManifest(cfg.WorkspaceRoot, plan.Merged); err != nil {
+		return ReconcilePlan{}, err
+	}
+	if err := recordHostedSync(updated.Version, updated.ManifestHash); err != nil {
+		return ReconcilePlan{}, err
+	}
+	if err := recordBaseManifest(normalized); err != nil {
+		return ReconcilePlan{}, err
+	}
+	return plan, nil
+}
+
+func reusableReconcilePlan(local Manifest, backend string, source ReconcileRemoteSource) (ReconcilePlan, bool) {
 	previous, err := LoadReconcilePlan()
 	if err != nil {
 		return ReconcilePlan{}, false
 	}
-	if previous.Version == 0 || previous.Backend != "git" || len(previous.Conflicts) > 0 {
+	if previous.Version == 0 || previous.Backend != backend || len(previous.Conflicts) > 0 {
 		return ReconcilePlan{}, false
 	}
-	if previous.RemoteSource.Commit == "" || previous.RemoteSource.Commit != source.Commit {
+	switch backend {
+	case "git":
+		if previous.RemoteSource.Commit == "" || previous.RemoteSource.Commit != source.Commit {
+			return ReconcilePlan{}, false
+		}
+	case "hosted":
+		if previous.RemoteSource.Version == 0 || previous.RemoteSource.Version != source.Version {
+			return ReconcilePlan{}, false
+		}
+	default:
 		return ReconcilePlan{}, false
 	}
 	if !reflect.DeepEqual(local, previous.Merged) {

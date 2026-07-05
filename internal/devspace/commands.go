@@ -124,6 +124,7 @@ func newWatchCommand() *cobra.Command {
 func newHostedCommand() *cobra.Command {
 	cmd := &cobra.Command{Use: "hosted", Short: "Manage opt-in hosted manifest sync"}
 	cmd.AddCommand(newHostedConfigCommand())
+	cmd.AddCommand(newHostedReconcileCommand())
 	cmd.AddCommand(&cobra.Command{
 		Use:   "push",
 		Short: "Push workspace manifest to hosted sync",
@@ -164,6 +165,56 @@ func newHostedCommand() *cobra.Command {
 		},
 	})
 	cmd.AddCommand(newHostedServeCommand())
+	return cmd
+}
+
+func newHostedReconcileCommand() *cobra.Command {
+	var jsonOut bool
+	var apply bool
+	var forceLocal bool
+	var forceRemote bool
+	cmd := &cobra.Command{
+		Use:   "reconcile",
+		Short: "Reconcile local and hosted workspace manifests",
+		Long: strings.Join([]string{
+			"Reconcile computes a three-way merge between the last synced base manifest, the local manifest, and the hosted backend manifest.",
+			"By default it writes only a review artifact to DEVSPACE_HOME/last-reconcile.json and does not change the workspace manifest or hosted backend.",
+			"With --apply, DevSpace writes DEVSPACE_HOME/manifest-backup.json, pushes the merged manifest to the hosted backend with version-conflict protection, then replaces the local manifest and refreshes the hosted sync baseline. Apply is guarded by the local manifest hash captured when reconcile was generated.",
+			"If no base snapshot exists, reconcile falls back to a conservative two-way union: one-sided additions merge, same-key differences become conflicts.",
+			"Use --force-local or --force-remote to resolve every conflict to that side before applying.",
+		}, "\n\n"),
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if forceLocal && forceRemote {
+				return fmt.Errorf("--force-local and --force-remote are mutually exclusive")
+			}
+			force := ""
+			if forceLocal {
+				force = "local"
+			}
+			if forceRemote {
+				force = "remote"
+			}
+			return withAppLock(func() error {
+				plan, err := ReconcileHostedManifest(force, apply)
+				if err != nil && plan.Version == 0 {
+					return err
+				}
+				if jsonOut {
+					if writeErr := writePrettyJSON(cmd.OutOrStdout(), plan); writeErr != nil {
+						return writeErr
+					}
+				} else {
+					printReconcilePlan(cmd.OutOrStdout(), plan, apply && err == nil)
+				}
+				return err
+			})
+		},
+	}
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "print machine-readable reconcile plan")
+	cmd.Flags().BoolVar(&apply, "apply", false, "apply the merged manifest after writing the review plan")
+	cmd.Flags().BoolVar(&forceLocal, "force-local", false, "resolve all conflicts to the local manifest")
+	cmd.Flags().BoolVar(&forceRemote, "force-remote", false, "resolve all conflicts to the remote manifest")
 	return cmd
 }
 
