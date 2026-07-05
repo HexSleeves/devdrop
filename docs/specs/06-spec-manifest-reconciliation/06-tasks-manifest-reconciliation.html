@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>06-tasks-manifest-reconciliation</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --fg: #1a1a2e;
+        --muted: #6b7280;
+        --border: #e5e7eb;
+        --card: #f9fafb;
+        --accent: #4f46e5;
+        --pass: #059669;
+        --fail: #dc2626;
+        --warn: #d97706;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0f1117;
+          --fg: #e6e6ef;
+          --muted: #9ca3af;
+          --border: #262a35;
+          --card: #161922;
+          --accent: #818cf8;
+          --pass: #34d399;
+          --fail: #f87171;
+          --warn: #fbbf24;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.6;
+      }
+      .doc {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem 4rem;
+      }
+      header.doc-header {
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 1rem;
+        margin-bottom: 2rem;
+      }
+      h1 {
+        margin: 0.25rem 0;
+        font-size: 1.6rem;
+      }
+      h2 {
+        margin-top: 2rem;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 0.35rem;
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      .badge {
+        display: inline-block;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        padding: 0.25rem 0.6rem;
+        border-radius: 999px;
+      }
+      .badge-type {
+        background: var(--accent);
+        color: #fff;
+      }
+      .status-pass,
+      .status-done,
+      .status-verified {
+        background: var(--pass);
+        color: #fff;
+      }
+      .status-fail,
+      .status-failed {
+        background: var(--fail);
+        color: #fff;
+      }
+      .status-flag,
+      .status-pending,
+      .status-unknown,
+      .status-in-progress {
+        background: var(--warn);
+        color: #111;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1rem 0;
+      }
+      th,
+      td {
+        border: 1px solid var(--border);
+        padding: 0.5rem 0.75rem;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        background: var(--card);
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        padding: 1rem 1.25rem;
+        margin: 1rem 0;
+      }
+      code,
+      pre {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      pre {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        overflow-x: auto;
+      }
+      .task-list {
+        list-style: none;
+        padding-left: 0;
+      }
+      .task {
+        padding: 0.35rem 0;
+      }
+      .task[data-status="done"] .task-label::before {
+        content: "\2611 ";
+      }
+      .task[data-status="pending"] .task-label::before {
+        content: "\2610 ";
+      }
+      .task[data-status="in-progress"] .task-label::before {
+        content: "\25D1 ";
+      }
+      figure {
+        margin: 1rem 0;
+      }
+      figure img {
+        max-width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+      }
+      figcaption {
+        color: var(--muted);
+        font-size: 0.85rem;
+        margin-top: 0.35rem;
+      }
+      .parent-task {
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        padding: 1rem 1.25rem;
+        margin: 1.25rem 0;
+      }
+      .parent-task > h3 {
+        margin-top: 0;
+      }
+      .proof-artifacts ul {
+        margin: 0.5rem 0;
+      }
+      .tbd-marker {
+        color: var(--muted);
+        font-style: italic;
+      }
+      code {
+        overflow-wrap: anywhere;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="doc">
+      <header class="doc-header">
+        <span class="badge badge-type">TASKS</span>
+        <h1>06-tasks-manifest-reconciliation</h1>
+        <p class="meta">
+          Sequence 06 · Feature: manifest-reconciliation · Phase 2 · Sub-tasks
+          generated
+        </p>
+      </header>
+
+      <section id="overview">
+        <h2>Overview</h2>
+        <p>
+          Four parent tasks. Tasks 1.0–3.0 map to the spec's three demoable
+          units in build order (track the base → merge engine + git reconcile →
+          hosted reconcile, reusing the engine per Q3=C). Task 4.0 is the
+          cross-cutting demo, docs, and <code>make verify</code> gate.
+          Implementation routes to <code>codex exec</code>; the pure merge
+          engine (Task 2.0) gets the tightest spec and the heaviest test
+          coverage.
+        </p>
+        <p>
+          <strong>Codebase finding (drives Task 2.0):</strong> a three-way,
+          conflict-reporting merge engine already exists at
+          <code>internal/devspace/manifest_merge.go</code> —
+          <code>mergeManifests(base, ours, theirs) (Manifest, []MergeConflict,
+          error)</code>, keyed by project ID with per-record and access-grant
+          merging, covered by <code>manifest_merge_test.go</code> — but it has
+          <em>no production callers</em>. Task 2.0 wires and extends this
+          engine (two-way fallback, ops summary) instead of writing a new one.
+        </p>
+      </section>
+
+      <section id="relevant-files">
+        <h2>Relevant Files</h2>
+        <table>
+          <thead>
+            <tr><th>File</th><th>Why It Is Relevant</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>internal/devspace/paths.go</code></td><td>Add app-home path helpers for the base snapshot, the reconcile plan, and the pre-reconcile manifest backup (alongside <code>configPath</code>/<code>statePath</code>/<code>lastPlanPath</code>).</td></tr>
+            <tr><td><code>internal/devspace/base_manifest.go</code> (new)</td><td><code>recordBaseManifest</code> / <code>loadBaseManifest</code> — persist and load the last-synced base manifest (Unit 1).</td></tr>
+            <tr><td><code>internal/devspace/base_manifest_test.go</code> (new)</td><td>Unit tests for the base snapshot loader/writer, incl. the "no base recorded" signal.</td></tr>
+            <tr><td><code>internal/devspace/manifest_merge.go</code></td><td>Existing three-way engine (<code>mergeManifests</code>, <code>MergeConflict</code>) that Task 2.0 reuses; extend only if a field-coverage gap is found.</td></tr>
+            <tr><td><code>internal/devspace/manifest_merge_test.go</code></td><td>Existing engine tests; extended by the reconcile table tests where cases are missing.</td></tr>
+            <tr><td><code>internal/devspace/reconcile.go</code> (new)</td><td>Backend-agnostic reconcile layer: <code>ReconcileResult</code>/<code>ReconcilePlan</code> types, two-way no-base fallback, plan persistence, git + hosted domain flows.</td></tr>
+            <tr><td><code>internal/devspace/reconcile_test.go</code> (new)</td><td><code>TestReconcileMergeCases</code>, <code>TestWorkspaceReconcile*</code>, <code>TestHostedReconcile*</code> proof tests.</td></tr>
+            <tr><td><code>internal/devspace/workspace_sync.go</code></td><td>Record the base on successful <code>PullWorkspaceManifest</code>/<code>PushWorkspaceManifest</code>; reuse its fetch/localize machinery (behind <code>DiffWorkspaceManifest</code>) for reconcile.</td></tr>
+            <tr><td><code>internal/devspace/workspace_sync_test.go</code></td><td><code>TestSyncRecordsBaseManifest</code>; existing sync tests guard against regressions.</td></tr>
+            <tr><td><code>internal/devspace/hosted_sync.go</code></td><td>Record the base next to <code>recordHostedSync</code>; hosted reconcile wiring reuses <code>hostedClient.get</code>/<code>put</code> and the version/hash baseline.</td></tr>
+            <tr><td><code>internal/devspace/hosted_sync_test.go</code></td><td><code>TestHostedSyncRecordsBaseManifest</code>; in-process hosted server harness reused by Unit 3 tests.</td></tr>
+            <tr><td><code>internal/devspace/commands.go</code></td><td>Register <code>newWorkspaceReconcileCommand()</code> under <code>newWorkspaceCommand()</code> and <code>newHostedReconcileCommand()</code> under <code>newHostedCommand()</code>; <code>--json</code> flag follows the <code>diff</code>/<code>plan</code> pattern; <code>withAppLock</code> at the command boundary.</td></tr>
+            <tr><td><code>internal/devspace/commands_test.go</code></td><td>Command-level flag/help coverage for the new subcommands.</td></tr>
+            <tr><td><code>README.md</code></td><td>"Supported Commands" gains <code>workspace reconcile</code> / <code>hosted reconcile</code> entries.</td></tr>
+            <tr><td><code>docs/specs/06-spec-manifest-reconciliation/06-proofs/</code></td><td>Demo transcript and captured CLI/test output proof artifacts.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Notes</h3>
+        <ul>
+          <li>Tests live beside implementation in <code>internal/devspace/</code>, isolate state with <code>t.Setenv("DEVSPACE_HOME", t.TempDir())</code> plus a temp workspace, and are behavior-named (e.g. <code>TestWorkspaceReconcileConflictBlocksApply</code>).</li>
+          <li>Local gate: <code>make verify</code> = test + vet + golangci-lint (incl. gosec) + <code>gofmt -l cmd internal</code> empty + govulncheck + build. Run per parent task and before handoff.</li>
+          <li>Invariants: never hand-join workspace paths (use <code>safeWorkspacePath</code> / <code>SaveManifest</code>); <code>withAppLock</code> is non-reentrant — acquire only at the command boundary; all new JSON writes go through the atomic <code>jsonio</code> helpers with <code>0o600</code> perms.</li>
+          <li>Non-destructive posture: reconcile never writes the manifest while unresolved conflicts exist; apply always backs up first and is hash-guarded; plain <code>pull</code>/<code>push</code> behavior is unchanged.</li>
+          <li>Conventional Commit prefixes (<code>feat:</code>, <code>docs:</code>…); one scoped change per commit.</li>
+          <li>Open-question resolutions baked into these sub-tasks: global <code>--force-local</code>/<code>--force-remote</code> (per-project selection deferred); hosted surface is a dedicated <code>devspace hosted reconcile</code> subcommand; a single base snapshot (matches the single-remote model).</li>
+        </ul>
+      </section>
+
+      <section id="tasks">
+        <h2>Tasks</h2>
+
+        <section class="parent-task" data-task-id="1.0" data-status="pending">
+          <h3>1.0 Track the last-synced base manifest (Unit 1)</h3>
+          <p>
+            Record the synced manifest as a base snapshot in app home after
+            every successful pull/push (git and hosted), plus a loader with a
+            clear "no base" signal. This is the enabling primitive for real
+            three-way conflict detection (Q2=A).
+          </p>
+
+          <div class="proof-artifacts">
+            <h4>1.0 Proof Artifact(s)</h4>
+            <ul>
+              <li>
+                Test:
+                <code
+                  >go test ./internal/devspace -run TestSyncRecordsBaseManifest
+                  -v</code
+                >
+                passes — a successful git <code>workspace pull</code> and
+                <code>push</code> each write a base snapshot equal to the synced
+                manifest (temp <code>DEVSPACE_HOME</code>).
+              </li>
+              <li>
+                Test:
+                <code
+                  >go test ./internal/devspace -run
+                  TestHostedSyncRecordsBaseManifest -v</code
+                >
+                passes — a successful hosted pull/push writes the base snapshot
+                too.
+              </li>
+              <li>
+                Test:
+                <code
+                  >go test ./internal/devspace -run
+                  TestBaseManifestAbsentIsDetectable -v</code
+                >
+                passes — the loader reports "no base recorded" cleanly when none
+                exists.
+              </li>
+              <li>
+                Artifact: the base file (<code>last-synced-manifest.json</code>)
+                is written atomically with app-home state permissions and
+                contains manifest metadata only (no secrets/machine-local
+                paths).
+              </li>
+            </ul>
+          </div>
+
+          <div class="subtasks">
+            <h4>1.0 Tasks</h4>
+            <ul class="task-list">
+              <li class="task" data-task-id="1.1" data-status="pending"><span class="task-label">1.1 Add <code>baseManifestPath()</code> to <code>paths.go</code>, resolving to <code>&lt;app home&gt;/last-synced-manifest.json</code> via the same <code>appHome()</code> resolution as <code>configPath()</code>/<code>statePath()</code> (honors <code>DEVSPACE_HOME</code>/<code>DEV_DROP_HOME</code>).</span></li>
+              <li class="task" data-task-id="1.2" data-status="pending"><span class="task-label">1.2 Create <code>base_manifest.go</code> with <code>recordBaseManifest(m Manifest) error</code> (atomic <code>writeJSON</code>, <code>0o600</code>) and <code>loadBaseManifest() (Manifest, bool, error)</code> that returns <code>ok=false</code> (no error) when the snapshot is absent, using the existing <code>missing(err)</code> helper.</span></li>
+              <li class="task" data-task-id="1.3" data-status="pending"><span class="task-label">1.3 Call <code>recordBaseManifest</code> on the success paths of <code>PullWorkspaceManifest</code> and <code>PushWorkspaceManifest</code> in <code>workspace_sync.go</code>, after the sync itself has fully succeeded, recording exactly the manifest content that was synced.</span></li>
+              <li class="task" data-task-id="1.4" data-status="pending"><span class="task-label">1.4 Call <code>recordBaseManifest</code> on the success paths of <code>PullHostedManifest</code> and <code>PushHostedManifest</code> in <code>hosted_sync.go</code>, alongside the existing <code>recordHostedSync(version, hash)</code> bookkeeping.</span></li>
+              <li class="task" data-task-id="1.5" data-status="pending"><span class="task-label">1.5 Write <code>TestSyncRecordsBaseManifest</code>, <code>TestHostedSyncRecordsBaseManifest</code> (in-process hosted server harness), and <code>TestBaseManifestAbsentIsDetectable</code> — each with <code>t.Setenv("DEVSPACE_HOME", ...)</code> + temp workspace, asserting snapshot content equals the synced manifest and file perms are <code>0o600</code>.</span></li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="parent-task" data-task-id="2.0" data-status="pending">
+          <h3>
+            2.0 Three-way merge engine + <code>workspace reconcile</code> (git)
+            (Unit 2)
+          </h3>
+          <p>
+            The backend-agnostic
+            <code>Reconcile(base, local, remote)</code> function (Q1=D hybrid)
+            and the review-first git command (Q4=A): localize remote, merge
+            against the base, write a reviewable reconcile-plan, back up +
+            hash-guard the apply, and require explicit force flags to resolve
+            genuine conflicts. Two-way fallback when no base exists.
+          </p>
+
+          <div class="proof-artifacts">
+            <h4>2.0 Proof Artifact(s)</h4>
+            <ul>
+              <li>
+                Test:
+                <code
+                  >go test ./internal/devspace -run TestReconcileMergeCases
+                  -v</code
+                >
+                passes — table test: add/remove/change on one side auto-merge;
+                change-both / add-add-different are conflicts; no-base two-way
+                fallback flags all same-path diffs.
+              </li>
+              <li>
+                Test:
+                <code
+                  >go test ./internal/devspace -run
+                  TestWorkspaceReconcileNonConflicting -v</code
+                >
+                passes — divergent-but-mergeable manifests reconcile to the
+                union, back up the old manifest, and apply under the hash guard.
+              </li>
+              <li>
+                Test:
+                <code
+                  >go test ./internal/devspace -run
+                  TestWorkspaceReconcileConflictBlocksApply -v</code
+                >
+                passes — a genuine conflict stops apply;
+                <code>--force-local</code>/<code>--force-remote</code> resolves
+                it explicitly.
+              </li>
+              <li>
+                CLI: <code>devspace workspace reconcile --json</code> output
+                demonstrates auto-merged ops + the conflict list;
+                <code>--help</code> documents the command and flags.
+              </li>
+            </ul>
+          </div>
+
+          <div class="subtasks">
+            <h4>2.0 Tasks</h4>
+            <ul class="task-list">
+              <li class="task" data-task-id="2.1" data-status="pending"><span class="task-label">2.1 Create <code>reconcile.go</code> with <code>ReconcileResult</code> (merged manifest, added/removed/changed op summaries, <code>[]MergeConflict</code>) and <code>reconcileManifests(base *Manifest, local, remote Manifest) (ReconcileResult, error)</code> that wraps the existing <code>mergeManifests</code> from <code>manifest_merge.go</code>; a nil base triggers the documented two-way fallback: every same-key difference between local and remote becomes a conflict (no auto-merge, never a silent overwrite), with additions/removals unique to one side still merging.</span></li>
+              <li class="task" data-task-id="2.2" data-status="pending"><span class="task-label">2.2 Write table test <code>TestReconcileMergeCases</code> in <code>reconcile_test.go</code>: add-one-side, remove-one-side, change-one-side (auto-merge); change-both-different, add-add-different, change-vs-remove (conflict); no-base fallback flags all same-path diffs; re-reconciling an already-merged state yields zero ops (idempotency).</span></li>
+              <li class="task" data-task-id="2.3" data-status="pending"><span class="task-label">2.3 Add a persisted <code>ReconcilePlan</code> (ops, conflicts with text labels, local-manifest hash at plan time, remote source info) written atomically to app home via a new <code>reconcilePlanPath()</code> — the review-first artifact mirroring <code>last-plan.json</code> — plus load/save helpers.</span></li>
+              <li class="task" data-task-id="2.4" data-status="pending"><span class="task-label">2.4 Implement <code>ReconcileWorkspaceManifest(force string, apply bool)</code>: localize the remote manifest by reusing the fetch machinery behind <code>DiffWorkspaceManifest</code>, load the base (1.2), run <code>reconcileManifests</code>, write the plan (2.3); on apply, re-verify the local manifest hash against the plan (mirroring <code>apply</code>'s guard), back up the pre-reconcile manifest to app home, then write the merged manifest through <code>SaveManifest</code> and record the new base.</span></li>
+              <li class="task" data-task-id="2.5" data-status="pending"><span class="task-label">2.5 Conflict semantics: when conflicts exist and no force flag is given, stop before any write and report each conflict with text labels (project key, field, local vs remote values); <code>--force-local</code>/<code>--force-remote</code> resolve all conflicts to that side globally (mutually exclusive flags; per-project selection is deferred by design).</span></li>
+              <li class="task" data-task-id="2.6" data-status="pending"><span class="task-label">2.6 Add <code>newWorkspaceReconcileCommand()</code> in <code>commands.go</code>, registered under <code>newWorkspaceCommand()</code>, with <code>--json</code>, <code>--apply</code>, <code>--force-local</code>, <code>--force-remote</code>; wrap the run in <code>withAppLock</code> at the command boundary only; text output follows the <code>diff</code>/<code>plan</code> styling conventions in <code>output.go</code>/<code>styles.go</code>.</span></li>
+              <li class="task" data-task-id="2.7" data-status="pending"><span class="task-label">2.7 Write <code>TestWorkspaceReconcileNonConflicting</code> (union result, backup file written, hash guard enforced, idempotent re-run) and <code>TestWorkspaceReconcileConflictBlocksApply</code> (conflict blocks apply; each force flag resolves it) against a temp workspace + local bare-repo remote.</span></li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="parent-task" data-task-id="3.0" data-status="pending">
+          <h3>3.0 Hosted-backend reconciliation (Unit 3)</h3>
+          <p>
+            Reuse the Task 2.0 engine on the hosted path (Q3=C): on an HTTP 409
+            version conflict, fetch the current hosted manifest + version/hash,
+            three-way merge against the base, present the same review artifact,
+            and on apply push with the updated baseline (then refresh the base
+            snapshot).
+          </p>
+
+          <div class="proof-artifacts">
+            <h4>3.0 Proof Artifact(s)</h4>
+            <ul>
+              <li>
+                Test:
+                <code
+                  >go test ./internal/devspace -run
+                  TestHostedReconcileResolvesVersionConflict -v</code
+                >
+                passes — a simulated 409 → reconcile → apply pushes the merged
+                manifest with the correct updated version/hash baseline
+                (in-process hosted server harness).
+              </li>
+              <li>
+                Test:
+                <code
+                  >go test ./internal/devspace -run
+                  TestHostedReconcileConflictBlocksPush -v</code
+                >
+                passes — a genuine conflict blocks the hosted push until an
+                explicit force choice is given.
+              </li>
+              <li>
+                Test:
+                <code
+                  >go test ./internal/devspace -run
+                  TestHostedReconcileUpdatesBaseOnSuccess -v</code
+                >
+                passes — a successful hosted reconcile refreshes the base
+                snapshot (Unit 1 integration).
+              </li>
+            </ul>
+          </div>
+
+          <div class="subtasks">
+            <h4>3.0 Tasks</h4>
+            <ul class="task-list">
+              <li class="task" data-task-id="3.1" data-status="pending"><span class="task-label">3.1 Implement <code>ReconcileHostedManifest(force string, apply bool)</code> in <code>reconcile.go</code>: fetch the current hosted envelope via <code>hostedClient.get</code> (manifest + version + hash), validate it with the existing envelope checks, load the base, run the shared <code>reconcileManifests</code>, and write the same <code>ReconcilePlan</code> artifact (tagged with the hosted source + remote version).</span></li>
+              <li class="task" data-task-id="3.2" data-status="pending"><span class="task-label">3.2 Apply path: push the merged manifest with <code>hostedClient.put(ctx, fetchedRemoteVersion, merged)</code> so the server's optimistic-concurrency check accepts it; on success, back up + write the merged manifest locally (same guard as 2.4), then <code>recordHostedSync(newVersion, hash)</code> and <code>recordBaseManifest(merged)</code>.</span></li>
+              <li class="task" data-task-id="3.3" data-status="pending"><span class="task-label">3.3 Add <code>newHostedReconcileCommand()</code> registered under <code>newHostedCommand()</code> (dedicated <code>devspace hosted reconcile</code> subcommand — resolves the open question in favor of the existing command-group layout), sharing flags (<code>--json</code>, <code>--apply</code>, <code>--force-local</code>, <code>--force-remote</code>), output rendering, and <code>withAppLock</code> discipline with 2.6.</span></li>
+              <li class="task" data-task-id="3.4" data-status="pending"><span class="task-label">3.4 Write <code>TestHostedReconcileResolvesVersionConflict</code>, <code>TestHostedReconcileConflictBlocksPush</code>, and <code>TestHostedReconcileUpdatesBaseOnSuccess</code> using the in-process hosted server test harness from <code>hosted_sync_test.go</code> (sample tokens only, temp <code>DEVSPACE_HOME</code>).</span></li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="parent-task" data-task-id="4.0" data-status="pending">
+          <h3>4.0 Demo, docs, and verification gate</h3>
+          <p>
+            Human-facing proof of the end-to-end reconcile flow, documentation
+            of the new command, and the full local gate green. Demo runs against
+            sanitized temp workspaces/local bare repos — no real
+            remotes/tokens/secrets.
+          </p>
+
+          <div class="proof-artifacts">
+            <h4>4.0 Proof Artifact(s)</h4>
+            <ul>
+              <li>
+                Demo: a scripted two-machine git divergence →
+                <code>workspace reconcile</code> → apply flow captured as CLI
+                transcript (and/or a vhs tape+gif) under
+                <code
+                  >docs/specs/06-spec-manifest-reconciliation/06-proofs/</code
+                >, showing an auto-merge and a flagged conflict resolved via a
+                force flag.
+              </li>
+              <li>
+                CLI: <code>make verify</code> output (test + vet + lint +
+                vulncheck + build) shows all steps passing, including
+                <code>gofmt -l cmd internal</code> empty and golangci-lint
+                (gosec) clean.
+              </li>
+              <li>
+                Diff: <code>README.md</code> "Supported Commands" gains a
+                <code>devspace workspace reconcile</code> entry (git + hosted
+                usage, force flags, review-before-write).
+              </li>
+            </ul>
+          </div>
+
+          <div class="subtasks">
+            <h4>4.0 Tasks</h4>
+            <ul class="task-list">
+              <li class="task" data-task-id="4.1" data-status="pending"><span class="task-label">4.1 Script the demo: two clones of a temp workspace diverge through a local bare repo (each adds a project; both change one project differently) → <code>workspace reconcile</code> auto-merges the additions and flags the conflict → <code>--force-remote --apply</code> resolves it; capture the transcript (and optionally a vhs tape+gif) under <code>docs/specs/06-spec-manifest-reconciliation/06-proofs/</code> with placeholder values only.</span></li>
+              <li class="task" data-task-id="4.2" data-status="pending"><span class="task-label">4.2 Document <code>devspace workspace reconcile</code> and <code>devspace hosted reconcile</code> in README.md "Supported Commands": review-before-write plan, backup location, hash guard, force flags, and the no-base two-way fallback notice.</span></li>
+              <li class="task" data-task-id="4.3" data-status="pending"><span class="task-label">4.3 Run <code>make verify</code> (test + vet + golangci-lint incl. gosec + gofmt check + govulncheck + build) and capture the passing output as a proof artifact; fix any findings before handoff.</span></li>
+            </ul>
+          </div>
+        </section>
+      </section>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>06-questions-1-manifest-reconciliation</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --fg: #1a1a2e;
+        --muted: #6b7280;
+        --border: #e5e7eb;
+        --card: #f9fafb;
+        --accent: #4f46e5;
+        --pass: #059669;
+        --fail: #dc2626;
+        --warn: #d97706;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0f1117;
+          --fg: #e6e6ef;
+          --muted: #9ca3af;
+          --border: #262a35;
+          --card: #161922;
+          --accent: #818cf8;
+          --pass: #34d399;
+          --fail: #f87171;
+          --warn: #fbbf24;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.6;
+      }
+      .doc {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem 4rem;
+      }
+      header.doc-header {
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 1rem;
+        margin-bottom: 2rem;
+      }
+      h1 {
+        margin: 0.25rem 0;
+        font-size: 1.6rem;
+      }
+      h2 {
+        margin-top: 2rem;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 0.35rem;
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      .badge {
+        display: inline-block;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        padding: 0.25rem 0.6rem;
+        border-radius: 999px;
+      }
+      .badge-type {
+        background: var(--accent);
+        color: #fff;
+      }
+      .status-pass,
+      .status-done,
+      .status-verified {
+        background: var(--pass);
+        color: #fff;
+      }
+      .status-fail,
+      .status-failed {
+        background: var(--fail);
+        color: #fff;
+      }
+      .status-flag,
+      .status-pending,
+      .status-unknown,
+      .status-in-progress {
+        background: var(--warn);
+        color: #111;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1rem 0;
+      }
+      th,
+      td {
+        border: 1px solid var(--border);
+        padding: 0.5rem 0.75rem;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        background: var(--card);
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        padding: 1rem 1.25rem;
+        margin: 1rem 0;
+      }
+      code,
+      pre {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      pre {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        overflow-x: auto;
+      }
+      .task-list {
+        list-style: none;
+        padding-left: 0;
+      }
+      .task {
+        padding: 0.35rem 0;
+      }
+      .task[data-status="done"] .task-label::before {
+        content: "\2611 ";
+      }
+      .task[data-status="pending"] .task-label::before {
+        content: "\2610 ";
+      }
+      .task[data-status="in-progress"] .task-label::before {
+        content: "\25D1 ";
+      }
+      figure {
+        margin: 1rem 0;
+      }
+      figure img {
+        max-width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+      }
+      figcaption {
+        color: var(--muted);
+        font-size: 0.85rem;
+        margin-top: 0.35rem;
+      }
+      .question {
+        margin: 1.5rem 0;
+      }
+      .options {
+        list-style: none;
+        padding-left: 0;
+      }
+      .options li {
+        padding: 0.3rem 0;
+      }
+      .options li input[type="checkbox"] {
+        margin-right: 0.5rem;
+      }
+      .context-note,
+      .recommend-note {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        padding: 0.75rem 1rem;
+        margin: 0.5rem 0;
+      }
+      .why-list {
+        margin: 0.5rem 0 0;
+      }
+      code {
+        overflow-wrap: anywhere;
+      }
+    </style>
+  </head>
+  <body data-overall-status="answered">
+    <div class="doc">
+      <header class="doc-header">
+        <span class="badge badge-type">Questions</span>
+        <h1>06 Questions Round 1 - Manifest Reconciliation</h1>
+        <p class="meta">
+          Sequence 06 · Feature: manifest-reconciliation · Round 1 · Phase 1
+        </p>
+      </header>
+
+      <p>
+        Please answer each question below (select one or more options, or add
+        your own notes). If you are using Lavish Editor, reply/annotate
+        directly; otherwise answer in chat.
+      </p>
+
+      <div class="card" style="border-left: 4px solid var(--pass)">
+        <strong>✅ ANSWERS RECORDED — gate cleared.</strong> Decisions:
+        <strong>Q1 → (D) hybrid merge</strong>,
+        <strong>Q2 → (A) never auto-resolve + track base manifest</strong>,
+        <strong>Q3 → (C) BOTH git and hosted</strong> (overrides the git-only
+        recommendation — see Q3 note),
+        <strong
+          >Q4 → (A) <code>workspace reconcile</code> with
+          review-before-write</strong
+        >. Spec 06 generation may proceed.
+      </div>
+
+      <p>
+        <strong>Feature context.</strong> Today, manifest sync
+        <em>refuses and stops</em> on divergence:
+        <code>workspace_sync.go</code> returns "remote branch diverged …
+        pull/reconcile manually" and "remote manifest is newer" (lines
+        365/399/401); hosted sync returns HTTP 409 "version conflict" (<code
+          >hosted_sync.go</code
+        >
+        309/813). <code>workspace diff</code> already reports what a pull would
+        change as a
+        <code>ManifestDiff</code> (<code>Added</code>/<code>Removed</code>/<code
+          >Changed</code
+        >
+        project lists). There are
+        <strong>no force flags and no reconciliation path</strong> — the user is
+        left to fix it by hand. Spec 06 adds a reconciliation path. The four
+        questions below are the material decisions; the implementation will be
+        routed to Codex per the wave-5 execution decision.
+      </p>
+
+      <section class="question" id="q1">
+        <h2>1. Reconciliation / Merge Strategy</h2>
+        <p>When two manifests diverge, how should DevSpace combine them?</p>
+        <ul class="options">
+          <li>
+            <label
+              ><input type="checkbox" /> (A) Three-way project-level merge: use
+              a common-ancestor base to take the union of non-conflicting
+              project add/remove/change operations automatically</label
+            >
+          </li>
+          <li>
+            <label
+              ><input type="checkbox" /> (B) Interactive per-conflict resolution
+              only: walk each differing project and ask the user to pick local
+              or remote</label
+            >
+          </li>
+          <li>
+            <label
+              ><input type="checkbox" /> (C) Whole-manifest overwrite via
+              explicit flags only (<code>--force-local</code> /
+              <code>--force-remote</code>); no merging</label
+            >
+          </li>
+          <li>
+            <label
+              ><input type="checkbox" checked /> (D) Hybrid: auto-merge
+              non-conflicting adds/removes/changes (A), and stop for explicit
+              resolution only on genuine conflicts (same project path changed
+              differently on both sides)</label
+            >
+          </li>
+          <li>
+            <label
+              ><input type="checkbox" /> (E) Other (describe):
+              ___________</label
+            >
+          </li>
+        </ul>
+        <div class="context-note">
+          <strong>Current best-practice context:</strong> The manifest is
+          structured JSON keyed by relative project path, so a field/entry-level
+          three-way merge is tractable and far safer than a line/text merge. A
+          three-way merge needs a tracked <em>base</em> (the last-synced
+          manifest) to tell "added on both" apart from "changed on both" — see
+          Q2.
+        </div>
+        <div class="recommend-note">
+          <strong>Recommended answer(s):</strong> (D)
+          <p><strong>Why these are recommended:</strong></p>
+          <ul class="why-list">
+            <li>
+              <code>(D)</code> resolves the common, safe case (each machine
+              added/removed different projects) with zero prompts, while never
+              silently picking a winner for a true conflict — matching
+              DevSpace's non-destructive-by-default posture.
+            </li>
+            <li>
+              <code>(B)</code> alone is noisy (prompts even for
+              trivially-mergeable divergence); <code>(C)</code> alone is a blunt
+              instrument that discards one side's work; <code>(A)</code> alone
+              leaves true conflicts undefined.
+            </li>
+            <li>
+              <code>(D)</code> still allows <code>(C)</code>-style force flags
+              as an escape hatch (see Q4) without making overwrite the default.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="question" id="q2">
+        <h2>2. Conflict Authority + Common-Ancestor Base</h2>
+        <p>
+          For a <em>genuine</em> conflict (same project path present with
+          different content on both sides), what is the default, and do we track
+          a base manifest to detect true conflicts?
+        </p>
+        <ul class="options">
+          <li>
+            <label
+              ><input type="checkbox" checked /> (A) Never auto-resolve a true
+              conflict — stop and require an explicit per-conflict choice or a
+              force flag; AND track a last-synced base manifest to enable real
+              three-way detection</label
+            >
+          </li>
+          <li>
+            <label
+              ><input type="checkbox" /> (B) Prefer local on conflict by
+              default</label
+            >
+          </li>
+          <li>
+            <label
+              ><input type="checkbox" /> (C) Prefer remote on conflict by
+              default</label
+            >
+          </li>
+          <li>
+            <label
+              ><input type="checkbox" /> (D) Prefer the higher
+              <code>ManifestVersion</code> / most-recent timestamp on
+              conflict</label
+            >
+          </li>
+          <li>
+            <label
+              ><input type="checkbox" /> (E) Other (describe):
+              ___________</label
+            >
+          </li>
+        </ul>
+        <div class="context-note">
+          <strong>Current best-practice context:</strong> Without a stored base,
+          "both sides have project X but different" is indistinguishable from
+          "both independently added X" — so a safe merge needs a base snapshot
+          (the manifest as of the last successful pull/push). The hosted path
+          already carries a version/hash baseline; the git path would need to
+          cache the last-synced manifest locally (app home).
+        </div>
+        <div class="recommend-note">
+          <strong>Recommended answer(s):</strong> (A)
+          <p><strong>Why these are recommended:</strong></p>
+          <ul class="why-list">
+            <li>
+              <code>(A)</code> keeps the invariant that DevSpace never destroys
+              user data without explicit permission; a wrong auto-pick silently
+              drops a tracked project.
+            </li>
+            <li>
+              Tracking a base manifest is the enabling mechanism for Q1(D);
+              without it, the merge degrades to guesswork. This is the one
+              genuinely load-bearing implementation requirement in the spec.
+            </li>
+            <li>
+              <code>(B)</code>/<code>(C)</code>/<code>(D)</code> are reasonable
+              as opt-in flag behaviors, but a silent default winner contradicts
+              the README's "will not overwrite without permission" guarantee.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="question" id="q3">
+        <h2>3. Backend Scope for v1</h2>
+        <p>Which sync backend(s) does reconciliation cover in this spec?</p>
+        <ul class="options">
+          <li>
+            <label
+              ><input type="checkbox" /> (A) Git remote sync only (<code
+                >workspace pull</code
+              >/<code>push</code>/<code>diff</code>) for v1</label
+            >
+          </li>
+          <li>
+            <label
+              ><input type="checkbox" /> (B) Hosted control-plane only</label
+            >
+          </li>
+          <li>
+            <label
+              ><input type="checkbox" checked /> (C) Both git and hosted in this
+              spec</label
+            >
+          </li>
+          <li>
+            <label
+              ><input type="checkbox" /> (E) Other (describe):
+              ___________</label
+            >
+          </li>
+        </ul>
+        <div class="context-note">
+          <strong>Current best-practice context:</strong> The two backends have
+          different conflict models: git is branch divergence / fast-forward
+          failure; hosted is an optimistic-concurrency version/hash 409. A
+          reconciliation engine written against the shared
+          <code>Manifest</code>/<code>ManifestDiff</code> types can be reused,
+          but wiring, tests, and UX differ per backend, so covering both roughly
+          doubles scope.
+        </div>
+        <div class="recommend-note">
+          <strong>Recommended answer(s):</strong> (A)
+          <p><strong>Why these are recommended:</strong></p>
+          <ul class="why-list">
+            <li>
+              <code>(A)</code> is the smallest complete slice: git sync is the
+              primary, fully-local-testable path and already has
+              <code>workspace diff</code> to build on.
+            </li>
+            <li>
+              Design the core merge on the shared <code>Manifest</code> types so
+              hosted reconciliation is a follow-up spec that reuses it — avoids
+              over-building before the model is proven.
+            </li>
+            <li>
+              <code>(C)</code> is valid if you want parity now, but it enlarges
+              the task breakdown and the proof surface significantly; call it
+              out explicitly if that's the intent.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="question" id="q4">
+        <h2>4. Command Surface + Review-Before-Write</h2>
+        <p>
+          How is reconciliation invoked, and does it produce a reviewable result
+          before mutating the local manifest?
+        </p>
+        <ul class="options">
+          <li>
+            <label
+              ><input type="checkbox" checked /> (A) New
+              <code>devspace workspace reconcile</code> command: computes the
+              three-way merge, writes a reviewable reconciled-plan artifact, and
+              only applies/pushes on a follow-up confirm (mirrors
+              <code>plan</code>→<code>apply</code>)</label
+            >
+          </li>
+          <li>
+            <label
+              ><input type="checkbox" /> (B) Extend
+              <code>workspace pull</code> with <code>--reconcile</code> /
+              <code>--strategy</code> flags that merge in place</label
+            >
+          </li>
+          <li>
+            <label
+              ><input type="checkbox" /> (C) Auto-reconcile inside
+              <code>pull</code>/<code>push</code> with no new surface (plus
+              force flags for conflicts)</label
+            >
+          </li>
+          <li>
+            <label
+              ><input type="checkbox" /> (D) Force flags only
+              (<code>--force-local</code>/<code>--force-remote</code>) on
+              <code>pull</code>/<code>push</code> — no merge engine</label
+            >
+          </li>
+          <li>
+            <label
+              ><input type="checkbox" /> (E) Other (describe):
+              ___________</label
+            >
+          </li>
+        </ul>
+        <div class="context-note">
+          <strong>Current best-practice context:</strong> DevSpace's established
+          pattern is "review then act" (<code>plan</code> writes
+          <code>last-plan.json</code>; <code>apply</code> executes only the
+          reviewed plan with a hash guard). A reconcile that shows the merged
+          result before overwriting the local manifest fits that pattern and
+          gives a natural rollback point.
+        </div>
+        <div class="recommend-note">
+          <strong>Recommended answer(s):</strong> (A)
+          <p><strong>Why these are recommended:</strong></p>
+          <ul class="why-list">
+            <li>
+              <code>(A)</code> matches the repo's plan/apply idiom and its
+              non-destructive posture: the user sees the reconciled manifest
+              (and any flagged conflicts) before anything is written, with a
+              hash guard on apply.
+            </li>
+            <li>
+              <code>(B)</code> is an acceptable lighter alternative if you want
+              fewer commands, but in-place merge without a review artifact loses
+              the rollback/inspection step.
+            </li>
+            <li>
+              <code>(C)</code> risks surprising mutations during a routine pull;
+              <code>(D)</code> ships no actual reconciliation, just overwrite —
+              it's the fallback, not the feature.
+            </li>
+            <li>
+              Recommend the reconcile step also back up the pre-reconcile local
+              manifest (e.g. under app home) so the operation is reversible.
+            </li>
+          </ul>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>06-spec-manifest-reconciliation</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff; --fg: #1a1a2e; --muted: #6b7280; --border: #e5e7eb;
+    --card: #f9fafb; --accent: #4f46e5; --pass: #059669; --fail: #dc2626; --warn: #d97706;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1117; --fg:#e6e6ef; --muted:#9ca3af; --border:#262a35; --card:#161922; --accent:#818cf8; --pass:#34d399; --fail:#f87171; --warn:#fbbf24; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height:1.6; }
+  .doc { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  header.doc-header { border-bottom: 1px solid var(--border); padding-bottom:1rem; margin-bottom:2rem; }
+  h1 { margin: .25rem 0; font-size:1.6rem; }
+  h2 { margin-top:2rem; border-bottom:1px solid var(--border); padding-bottom:.35rem; }
+  .meta { color:var(--muted); font-size:.9rem; }
+  .badge { display:inline-block; font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:.25rem .6rem; border-radius:999px; }
+  .badge-type { background:var(--accent); color:#fff; }
+  .status-pass, .status-done, .status-verified { background:var(--pass); color:#fff; }
+  .status-fail, .status-failed { background:var(--fail); color:#fff; }
+  .status-flag, .status-pending, .status-unknown, .status-in-progress { background:var(--warn); color:#111; }
+  table { width:100%; border-collapse: collapse; margin: 1rem 0; }
+  th, td { border:1px solid var(--border); padding:.5rem .75rem; text-align:left; vertical-align:top; }
+  th { background:var(--card); }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem 1.25rem; margin:1rem 0; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem; overflow-x:auto; }
+  .task-list { list-style:none; padding-left:0; }
+  .task { padding:.35rem 0; }
+  .task[data-status="done"] .task-label::before { content: "\2611 "; }
+  .task[data-status="pending"] .task-label::before { content: "\2610 "; }
+  .task[data-status="in-progress"] .task-label::before { content: "\25D1 "; }
+  figure { margin: 1rem 0; }
+  figure img { max-width:100%; border:1px solid var(--border); border-radius:.5rem; }
+  figcaption { color:var(--muted); font-size:.85rem; margin-top:.35rem; }
+  .unit { margin: 1.25rem 0; }
+  code { overflow-wrap: anywhere; }
+</style>
+</head>
+<body data-overall-status="draft">
+<div class="doc">
+  <header class="doc-header">
+    <span class="badge badge-type">Spec</span>
+    <h1>06-spec-manifest-reconciliation</h1>
+    <p class="meta">Sequence 06 · Feature: manifest-reconciliation · Phase 1</p>
+  </header>
+
+  <section id="introduction">
+    <h2>Introduction/Overview</h2>
+    <p>Today, when a workspace manifest diverges between machines, DevSpace sync <strong>refuses and stops</strong>: the git path returns "remote branch diverged … pull/reconcile manually" / "remote manifest is newer" (<code>workspace_sync.go</code>), and the hosted path returns an HTTP 409 "version conflict" (<code>hosted_sync.go</code>). The user is left to reconcile by hand, and there are no force flags and no merge tooling. <code>workspace diff</code> can show what a pull <em>would</em> change (a <code>ManifestDiff</code> of Added/Removed/Changed projects), but nothing combines the two sides.</p>
+    <p>This feature adds a <strong>reconciliation path</strong>: a new <code>devspace workspace reconcile</code> command that performs a <strong>three-way, project-level merge</strong> of the local and remote manifests against a tracked <em>base</em> (last-synced) manifest. Non-conflicting changes (each side added/removed/changed different projects) merge automatically; genuine conflicts (the same project changed differently on both sides) are never auto-resolved — they are surfaced for an explicit decision. Reconciliation is non-destructive and review-first: it writes a reviewable reconcile plan (mirroring <code>plan</code>→<code>apply</code>) and backs up the pre-reconcile manifest before writing anything. It covers <strong>both</strong> sync backends (git remote and hosted control-plane), sharing one backend-agnostic merge engine.</p>
+  </section>
+
+  <section id="goals">
+    <h2>Goals</h2>
+    <ul>
+      <li>Turn manifest divergence from a dead-end error into a reviewable, non-destructive reconciliation for both the git and hosted backends.</li>
+      <li>Auto-merge non-conflicting project add/remove/change operations using a tracked base manifest; never lose a tracked project silently.</li>
+      <li>Always surface genuine conflicts (same project changed on both sides) and require an explicit choice — never auto-pick a winner by default.</li>
+      <li>Preserve DevSpace's "review then act" and non-destructive invariants: a reconcile plan is written and the local manifest is backed up before any overwrite; apply is hash-guarded.</li>
+      <li>Reuse the existing <code>Manifest</code>/<code>Project</code>/<code>ManifestDiff</code> types and localize-remote machinery; add no new dependency.</li>
+    </ul>
+  </section>
+
+  <section id="user-stories">
+    <h2>User Stories</h2>
+    <ul>
+      <li><strong>As a</strong> developer syncing a workspace across two machines, <strong>I want to</strong> merge divergent manifests instead of hitting a "diverged, fix manually" error, <strong>so that</strong> both machines' project additions survive without hand-editing JSON.</li>
+      <li><strong>As a</strong> developer, <strong>I want</strong> genuine conflicts (a project changed differently on each machine) flagged for me to decide, <strong>so that</strong> reconciliation never silently discards one side's change.</li>
+      <li><strong>As a</strong> cautious user, <strong>I want to</strong> review the reconciled result and have my previous manifest backed up before anything is written, <strong>so that</strong> I can roll back if the merge isn't what I expected.</li>
+      <li><strong>As a</strong> hosted-sync user, <strong>I want</strong> the same reconciliation when a push is rejected with a version conflict, <strong>so that</strong> the control-plane path isn't a second dead end.</li>
+    </ul>
+  </section>
+
+  <section id="demoable-units">
+    <h2>Demoable Units of Work</h2>
+    <p>Three vertical slices in build order: track the base → merge engine + git reconcile command → hosted reconcile. The merge engine is written once against the shared <code>Manifest</code> types and reused by both backends (Q3 = both).</p>
+
+    <div class="card unit" id="unit-1">
+      <h3>Unit 1: Track the last-synced base manifest</h3>
+      <p><strong>Purpose:</strong> Record the manifest as of the last successful sync — the <em>base</em> that makes real three-way conflict detection possible (Q2). Without it, "changed on both sides" cannot be told apart from "independently added on both sides."</p>
+      <p><strong>Functional Requirements:</strong></p>
+      <ul>
+        <li>The system shall persist the successfully-synced manifest to a base snapshot in app home (e.g. <code>~/.devspace/last-synced-manifest.json</code>) after every successful <code>workspace pull</code>/<code>push</code> and hosted <code>pull</code>/<code>push</code>, written atomically with the same permissions as other app-home state.</li>
+        <li>The system shall expose a loader that returns the base manifest (and a clear "no base recorded yet" signal for first-run/upgrade cases).</li>
+        <li>The base snapshot shall contain manifest metadata only (no secrets, no machine-local paths) — consistent with what sync already shares.</li>
+      </ul>
+      <p><strong>Proof Artifacts:</strong></p>
+      <ul>
+        <li>Test: <code>go test ./internal/devspace -run TestSyncRecordsBaseManifest</code> passes — a successful git pull/push writes a base snapshot equal to the synced manifest (temp <code>DEVSPACE_HOME</code>).</li>
+        <li>Test: <code>go test ./internal/devspace -run TestBaseManifestAbsentIsDetectable</code> passes — the loader reports "no base" cleanly when none exists.</li>
+      </ul>
+    </div>
+
+    <div class="card unit" id="unit-2">
+      <h3>Unit 2: Three-way merge engine + <code>workspace reconcile</code> (git)</h3>
+      <p><strong>Purpose:</strong> The core hybrid merge (Q1=D) plus the review-first command (Q4=A) for the git backend.</p>
+      <p><strong>Functional Requirements:</strong></p>
+      <ul>
+        <li>The system shall provide a backend-agnostic merge function <code>Reconcile(base, local, remote Manifest) ReconcileResult</code> keyed by project path: entries added/removed/changed on only one side (relative to base) auto-merge; an entry changed differently on both sides (or add/add with different content) is recorded as a <strong>conflict</strong>. It shall never auto-resolve a conflict.</li>
+        <li>The system shall add <code>devspace workspace reconcile</code> that localizes the remote manifest (reusing the existing <code>workspace diff</code>/pull machinery), loads the base (Unit 1), runs the merge, and writes a reviewable reconcile-plan artifact (auto-merged ops + flagged conflicts), plus a <code>--json</code> form consistent with <code>diff</code>/<code>plan</code>.</li>
+        <li>When conflicts exist, the command shall stop without writing the manifest and report each conflict with text labels; it shall resolve them only when the user supplies an explicit choice (<code>--force-local</code> / <code>--force-remote</code>).</li>
+        <li>On apply/confirm the system shall back up the pre-reconcile local manifest to app home, then write the reconciled manifest through <code>safeWorkspacePath</code>-checked, atomic writes, guarded by a manifest-hash check (mirroring <code>apply</code>). The whole operation shall run under <code>withAppLock</code> at the command boundary.</li>
+        <li>If no base is recorded, the system shall degrade to a documented two-way mode (treat every same-path difference as a conflict) with a clear notice, never a silent overwrite.</li>
+      </ul>
+      <p><strong>Proof Artifacts:</strong></p>
+      <ul>
+        <li>Test: <code>go test ./internal/devspace -run TestReconcileMergeCases</code> passes — table test covering add-only-one-side, remove-one-side, change-one-side (auto-merge) and change-both-sides / add-add-different (conflict), plus the no-base two-way fallback.</li>
+        <li>Test: <code>go test ./internal/devspace -run TestWorkspaceReconcileNonConflicting</code> passes — reconcile of two divergent-but-mergeable manifests produces the union, backs up the old manifest, and applies under the hash guard (temp workspace).</li>
+        <li>Test: <code>go test ./internal/devspace -run TestWorkspaceReconcileConflictBlocksApply</code> passes — a genuine conflict stops apply; <code>--force-local</code>/<code>--force-remote</code> resolves it explicitly.</li>
+        <li>CLI: <code>devspace workspace reconcile --json</code> output demonstrates the auto-merged ops + conflict list.</li>
+      </ul>
+    </div>
+
+    <div class="card unit" id="unit-3">
+      <h3>Unit 3: Hosted-backend reconciliation</h3>
+      <p><strong>Purpose:</strong> Reuse the Unit 2 engine on the hosted control-plane path so an HTTP 409 version conflict becomes reconcilable (Q3 = both backends).</p>
+      <p><strong>Functional Requirements:</strong></p>
+      <ul>
+        <li>The system shall let reconciliation target the hosted backend: on a hosted version conflict, fetch the current hosted manifest + version/hash, run the same <code>Reconcile</code> against the tracked base, and present the same review artifact.</li>
+        <li>On apply, the system shall push the reconciled manifest with the correct updated version/hash baseline (so the push is accepted), then update the base snapshot (Unit 1).</li>
+        <li>Conflict handling, backup, and review-before-write shall behave identically to the git path (shared engine + shared reconcile-plan artifact).</li>
+      </ul>
+      <p><strong>Proof Artifacts:</strong></p>
+      <ul>
+        <li>Test: <code>go test ./internal/devspace -run TestHostedReconcileResolvesVersionConflict</code> passes — a simulated 409 → reconcile → apply pushes the merged manifest with the updated baseline (using the in-process hosted server test harness).</li>
+        <li>Test: <code>go test ./internal/devspace -run TestHostedReconcileConflictBlocksPush</code> passes — a genuine conflict blocks the hosted push until an explicit force choice is given.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="non-goals">
+    <h2>Non-Goals (Out of Scope)</h2>
+    <ol>
+      <li><strong>Project content merging:</strong> reconciliation operates on the manifest's project <em>entries</em> only — it never merges files inside a project or touches project git repos.</li>
+      <li><strong>Automatic conflict resolution:</strong> DevSpace never silently picks a winner for a genuine conflict; <code>--force-local</code>/<code>--force-remote</code> are explicit opt-ins only (Q2=A).</li>
+      <li><strong>Text/line-level JSON merge:</strong> merging is entry/field-level keyed by project path, not a textual 3-way of the JSON.</li>
+      <li><strong>Local Config/State reconciliation:</strong> machine-local <code>config.json</code>/<code>state.json</code> are not synced and not reconciled — only the shared <code>manifest.json</code>.</li>
+      <li><strong>Changing default pull/push:</strong> plain <code>pull</code>/<code>push</code> keep their current refuse-on-divergence behavior; <code>reconcile</code> is the explicit opt-in path.</li>
+      <li><strong>Multi-remote base tracking:</strong> a single last-synced base is assumed (matches the current single-remote model) — see Open Questions.</li>
+    </ol>
+  </section>
+
+  <section id="design-considerations">
+    <h2>Design Considerations</h2>
+    <ul>
+      <li><strong>Review-first artifact:</strong> reconcile writes a reconcile-plan (auto-merged ops + conflicts) analogous to <code>last-plan.json</code>, with a <code>--json</code> form matching <code>diff</code>/<code>plan</code>/<code>doctor</code> output conventions; conflicts render with text labels (not color alone).</li>
+      <li><strong>Backup + rollback:</strong> the pre-reconcile local manifest is copied to app home before any write, giving a concrete rollback point.</li>
+      <li><strong>Command placement:</strong> under the existing <code>workspace</code> command group (<code>devspace workspace reconcile</code>); hosted reconciliation reachable via the same command targeting the hosted backend (flag or subcommand, at implementation's discretion — see Open Questions).</li>
+      <li>No specific visual/UI requirements beyond CLI output consistency.</li>
+    </ul>
+  </section>
+
+  <section id="repository-standards">
+    <h2>Repository Standards</h2>
+    <ul>
+      <li>Single package <code>internal/devspace</code>; register the command via <code>NewRootCommand</code>'s <code>AddCommand</code> pattern under the workspace group.</li>
+      <li>Reuse <code>Manifest</code>/<code>Project</code>/<code>ManifestDiff</code>, the localize-remote-manifest machinery behind <code>workspace diff</code>/<code>pull</code>, atomic JSON writes (<code>jsonio</code>), and <code>safeWorkspacePath</code>; never hand-join workspace paths.</li>
+      <li>Lock discipline: acquire <code>withAppLock</code> only at the command boundary (non-reentrant), per <code>lock.go</code>.</li>
+      <li>Non-destructive + idempotent: backup before write; hash-guarded apply; re-running reconcile on an already-merged state is a no-op.</li>
+      <li>Testing: <code>t.Setenv("DEVSPACE_HOME", tmp)</code> + temp workspace; behavior-named <code>*_test.go</code>; reuse the in-process hosted server test harness for Unit 3; gate with <code>make verify</code> (test + vet + lint incl. gosec + govulncheck + build).</li>
+      <li>Conventional Commits; document the new command in <code>README.md</code> "Supported Commands".</li>
+    </ul>
+  </section>
+
+  <section id="technical-considerations">
+    <h2>Technical Considerations</h2>
+    <p><strong>Base manifest (load-bearing — Q2):</strong> a new app-home snapshot (e.g. <code>last-synced-manifest.json</code>) written atomically on every successful pull/push for both backends. It is the enabling mechanism for true three-way detection; the hosted backend already carries a version/hash baseline, but three-way still needs the base <em>content</em>, so both backends cache it the same way. First-run/upgrade with no base → documented two-way fallback (all same-path differences are conflicts) with a clear notice; never a silent overwrite.</p>
+    <p><strong>Merge algorithm (Q1=D):</strong> pure function <code>Reconcile(base, local, remote)</code> keyed by project <code>Path</code>. For each path, classify each side vs base (unchanged / added / removed / changed); combine: one-sided changes auto-apply; both-sided-and-different (change/change, add/add-different, or change/remove) → conflict. Output a <code>ReconcileResult</code> {merged ops, conflicts[]}. Deterministic and unit-testable in isolation — this is where the bulk of the test coverage lives.</p>
+    <p><strong>Two backends (Q3=C):</strong> the engine is backend-agnostic. Git wiring: localize remote via the existing pull path; apply writes the local manifest and (optionally) pushes. Hosted wiring: on 409, fetch the current hosted manifest + version/hash; merge; apply pushes with the new baseline. Both update the base snapshot on success. Keep the engine and the two wirings cleanly separated so hosted reuse is thin.</p>
+    <p><strong>Concurrency:</strong> reconcile + apply hold <code>withAppLock</code> for the operation (non-reentrant); domain reads/writes assume the caller holds the lock. Writes are atomic (existing <code>jsonio</code> pattern).</p>
+  </section>
+
+  <section id="security-considerations">
+    <h2>Security Considerations</h2>
+    <ul>
+      <li>Reconciliation touches <code>manifest.json</code> only — no secrets, no project contents, no machine-local paths (sync already strips those).</li>
+      <li>The base snapshot and the pre-reconcile backup are manifest metadata written under app home with the same permissions as existing state files.</li>
+      <li>Hosted reconciliation uses the existing bearer-token auth (<code>DEVSPACE_HOSTED_TOKEN</code>); no new credentials or scopes.</li>
+      <li>Proof artifacts must use sanitized temp workspaces / the in-process test server — no real remotes, tokens, or secret values committed.</li>
+    </ul>
+  </section>
+
+  <section id="success-metrics">
+    <h2>Success Metrics</h2>
+    <ol>
+      <li><strong>Non-conflicting merges are automatic:</strong> two manifests that added/removed/changed different projects reconcile with zero prompts and no lost projects.</li>
+      <li><strong>Conflicts are never silently resolved:</strong> a genuine conflict always stops apply and requires an explicit force choice — verified by test.</li>
+      <li><strong>Base is always recorded:</strong> every successful pull/push (git and hosted) writes the base snapshot.</li>
+      <li><strong>Non-destructive:</strong> pre-reconcile manifest is backed up and apply is hash-guarded, in 100% of runs.</li>
+      <li><strong>Both backends covered:</strong> git and hosted reconciliation share the engine and both pass their proof tests.</li>
+      <li><strong>Gate green:</strong> <code>make verify</code> passes with new engine + CLI + hosted tests.</li>
+    </ol>
+  </section>
+
+  <section id="open-questions">
+    <h2>Open Questions</h2>
+    <p>Non-blocking; resolvable during implementation without changing scope, requirements, demoable units, or proof artifacts:</p>
+    <ol>
+      <li>Conflict-resolution granularity: start with global <code>--force-local</code>/<code>--force-remote</code>, or support per-project selection immediately? Global is the simpler first cut; per-project can follow. Non-blocking.</li>
+      <li>Hosted invocation surface: a flag on <code>workspace reconcile</code> vs a dedicated <code>hosted reconcile</code> subcommand — either satisfies the requirement; implementation picks the cleaner fit with the existing command groups.</li>
+      <li>Base keying if multiple remotes are ever supported (single snapshot vs per-remote) — single for now, matching the current single-remote model.</li>
+    </ol>
+  </section>
+</div>
+</body>
+</html>
