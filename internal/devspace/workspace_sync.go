@@ -233,23 +233,9 @@ func DiffWorkspaceManifest() (ManifestDiff, error) {
 	if err != nil {
 		return ManifestDiff{}, err
 	}
-	repo, err := ensureManifestRepo(cfg)
+	localizedRemote, err := fetchLocalizedWorkspaceRemoteManifest(cfg)
 	if err != nil {
 		return ManifestDiff{}, err
-	}
-	if err := ensureCleanManifestRepo(repo); err != nil {
-		return ManifestDiff{}, err
-	}
-	if err := pullManifestRepo(repo, cfg.ManifestRemote); err != nil {
-		return ManifestDiff{}, err
-	}
-	remote, err := loadSyncedManifest(repo)
-	if err != nil {
-		return ManifestDiff{}, err
-	}
-	localizedRemote := localizeSyncedManifest(remote, cfg)
-	if err := ValidateManifest(localizedRemote); err != nil {
-		return ManifestDiff{}, fmt.Errorf("remote manifest failed validation: %w", err)
 	}
 	localForDiff, err := manifestForComparison(local, cfg.WorkspaceRoot)
 	if err != nil {
@@ -260,6 +246,28 @@ func DiffWorkspaceManifest() (ManifestDiff, error) {
 		return ManifestDiff{}, fmt.Errorf("remote manifest failed validation: %w", err)
 	}
 	return compareManifests(localForDiff, remoteForDiff), nil
+}
+
+func fetchLocalizedWorkspaceRemoteManifest(cfg Config) (Manifest, error) {
+	repo, err := ensureManifestRepo(cfg)
+	if err != nil {
+		return Manifest{}, err
+	}
+	if err := ensureCleanManifestRepo(repo); err != nil {
+		return Manifest{}, err
+	}
+	if err := pullManifestRepo(repo, cfg.ManifestRemote); err != nil {
+		return Manifest{}, err
+	}
+	remote, err := loadSyncedManifest(repo)
+	if err != nil {
+		return Manifest{}, err
+	}
+	localized := localizeSyncedManifest(remote, cfg)
+	if err := ValidateManifest(localized); err != nil {
+		return Manifest{}, fmt.Errorf("remote manifest failed validation: %w", err)
+	}
+	return localized, nil
 }
 
 func syncConfig() (Config, error) {

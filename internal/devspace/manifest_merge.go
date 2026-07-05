@@ -175,9 +175,15 @@ func mergeThreeWay[T any](entity, key string, base T, inBase bool, ours T, inOur
 			return ours, true, &MergeConflict{Entity: entity, Key: key, Field: "*", Base: fmt.Sprintf("%+v", base), Ours: fmt.Sprintf("%+v", ours), Theirs: fmt.Sprintf("%+v", theirs)}
 		}
 	case inOurs:
-		return ours, true, nil
+		if reflect.DeepEqual(base, ours) {
+			return zero, false, nil
+		}
+		return ours, true, &MergeConflict{Entity: entity, Key: key, Field: "*", Base: fmt.Sprintf("%+v", base), Ours: fmt.Sprintf("%+v", ours), Theirs: "<deleted>"}
 	case inTheirs:
-		return theirs, true, nil
+		if reflect.DeepEqual(base, theirs) {
+			return zero, false, nil
+		}
+		return theirs, true, &MergeConflict{Entity: entity, Key: key, Field: "*", Base: fmt.Sprintf("%+v", base), Ours: "<deleted>", Theirs: fmt.Sprintf("%+v", theirs)}
 	default:
 		return zero, false, nil
 	}

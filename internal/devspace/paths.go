@@ -63,6 +63,22 @@ func baseManifestPath() (string, error) {
 	return filepath.Join(home, "last-synced-manifest.json"), nil
 }
 
+func reconcilePlanPath() (string, error) {
+	home, err := appHome()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, "last-reconcile.json"), nil
+}
+
+func manifestBackupPath() (string, error) {
+	home, err := appHome()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, "manifest-backup.json"), nil
+}
+
 func expandPath(path string) (string, error) {
 	if path == "" {
 		return "", fmt.Errorf("path is required")

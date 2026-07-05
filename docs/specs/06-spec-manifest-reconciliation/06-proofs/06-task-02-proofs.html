@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>06-task-02-proofs</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff; --fg: #1a1a2e; --muted: #6b7280; --border: #e5e7eb;
+    --card: #f9fafb; --accent: #4f46e5; --pass: #059669; --fail: #dc2626; --warn: #d97706;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1117; --fg:#e6e6ef; --muted:#9ca3af; --border:#262a35; --card:#161922; --accent:#818cf8; --pass:#34d399; --fail:#f87171; --warn:#fbbf24; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height:1.6; }
+  .doc { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  header.doc-header { border-bottom: 1px solid var(--border); padding-bottom:1rem; margin-bottom:2rem; }
+  h1 { margin: .25rem 0; font-size:1.6rem; }
+  h2 { margin-top:2rem; border-bottom:1px solid var(--border); padding-bottom:.35rem; }
+  .meta { color:var(--muted); font-size:.9rem; }
+  .badge { display:inline-block; font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:.25rem .6rem; border-radius:999px; }
+  .badge-type { background:var(--accent); color:#fff; }
+  .status-pass, .status-done, .status-verified { background:var(--pass); color:#fff; }
+  .status-fail, .status-failed { background:var(--fail); color:#fff; }
+  .status-flag, .status-pending, .status-unknown, .status-in-progress { background:var(--warn); color:#111; }
+  table { width:100%; border-collapse: collapse; margin: 1rem 0; }
+  th, td { border:1px solid var(--border); padding:.5rem .75rem; text-align:left; vertical-align:top; }
+  th { background:var(--card); }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem 1.25rem; margin:1rem 0; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem; overflow-x:auto; }
+  .task-list { list-style:none; padding-left:0; }
+  .task { padding:.35rem 0; }
+  .task[data-status="done"] .task-label::before { content: "\2611 "; }
+  .task[data-status="pending"] .task-label::before { content: "\2610 "; }
+  .task[data-status="in-progress"] .task-label::before { content: "\25D1 "; }
+  figure { margin: 1rem 0; }
+  figure img { max-width:100%; border:1px solid var(--border); border-radius:.5rem; }
+  figcaption { color:var(--muted); font-size:.85rem; margin-top:.35rem; }
+  article.artifact { margin: 2rem 0; padding-top: 1.25rem; border-top: 1px solid var(--border); }
+  .proves, .matters, .result-summary { margin: .5rem 0; }
+  code { overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<div class="doc">
+  <header class="doc-header">
+    <span class="badge badge-type">PROOFS</span>
+    <h1>Task 02 Proofs - Three-way reconcile engine and `workspace reconcile` command</h1>
+    <p class="meta">Sequence 06 · Feature: manifest-reconciliation · Task 2.0 · Phase 3</p>
+  </header>
+
+  <h2>Task Summary</h2>
+  <p>This task turned git-backend manifest divergence from a dead-end error into a reviewable merge. A new <code>devspace workspace reconcile</code> command fetches and localizes the remote manifest (reusing the <code>workspace diff</code> machinery), three-way merges it against the Task 1.0 base snapshot via the pre-existing <code>mergeManifests</code> engine, and writes a review-first plan to <code>DEVSPACE_HOME/last-reconcile.json</code>. Apply is opt-in (<code>--apply</code>), hash-guarded, and backs up the pre-reconcile manifest to <code>DEVSPACE_HOME/manifest-backup.json</code> first. Genuine conflicts always block apply until <code>--force-local</code>/<code>--force-remote</code> resolves them explicitly. With no base snapshot, reconcile degrades to a documented two-way mode where every same-key difference is a conflict.</p>
+
+  <h2>What This Task Proves</h2>
+  <ul>
+    <li>One-sided adds/removes/changes auto-merge; change-both, add-add-different, and change-vs-remove are conflicts that are never auto-resolved.</li>
+    <li>The existing engine's delete-vs-modify behavior was corrected: an unchanged-side deletion now merges (removal wins), while a changed-vs-deleted record is a conflict — previously the modified copy silently survived.</li>
+    <li>Divergent-but-mergeable manifests reconcile to the union, with backup + hash guard + base refresh on apply, and a repeat reconcile reports zero ops (idempotent).</li>
+    <li>A genuine conflict blocks <code>--apply</code> (manifest untouched, non-zero exit) and each force flag resolves it to the chosen side.</li>
+    <li>Plain <code>pull</code>/<code>push</code> behavior is unchanged — reconcile is a separate opt-in command.</li>
+  </ul>
+
+  <h2>Evidence Summary</h2>
+  <ul>
+    <li>Engine table tests: 9 <code>TestReconcileMergeCases</code> cases + updated <code>TestMergeManifests</code> all pass.</li>
+    <li>End-to-end: <code>TestWorkspaceReconcileNonConflicting</code> and <code>TestWorkspaceReconcileConflictBlocksApply</code> pass against real temp workspaces and a local bare-repo remote.</li>
+    <li>Full package suite: 229 tests pass; gofmt and vet clean; <code>--help</code> documents review-before-write, backup, hash guard, force flags, and two-way fallback.</li>
+  </ul>
+
+  <article class="artifact">
+    <h2>Artifact: Merge-case table tests</h2>
+    <p class="proves"><strong>What it proves:</strong> Every merge classification the spec requires — auto-merge for one-sided edits, conflict for both-sided divergence, conservative two-way fallback without a base, and idempotency.</p>
+    <p class="matters"><strong>Why it matters:</strong> This is the core safety property: reconciliation must never silently pick a winner or lose a tracked project. The <code>delete-vs-modify-conflicts</code> case also locks in the engine fix (deletion of an unchanged record merges; deletion of a changed record conflicts).</p>
+    <p><strong>Command:</strong></p>
+    <pre><code>go test ./internal/devspace -run 'TestReconcileMergeCases|TestMergeManifests' -v</code></pre>
+    <p class="result-summary"><strong>Result summary:</strong> All subtests pass, covering add/remove/change one-sided, change-both-different, add-add-different, change-vs-remove, nil-base two-way additions and conflicts, and the idempotent re-run.</p>
+    <pre><code>=== RUN   TestMergeManifests
+=== RUN   TestMergeManifests/delete-vs-modify-conflicts
+--- PASS: TestMergeManifests (0.00s)
+=== RUN   TestReconcileMergeCases
+=== RUN   TestReconcileMergeCases/add-one-side
+=== RUN   TestReconcileMergeCases/remove-one-side
+=== RUN   TestReconcileMergeCases/change-one-side
+=== RUN   TestReconcileMergeCases/change-both-different
+=== RUN   TestReconcileMergeCases/add-add-different
+=== RUN   TestReconcileMergeCases/change-vs-remove
+=== RUN   TestReconcileMergeCases/nil-base-two-way-additions
+=== RUN   TestReconcileMergeCases/nil-base-two-way-differences-conflict
+=== RUN   TestReconcileMergeCases/idempotent
+--- PASS: TestReconcileMergeCases (0.00s)
+PASS</code></pre>
+  </article>
+
+  <article class="artifact">
+    <h2>Artifact: End-to-end reconcile flows (auto-merge and conflict block)</h2>
+    <p class="proves"><strong>What it proves:</strong> The full command path works against real divergence: two app homes sharing a bare git remote diverge; reconcile+apply produces the union, writes the app-home backup, refreshes the base snapshot, and re-running reports zero ops. With a genuine conflict, <code>--apply</code> errors and leaves the local manifest untouched until a force flag chooses a side.</p>
+    <p class="matters"><strong>Why it matters:</strong> These tests exercise fetch/localize, plan persistence, the hash guard, backup, and the non-destructive conflict gate together — the exact scenario that today ends in "remote branch diverged … pull/reconcile manually".</p>
+    <p><strong>Command:</strong></p>
+    <pre><code>go test ./internal/devspace -run 'TestWorkspaceReconcileNonConflicting|TestWorkspaceReconcileConflictBlocksApply' -v</code></pre>
+    <p class="result-summary"><strong>Result summary:</strong> Both tests pass in ~2.8s, including real git operations against local bare repos.</p>
+    <pre><code>--- PASS: TestWorkspaceReconcileNonConflicting (1.23s)
+--- PASS: TestWorkspaceReconcileConflictBlocksApply (1.54s)
+ok  	github.com/liatrio-forge/devdrop-capstone/internal/devspace	2.778s</code></pre>
+  </article>
+
+  <article class="artifact">
+    <h2>Artifact: Command surface and documentation</h2>
+    <p class="proves"><strong>What it proves:</strong> <code>devspace workspace reconcile</code> is wired under the workspace group with <code>--json</code>, <code>--apply</code>, <code>--force-local</code>, <code>--force-remote</code> (mutually exclusive), and its help text documents the review-before-write flow, backup location, hash guard, and two-way fallback.</p>
+    <p class="matters"><strong>Why it matters:</strong> The review-first contract is user-facing; the help text is where a user discovers that nothing is written without <code>--apply</code> and that a backup always precedes an overwrite.</p>
+    <p><strong>Command:</strong></p>
+    <pre><code>go run ./cmd/devspace workspace reconcile --help</code></pre>
+    <p class="result-summary"><strong>Result summary:</strong> Help output documents each guarantee; the runtime is wrapped in <code>withAppLock</code> at the command boundary; conflicted <code>--apply</code> exits non-zero without printing a misleading "Applied" line.</p>
+    <pre><code>Reconcile computes a three-way merge between the last synced base manifest, the local
+manifest, and the configured Git remote manifest.
+
+By default it writes only a review artifact to DEVSPACE_HOME/last-reconcile.json and does
+not change the workspace manifest.
+
+With --apply, DevSpace writes DEVSPACE_HOME/manifest-backup.json before replacing the
+local manifest, then refreshes the base snapshot. Apply is guarded by the local manifest
+hash captured when reconcile was generated.
+
+If no base snapshot exists, reconcile falls back to a conservative two-way union:
+one-sided additions merge, same-key differences become conflicts.
+
+Use --force-local or --force-remote to resolve every conflict to that side before applying.
+
+USAGE
+  devspace workspace reconcile [--flags]</code></pre>
+  </article>
+
+  <article class="artifact">
+    <h2>Artifact: Full suite and quality gates</h2>
+    <p class="proves"><strong>What it proves:</strong> The new engine wiring, the <code>DiffWorkspaceManifest</code> fetch/localize extraction, and the merge-engine semantic fix regress nothing.</p>
+    <p class="matters"><strong>Why it matters:</strong> Task 2.0 refactored shared sync code (<code>fetchLocalizedWorkspaceRemoteManifest</code>) and changed tested engine behavior; the whole package staying green shows both were safe.</p>
+    <p><strong>Command:</strong></p>
+    <pre><code>go test ./internal/devspace &amp;&amp; gofmt -l cmd internal &amp;&amp; go vet ./...</code></pre>
+    <p class="result-summary"><strong>Result summary:</strong> 229 tests pass (217 before this task), gofmt clean, vet clean.</p>
+    <pre><code>Go test: 229 passed in 1 packages
+gofmt -l cmd internal: (no output — clean)
+Go vet: No issues found</code></pre>
+  </article>
+
+  <h2>Reviewer Conclusion</h2>
+  <p>The git backend now has a complete, non-destructive reconciliation path: review-first plan, automatic union of non-conflicting divergence, hard stop on genuine conflicts with explicit force flags as the only override, backup + hash guard on apply, and a conservative two-way fallback when no base exists. Task 3.0 can reuse <code>reconcileManifests</code> and the <code>ReconcilePlan</code> artifact unchanged for the hosted backend.</p>
+</div>
+</body>
+</html>

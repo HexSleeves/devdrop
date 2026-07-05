@@ -331,6 +331,7 @@ func newWorkspaceCommand() *cobra.Command {
 	cmd := &cobra.Command{Use: "workspace", Short: "Manage workspace"}
 	cmd.AddCommand(newScanCommand())
 	cmd.AddCommand(newWorkspaceRemoteCommand())
+	cmd.AddCommand(newWorkspaceReconcileCommand())
 	cmd.AddCommand(&cobra.Command{
 		Use:   "push",
 		Short: "Push workspace manifest to the configured Git remote",
@@ -383,6 +384,56 @@ func newWorkspaceCommand() *cobra.Command {
 	}
 	diffCmd.Flags().BoolVar(&diffJSON, "json", false, "print machine-readable manifest diff")
 	cmd.AddCommand(diffCmd)
+	return cmd
+}
+
+func newWorkspaceReconcileCommand() *cobra.Command {
+	var jsonOut bool
+	var apply bool
+	var forceLocal bool
+	var forceRemote bool
+	cmd := &cobra.Command{
+		Use:   "reconcile",
+		Short: "Reconcile local and remote workspace manifests",
+		Long: strings.Join([]string{
+			"Reconcile computes a three-way merge between the last synced base manifest, the local manifest, and the configured Git remote manifest.",
+			"By default it writes only a review artifact to DEVSPACE_HOME/last-reconcile.json and does not change the workspace manifest.",
+			"With --apply, DevSpace writes DEVSPACE_HOME/manifest-backup.json before replacing the local manifest, then refreshes the base snapshot. Apply is guarded by the local manifest hash captured when reconcile was generated.",
+			"If no base snapshot exists, reconcile falls back to a conservative two-way union: one-sided additions merge, same-key differences become conflicts.",
+			"Use --force-local or --force-remote to resolve every conflict to that side before applying.",
+		}, "\n\n"),
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if forceLocal && forceRemote {
+				return fmt.Errorf("--force-local and --force-remote are mutually exclusive")
+			}
+			force := ""
+			if forceLocal {
+				force = "local"
+			}
+			if forceRemote {
+				force = "remote"
+			}
+			return withAppLock(func() error {
+				plan, err := ReconcileWorkspaceManifest(force, apply)
+				if err != nil && plan.Version == 0 {
+					return err
+				}
+				if jsonOut {
+					if writeErr := writePrettyJSON(cmd.OutOrStdout(), plan); writeErr != nil {
+						return writeErr
+					}
+				} else {
+					printReconcilePlan(cmd.OutOrStdout(), plan, apply && err == nil)
+				}
+				return err
+			})
+		},
+	}
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "print machine-readable reconcile plan")
+	cmd.Flags().BoolVar(&apply, "apply", false, "apply the merged manifest after writing the review plan")
+	cmd.Flags().BoolVar(&forceLocal, "force-local", false, "resolve all conflicts to the local manifest")
+	cmd.Flags().BoolVar(&forceRemote, "force-remote", false, "resolve all conflicts to the remote manifest")
 	return cmd
 }
 
