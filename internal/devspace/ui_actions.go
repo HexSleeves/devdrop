@@ -128,8 +128,10 @@ func dashboardRefreshCmd(syncMode string) tea.Cmd {
 func dashboardSyncStatusCmd() tea.Cmd {
 	return func() tea.Msg {
 		var status dashboardSyncStatus
+		var cfg Config
 		err := runLocked(func() error {
-			cfg, err := LoadConfig()
+			var err error
+			cfg, err = LoadConfig()
 			if err != nil {
 				return err
 			}
@@ -157,20 +159,20 @@ func dashboardSyncStatusCmd() tea.Cmd {
 				status.GitDiffUnavailable = "unavailable-for-hosted"
 				return nil
 			}
-			// DiffWorkspaceManifest can hold the dashboard lock for up to about a minute against a slow remote.
-			diff, err := DiffWorkspaceManifest()
-			if err != nil {
-				return err
-			}
-			status.DiffAdded = len(diff.Added)
-			status.DiffRemoved = len(diff.Removed)
-			status.DiffChanged = len(diff.Changed)
-			status.LocalDiffers = status.DiffAdded+status.DiffRemoved+status.DiffChanged > 0
 			return nil
 		})
 		if err != nil {
-			status.Configured = true
 			status.UnavailableReason = err.Error()
+		} else if cfg.ManifestRemote != "" {
+			diff, err := DiffWorkspaceManifest()
+			if err != nil {
+				status.UnavailableReason = err.Error()
+			} else {
+				status.DiffAdded = len(diff.Added)
+				status.DiffRemoved = len(diff.Removed)
+				status.DiffChanged = len(diff.Changed)
+				status.LocalDiffers = status.DiffAdded+status.DiffRemoved+status.DiffChanged > 0
+			}
 		}
 		return syncStatusLoadedMsg{status: status}
 	}

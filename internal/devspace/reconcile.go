@@ -524,11 +524,20 @@ func validateProjectForces(conflicts []MergeConflict, local, remote Manifest, pr
 		if conflict.Entity != "project" {
 			continue
 		}
-		if project, ok := localProjects[conflict.Key]; ok {
-			conflicted[project.ID] = true
+		localProject, hasLocal := localProjects[conflict.Key]
+		remoteProject, hasRemote := remoteProjects[conflict.Key]
+		if hasLocal {
+			conflicted[localProject.ID] = true
 		}
-		if project, ok := remoteProjects[conflict.Key]; ok {
-			conflicted[project.ID] = true
+		if hasRemote {
+			conflicted[remoteProject.ID] = true
+		}
+		if hasLocal && hasRemote && localProject.ID != remoteProject.ID {
+			localDirection, hasLocalForce := projectForces[localProject.ID]
+			remoteDirection, hasRemoteForce := projectForces[remoteProject.ID]
+			if hasLocalForce && hasRemoteForce && localDirection != remoteDirection {
+				return fmt.Errorf("conflicting --force-project directives for %s: %s=%s vs %s=%s", conflict.Key, localProject.ID, localDirection, remoteProject.ID, remoteDirection)
+			}
 		}
 	}
 	for projectID := range projectForces {

@@ -559,6 +559,46 @@ func TestReconcileSamePathDifferentIDConflict(t *testing.T) {
 	}
 }
 
+func TestValidateProjectForcesRejectsContradictorySamePathIDs(t *testing.T) {
+	user := reconcileUser()
+	localProject := testMergeProject("project_local", "apps/app")
+	remoteProject := testMergeProject("project_remote", "apps/app")
+	local := testMergeManifest(user, []Project{localProject}, nil)
+	remote := testMergeManifest(user, []Project{remoteProject}, nil)
+
+	result, err := reconcileManifests(nil, local, remote)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = validateProjectForces(result.Conflicts, local, remote, map[string]string{
+		localProject.ID:  "local",
+		remoteProject.ID: "remote",
+	})
+	if err == nil || !strings.Contains(err.Error(), "conflicting --force-project directives for apps/app: project_local=local vs project_remote=remote") {
+		t.Fatalf("error = %v, want conflicting same-path force-project directives", err)
+	}
+}
+
+func TestValidateProjectForcesAllowsSameDirectionSamePathIDs(t *testing.T) {
+	user := reconcileUser()
+	localProject := testMergeProject("project_local", "apps/app")
+	remoteProject := testMergeProject("project_remote", "apps/app")
+	local := testMergeManifest(user, []Project{localProject}, nil)
+	remote := testMergeManifest(user, []Project{remoteProject}, nil)
+
+	result, err := reconcileManifests(nil, local, remote)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = validateProjectForces(result.Conflicts, local, remote, map[string]string{
+		localProject.ID:  "remote",
+		remoteProject.ID: "remote",
+	})
+	if err != nil {
+		t.Fatalf("validateProjectForces error = %v, want nil", err)
+	}
+}
+
 func TestReconcileUserTeamRemoteOnlyChangeMerges(t *testing.T) {
 	user := reconcileUser()
 	rotated := user

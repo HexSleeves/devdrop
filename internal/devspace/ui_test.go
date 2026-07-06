@@ -73,9 +73,14 @@ func TestDashboardSyncStatusRendersRemoteState(t *testing.T) {
 }
 
 func TestDashboardSyncStatusRendersDegradedStates(t *testing.T) {
-	model := dashboardModel{syncStatus: dashboardSyncStatus{UnavailableReason: "no manifest remote configured"}}
+	model := dashboardModel{syncStatus: dashboardSyncStatus{UnavailableReason: "remote not configured"}}
 	if content := model.renderSyncStatus(); !strings.Contains(content, "remote not configured") {
 		t.Fatalf("content = %q, want remote not configured", content)
+	}
+
+	model.syncStatus = dashboardSyncStatus{UnavailableReason: "no manifest remote configured"}
+	if content := model.renderSyncStatus(); !strings.Contains(content, "status unavailable: no manifest remote configured") {
+		t.Fatalf("content = %q, want unavailable reason", content)
 	}
 
 	model.syncStatus = dashboardSyncStatus{Configured: true, UnavailableReason: "boom"}
@@ -97,15 +102,21 @@ func TestDashboardSyncStatusMessageUpdatesModel(t *testing.T) {
 	}
 }
 
-func TestDashboardSyncStatusCmdUsesDiffAndSavedReconcilePlan(t *testing.T) {
+func dashboardSyncStatusTestWorkspace(t *testing.T) string {
+	t.Helper()
 	root := t.TempDir()
 	home := filepath.Join(root, "home")
 	workspace := filepath.Join(root, "code")
-	remote := workspaceSyncBareRepo(t)
 	t.Setenv(envHome, home)
 	if _, err := InitWorkspace(workspace); err != nil {
 		t.Fatal(err)
 	}
+	return workspace
+}
+
+func TestDashboardSyncStatusCmdUsesDiffAndSavedReconcilePlan(t *testing.T) {
+	workspace := dashboardSyncStatusTestWorkspace(t)
+	remote := workspaceSyncBareRepo(t)
 	if _, err := SetManifestRemote(remote); err != nil {
 		t.Fatal(err)
 	}
@@ -150,13 +161,7 @@ func TestDashboardSyncStatusCmdUsesDiffAndSavedReconcilePlan(t *testing.T) {
 }
 
 func TestDashboardSyncStatusCmdUsesHostedStateAndSavedPlan(t *testing.T) {
-	root := t.TempDir()
-	home := filepath.Join(root, "home")
-	workspace := filepath.Join(root, "code")
-	t.Setenv(envHome, home)
-	if _, err := InitWorkspace(workspace); err != nil {
-		t.Fatal(err)
-	}
+	workspace := dashboardSyncStatusTestWorkspace(t)
 	if _, err := SetHostedSync("http://127.0.0.1:8787", "test-token", "team-a"); err != nil {
 		t.Fatal(err)
 	}
