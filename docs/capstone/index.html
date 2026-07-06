@@ -1197,19 +1197,18 @@ from this repository:</p>
     <div id="code-2" class="diff-render" data-code-b64="Z28gdGVzdCAuLy4uLgpnbyBydW4gLi9jbWQvZGV2ZHJvcCAtLWhlbHA=" data-lang="bash"></div>
     <noscript><pre><code>go test ./...
 go run ./cmd/devdrop --help</code></pre></noscript>
-  </figure><h2 id="release-packaging-2"><a class="heading-link" href="#release-packaging-2" aria-label="Link to Release Packaging">#</a>Release Packaging</h2><p>Repo-native release targets are available for the <code>devspace</code> CLI:</p>
+  </figure><h2 id="release-packaging-2"><a class="heading-link" href="#release-packaging-2" aria-label="Link to Release Packaging">#</a>Release Packaging</h2><p>Local verification runs through the repo-native gate for the <code>devspace</code> CLI:</p>
 <figure class="code-block" data-lang="bash">
     <figcaption>
       <span>bash</span>
       <button class="copy-btn" type="button" data-copy-code="code-3">Copy</button>
     </figcaption>
-    <div id="code-3" class="diff-render" data-code-b64="bWFrZSB2ZXJpZnkKbWFrZSByZWxlYXNl" data-lang="bash"></div>
-    <noscript><pre><code>make verify
-make release</code></pre></noscript>
-  </figure><p><code>make verify</code> runs tests, <code>go vet</code>, and a local build into <code>bin/devspace</code>.
-<code>make release</code> builds a current-platform archive under <code>dist/</code> and writes
-<code>dist/SHA256SUMS</code>. See <a href="docs/release.md"><code>docs/release.md</code></a> for install-from-source
-and GitHub Release assembly instructions.</p>
+    <div id="code-3" class="diff-render" data-code-b64="bWFrZSB2ZXJpZnk=" data-lang="bash"></div>
+    <noscript><pre><code>make verify</code></pre></noscript>
+  </figure><p><code>make verify</code> runs tests, <code>go vet</code>, lint, and a local build into <code>bin/devspace</code>.
+Release archives and <code>checksums.txt</code> are built by GoReleaser when a version tag is
+pushed. See <a href="../operations/release.md"><code>docs/operations/release.md</code></a> for the automated release flow
+and verification instructions.</p>
 <h2 id="current-mvp-status-3"><a class="heading-link" href="#current-mvp-status-3" aria-label="Link to Current MVP Status">#</a>Current MVP Status</h2><p>This MVP is local-first. It proves the workflow before adding filesystem-level
 lazy loading.</p>
 <p>What works today:</p>
@@ -1731,17 +1730,16 @@ go run ./cmd/devdrop --help
 
 ## Release Packaging
 
-Repo-native release targets are available for the `devspace` CLI:
+Local verification runs through the repo-native gate for the `devspace` CLI:
 
 ```bash
 make verify
-make release
 ```
 
-`make verify` runs tests, `go vet`, and a local build into `bin/devspace`.
-`make release` builds a current-platform archive under `dist/` and writes
-`dist/SHA256SUMS`. See [`docs/release.md`](docs/release.md) for install-from-source
-and GitHub Release assembly instructions.
+`make verify` runs tests, `go vet`, lint, and a local build into `bin/devspace`.
+Release archives and `checksums.txt` are built by GoReleaser when a version tag
+is pushed. See [`docs/operations/release.md`](../operations/release.md) for the
+automated release flow and verification instructions.
 
 ## Current MVP Status
 

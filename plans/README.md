@@ -41,10 +41,12 @@ The following notes trace the historical completion of the SDD phases.
 
 ## 🗃️ Backlog & Deferred Findings
 
-A few operational items were discovered during planning but were not part of the core SDD implementation. They have been recorded here as backlog items for future consideration:
+The operational items discovered during planning have all since been resolved:
 
-- **Extract `hosted serve` HTTP lifecycle out of `commands.go`:** Move the `http.Server` signals/shutdown out of the CLI layer to improve testability.
-- **Dependabot/Renovate for `go.mod`:** Set up Dependabot to track `go.mod` updates and the pinned `ko` base-image digest in `.goreleaser.yaml`.
-- **Clean up dead code (`PlanSync`/`ApplySync`):** Delete these thin wrappers in a future refactor, as they lack production callers and are only exercised in tests.
+- **Extract `hosted serve` HTTP lifecycle out of `commands.go`:** DONE — landed in PR #27 (`hosted_sync.go`).
+- **Dependabot/Renovate for `go.mod`:** DONE — `.github/dependabot.yml` tracks `gomod` and `github-actions` weekly. (The pinned `ko` base-image digest in `.goreleaser.yaml` is still bumped manually.)
+- **Clean up dead code (`PlanSync`/`ApplySync`):** DONE — the wrappers no longer exist in `internal/devspace`.
+
+Current follow-up work is tracked in [`FOLLOWUP.md`](../FOLLOWUP.md) and `docs/superpowers/plans/`.
 
 *(Note: The documentation backlog items, such as detailing `DEVSPACE_HOME`, `DEVSPACE_HOSTED_TOKEN`, and `release-readiness.md` sync, were directly resolved in the root `README.md` and repository docs.)*

@@ -1,6 +1,6 @@
-# DevDrop release packaging
+# DevSpace release packaging
 
-DevDrop ships the local-first CLI as a `devspace` binary built from the existing
+DevSpace ships the local-first CLI as a `devspace` binary built from the existing
 Go module. Releases are **automated with GoReleaser**: pushing a version tag
 builds multi-platform archives and publishes them to GitHub Releases with
 checksums, a generated changelog, and build-provenance attestation. GoReleaser is
@@ -56,6 +56,22 @@ To publish binaries without a live deploy, push a prerelease tag by hand:
 `git tag v0.1.0-rc.3 && git push origin v0.1.0-rc.3`. Prerelease tags still run
 the same GoReleaser artifact path, but they are marked as GitHub prereleases and
 skip the Railway deploy job.
+
+### Recovering from a failed release
+
+Failures are safe to retry: GoReleaser only publishes the GitHub Release at the
+end of a successful run, and the Railway deploy is a separately gated job.
+
+- **`release.yml` fails before the Release exists** (build, test, or ghcr push
+  error): fix the cause, then re-run the failed workflow from the Actions run —
+  the tag is still in place and the run is repeatable.
+- **The Release published with wrong artifacts**: delete the GitHub Release and
+  the tag (`gh release delete vX.Y.Z --yes && git push origin :refs/tags/vX.Y.Z`),
+  fix the cause, and re-push the tag (prerelease) or land a `fix:` commit and
+  merge the next release-please PR (stable). Never rewrite `main`.
+- **`deploy-railway` fails or is rejected**: the Release and image are already
+  good; fix the deploy issue and re-run just that job from the same Actions run.
+  Nothing needs re-tagging.
 
 ### Setup prerequisites (one-time)
 

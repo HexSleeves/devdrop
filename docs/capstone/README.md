@@ -43,13 +43,14 @@ encrypted locally.
 
 ## Remaining Module 5 Work
 
-1. Create a tagged release binary and attach it to a GitHub release.
-2. Execute the capstone stretch cards documented in
+1. Execute the capstone stretch cards documented in
    [remote-agent-case-study.md](remote-agent-case-study.md), whether via a
    wave-ship run or manually.
-3. Push the frontier track: hosted sync, daemon/watch mode, FUSE lazy mount,
+2. Push the frontier track: hosted sync, daemon/watch mode, FUSE lazy mount,
    managed team identity, and explicit dependency install.
-4. Record the demo using [demo-script.md](demo-script.md).
-5. Capture final proof links in [proof-artifacts.md](proof-artifacts.md).
-6. Add the personal reflection after demo feedback is received.
-7. Migrated on-disk paths and config directories to `.devspace`.
+3. Record the demo using [demo-script.md](demo-script.md).
+4. Capture final proof links in [proof-artifacts.md](proof-artifacts.md).
+5. Add the personal reflection after demo feedback is received.
+
+Done and verified: the v0.1.0 tagged release shipped with GitHub Release
+assets (see [proof-artifacts.md](proof-artifacts.md)).
