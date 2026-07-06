@@ -131,6 +131,8 @@ func newHostedCommand() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withAppLock(func() error {
+				warnings := accessRoleAdvisoryWarnings("devspace hosted push", "", AccessRoleOwner, AccessRoleMaintainer)
+				printAccessRoleAdvisories(cmd.ErrOrStderr(), warnings)
 				result, err := PushHostedManifest()
 				if err != nil {
 					return err
@@ -388,6 +390,8 @@ func newWorkspaceCommand() *cobra.Command {
 		Short: "Push workspace manifest to the configured Git remote",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withAppLock(func() error {
+				warnings := accessRoleAdvisoryWarnings("devspace workspace push", "", AccessRoleOwner, AccessRoleMaintainer)
+				printAccessRoleAdvisories(cmd.ErrOrStderr(), warnings)
 				changed, err := PushWorkspaceManifest()
 				if err != nil {
 					return err
@@ -740,6 +744,8 @@ func newProjectCommand() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withAppLock(func() error {
+				warnings := accessRoleAdvisoryWarnings("devspace project remove", args[0], AccessRoleOwner, AccessRoleMaintainer)
+				printAccessRoleAdvisories(cmd.ErrOrStderr(), warnings)
 				p, err := RemoveProject(args[0])
 				if err != nil {
 					return err
@@ -875,6 +881,8 @@ func newEnvRecipientCommand() *cobra.Command {
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withAppLock(func() error {
+				warnings := accessRoleAdvisoryWarnings("devspace env recipient invite", args[0], AccessRoleOwner, AccessRoleMaintainer)
+				printAccessRoleAdvisories(cmd.ErrOrStderr(), warnings)
 				recipient, err := EnvInvite(args[0], inviteProfile, args[1], args[2], inviteTeam)
 				if err != nil {
 					return err
@@ -896,6 +904,8 @@ func newEnvRecipientCommand() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withAppLock(func() error {
+				warnings := accessRoleAdvisoryWarnings("devspace env recipient revoke", args[0], AccessRoleOwner, AccessRoleMaintainer)
+				printAccessRoleAdvisories(cmd.ErrOrStderr(), warnings)
 				recipient, err := EnvRevoke(args[0], revokeProfile, args[1], revokeReason)
 				if err != nil {
 					return err
@@ -917,6 +927,8 @@ func newEnvRecipientCommand() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withAppLock(func() error {
+				warnings := accessRoleAdvisoryWarnings("devspace env recipient rotate", args[0], AccessRoleOwner, AccessRoleMaintainer)
+				printAccessRoleAdvisories(cmd.ErrOrStderr(), warnings)
 				if err := EnvRotateRecipients(args[0], rotateProfile); err != nil {
 					return err
 				}

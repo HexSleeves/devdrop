@@ -1,9 +1,8 @@
 # Access Role Posture
 
-DevSpace manifests already contain users, teams, and project access roles, but
-the current CLI does not enforce those roles. This document records the intended
-posture so the product language stays honest and future enforcement work has a
-stable target.
+DevSpace manifests contain users, teams, and project access roles, but those
+roles are advisory metadata. This document records the intended posture so the
+product language stays honest and future enforcement work has a stable target.
 
 ## Problem
 
@@ -12,10 +11,12 @@ records with `owner`, `maintainer`, `developer`, and `viewer` roles. Manifest
 validation checks that those records refer to existing users, teams, and
 projects.
 
-No command currently refuses, warns, or changes behavior based on those roles.
-The hosted sync prototype also uses one bearer token for every workspace ID, so
-it cannot map a request to a manifest user. The only hard access boundary today
-is cryptographic: encrypted env profiles can be decrypted only by active age
+No command refuses or changes behavior based on those roles. A small warning
+tier prints advisory messages on selected high-risk shared mutations, but those
+warnings never block the command or change its exit code. The hosted sync
+prototype also uses one bearer token for every workspace ID, so it cannot map a
+request to a manifest user. The only hard access boundary today is
+cryptographic: encrypted env profiles can be decrypted only by active age
 recipients.
 
 The immediate risk is presentational. If docs say or imply that roles control
@@ -26,8 +27,8 @@ what a user can do, teams may assume enforcement exists when it does not.
 ### Document-as-advisory
 
 Roles remain bookkeeping metadata for humans and future automation. Docs say
-explicitly that the CLI records intended responsibility but does not enforce
-role-based command permissions.
+explicitly that the CLI records intended responsibility but does not refuse or
+change command behavior based on role fields.
 
 This is the lowest-risk posture for the current codebase because it matches
 actual behavior and does not create a weak local-only security claim.
@@ -35,8 +36,9 @@ actual behavior and does not create a weak local-only security claim.
 ### Client-Side Advisory Enforcement
 
 The CLI resolves the local age recipient to a manifest user, derives an
-effective role for a project, and prints warnings when a mutating command is
-outside the recommended role boundary. Commands still continue.
+effective role for a project, and prints warnings when selected mutating
+commands are outside the recommended advisory boundary. Commands still
+continue.
 
 This gives teams useful feedback without pretending that local checks are a
 security boundary. The manifest is user-editable, and the CLI is open source, so
@@ -54,18 +56,18 @@ membership management, and migration from the current single-token server.
 
 ## Recommendation
 
-Use document-as-advisory now. Design client-side warning-only checks as the next
-increment if role feedback becomes useful in daily workflows. Defer server-side
-enforcement until hosted sync has a token-to-user model.
+Use document-as-advisory now, with warning-only checks on the highest-risk
+shared mutations. Defer server-side enforcement until hosted sync has a
+token-to-user model.
 
 Rationale:
 
-- It matches the current implementation: roles are recorded and validated, not
-  enforced.
+- It matches the current implementation: roles are recorded and validated, and
+  selected commands warn, but roles are not enforced.
 - It avoids a false security claim around local checks.
 - It keeps the real current boundary clear: age recipients control who can
   decrypt shared secrets.
-- It leaves a clean path to warning-only UX without changing command semantics.
+- It keeps warning-only UX separate from command semantics.
 - It avoids blocking hosted auth design on a spike whose immediate deliverable
   is documentation accuracy.
 
@@ -98,17 +100,20 @@ missing access metadata visible.
 
 ## Mutating CLI Inventory
 
-The table lists recommended role boundaries for future advisory or enforced
-behavior. It does not describe behavior that exists today.
+The table lists recommended advisory boundaries. The current CLI prints
+warning-only messages for `devspace workspace push`, `devspace hosted push`,
+`devspace project remove`, and `devspace env recipient invite` / `revoke` /
+`rotate` when the local effective role falls outside the listed boundary.
+Other rows are documented guidance for future warnings or enforcement.
 
-| CLI surface | Mutation | Recommended allowed roles | Notes |
+| CLI surface | Mutation | Recommended advisory boundary | Notes |
 | --- | --- | --- | --- |
 | `devspace init` | Creates local config, identity, state, and manifest files. | No manifest role required | Bootstrap runs before access metadata exists. |
-| `devspace scan` / `devspace workspace scan` | Refreshes local manifest and state from the filesystem. | owner, maintainer, developer | Viewer can use read-only status commands instead. |
+| `devspace scan` / `devspace workspace scan` | Refreshes local manifest and state from the filesystem. | owner, maintainer, developer | Recommended future policy points viewers to read-only status commands instead. |
 | `devspace watch --sync off` | Continuously refreshes local manifest and state. | owner, maintainer, developer | Same boundary as scan. |
 | `devspace watch --sync git` / `--sync hosted` | Refreshes metadata and pushes it to shared sync. | owner, maintainer | Shared publication should be narrower than local scan. |
 | `devspace plan` | Saves the last plan under local DevSpace state. | owner, maintainer, developer, viewer | Treat as inspect-only despite the cache write. |
-| `devspace apply` | Applies the last safe workspace plan locally. | owner, maintainer, developer | Can hydrate or alter local workspace files. |
+| `devspace apply` | Applies the last safe workspace plan locally. | owner, maintainer, developer | May hydrate or alter local workspace files. |
 | `devspace workspace push` | Publishes the manifest to the configured Git remote. | owner, maintainer | Shared manifest write. |
 | `devspace workspace pull` | Replaces local manifest state from the Git remote. | owner, maintainer, developer, viewer | Local write, but read-oriented from the shared source. |
 | `devspace workspace sync` | Saves a plan and applies it locally. | owner, maintainer, developer | Compatibility alias for plan/apply. |
@@ -138,9 +143,9 @@ Use this exact wording when describing current access roles:
 ```text
 Access roles are advisory metadata today. DevSpace records owners,
 maintainers, developers, and viewers to help teams describe intended
-responsibility, but the CLI does not currently refuse commands based on these
-roles. Encrypted env access is controlled by age recipients, not by the role
-field.
+responsibility, but the CLI does not refuse commands or change exit codes based
+on these roles. Selected commands may print warning-only advisory messages.
+Encrypted env access is controlled by age recipients, not by the role field.
 ```
 
 Avoid wording like:
@@ -173,36 +178,31 @@ Revocation removes a recipient from future encrypted writes. It does not delete
 previous ciphertext, copied `.env` files, or values a user already decrypted.
 ```
 
-## Open Questions
+## Resolved Warning-Tier Defaults
 
-- Should direct grants override team grants, or should the most privileged grant
-  win? Recommendation: most privileged active grant wins for backward
-  compatibility; revisit only for server-side enforcement.
-- Should a team member's `Role` cap project-level team access? Recommendation:
-  yes. It makes team membership meaningful and avoids a viewer inheriting broad
-  mutating access through a team grant.
-- Should unknown users be blocked once warnings exist? Recommendation: no for
-  the client-side path. Continue with a warning so old single-user manifests
-  keep working.
-- Should `developer` be allowed to push shared manifests? Recommendation: no by
-  default. Developers can mutate local workspace state; maintainers publish
-  shared metadata.
-- Should `env pull` be available to viewers? Recommendation: yes. The real gate
-  is cryptographic decryptability, and viewer is useful for read-only secret
-  consumers.
-- Should hosted sync enforce roles before per-user tokens exist? Recommendation:
-  no. A single bearer token cannot safely represent manifest users.
-- Should Plan 013 conflict resolution understand access roles? Recommendation:
-  not for initial reconciliation. If server-side enforcement is pursued, combine
-  it with Plan 013-style merge rules for users and access records.
+- Most privileged active grant wins for warning computation. Direct and team
+  grants that disagree produce an advisory warning.
+- A team member's `Role` caps project-level team access inside effective-role
+  computation.
+- Unknown users are not blocked. The CLI continues and warns so old single-user
+  manifests keep working.
+- `developer` remains able to run shared manifest push commands, but
+  `workspace push` and `hosted push` warn because the recommended advisory
+  boundary is owner or maintainer.
+- `env pull` remains governed by age decryptability, not role metadata.
+- Hosted sync does not enforce roles before per-user tokens exist.
+- Reconcile remains role-unaware for this warning tier.
 
-## Follow-Up Cards
+## Completed Warning-Tier Cards
 
 - Add warning-only `effectiveRole` resolution behind an internal helper and
   table-driven tests; do not wire it to command refusal.
 - Add a docs pass replacing permission language with advisory-role wording.
 - Add optional CLI warnings for the highest-risk shared mutations:
   `workspace push`, `hosted push`, `project remove`, and recipient changes.
+
+## Remaining Follow-Up Cards
+
 - Design hosted per-user token issuance, rotation, revocation, and audit logs
   before attempting server-side role enforcement.
 - Revisit direct-versus-team precedence once real team workflows create

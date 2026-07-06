@@ -22,6 +22,7 @@ DevSpace keeps a developer workspace structurally aligned across machines by tra
 - [Example Workflows](#example-workflows)
 - [Architecture & Safety](#architecture--safety)
   - [Safety Guarantees](#safety-guarantees)
+  - [Access Roles](#access-roles)
   - [Conflict Behavior](#conflict-behavior)
   - [What This Tool Will Not Do](#what-this-tool-will-not-do-without-permission)
 - [Troubleshooting & Limitations](#troubleshooting--limitations)
@@ -272,7 +273,7 @@ devspace env recipient invite client-a-api teammate age1...
 devspace env recipient revoke client-a-api teammate
 ```
 
-Manages per-project environment variables using `age` encryption. `env pull` writes the local project `.env` with `0600` permissions. Profile sharing uses public `age` recipients.
+Manages per-project environment variables using `age` encryption. `env pull` writes the local project `.env` with `0600` permissions. Profile sharing uses public `age` recipients; role metadata records intended responsibility but does not grant decryption.
 
 #### `devspace setup`
 
@@ -346,6 +347,12 @@ bin/devspace status
 - Env values are encrypted at rest with `age`. `env pull` writes `.env` with `0600` permissions.
 - Manifest sync strips machine-local workspace paths and only shares `manifest.json`.
 
+### Access Roles
+
+Access roles are advisory metadata today. DevSpace records owners, maintainers, developers, and viewers to help teams describe intended responsibility, but the CLI does not refuse commands or change exit codes based on these roles. Selected shared-mutation commands print warning-only advisory messages when the local effective role falls outside the recommended boundary.
+
+Encrypted env access is controlled by age recipients, not by the role field. Inviting a recipient records access metadata and includes that recipient in future encrypted writes; revocation removes a recipient from future encrypted writes but cannot delete copied `.env` files or values already decrypted.
+
 ### Conflict Behavior
 
 Manifest sync stops with a clear error when:
@@ -401,4 +408,4 @@ On first run, an existing `~/.devdrop` application home is automatically migrate
 
 ## Manifest Structure
 
-See [`examples/manifest.json`](examples/manifest.json). The manifest is a versioned JSON file stored at `<workspace>/.devspace/manifest.json`. Project paths are always relative to the workspace root.
+See [`examples/manifest.json`](examples/manifest.json). The manifest is a versioned JSON file stored at `<workspace>/.devspace/manifest.json`. Project paths are always relative to the workspace root. User, team, team-member, and project-access role fields are advisory metadata for intended responsibility; they are not a command-permission system.
