@@ -44,6 +44,111 @@ func TestDashboardInitialModelRendersScan(t *testing.T) {
 	}
 }
 
+func TestDashboardSyncStatusRendersRemoteState(t *testing.T) {
+	dashboardSeedWorkspace(t)
+	model := newDashboardModel(true)
+	model.syncStatus = dashboardSyncStatus{
+		Configured:     true,
+		LastSyncAt:     "2026-07-06T12:00:00Z",
+		LocalDiffers:   true,
+		DiffAdded:      1,
+		DiffRemoved:    2,
+		DiffChanged:    3,
+		ConflictCount:  4,
+		ReconcileSaved: true,
+	}
+
+	content := model.View().Content
+	for _, want := range []string{
+		"Sync Status",
+		"Last sync/base: 2026-07-06T12:00:00Z",
+		"Local differs from remote: yes",
+		"Remote diff: added=1 removed=2 changed=3",
+		"Reconcile conflicts: 4",
+	} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("view missing %q:\n%s", want, content)
+		}
+	}
+}
+
+func TestDashboardSyncStatusRendersDegradedStates(t *testing.T) {
+	model := dashboardModel{syncStatus: dashboardSyncStatus{UnavailableReason: "no manifest remote configured"}}
+	if content := model.renderSyncStatus(); !strings.Contains(content, "remote not configured") {
+		t.Fatalf("content = %q, want remote not configured", content)
+	}
+
+	model.syncStatus = dashboardSyncStatus{Configured: true, UnavailableReason: "boom"}
+	if content := model.renderSyncStatus(); !strings.Contains(content, "status unavailable: boom") {
+		t.Fatalf("content = %q, want unavailable reason", content)
+	}
+}
+
+func TestDashboardSyncStatusMessageUpdatesModel(t *testing.T) {
+	model := dashboardModel{}
+	status := dashboardSyncStatus{Configured: true, LastSyncAt: "2026-07-06T12:00:00Z"}
+	updated, cmd := model.Update(syncStatusLoadedMsg{status: status})
+	if cmd != nil {
+		t.Fatal("sync status message returned command")
+	}
+	got := updated.(dashboardModel)
+	if got.syncStatus.LastSyncAt != status.LastSyncAt || !got.syncStatus.Configured {
+		t.Fatalf("syncStatus = %+v, want %+v", got.syncStatus, status)
+	}
+}
+
+func TestDashboardSyncStatusCmdUsesDiffAndSavedReconcilePlan(t *testing.T) {
+	root := t.TempDir()
+	home := filepath.Join(root, "home")
+	workspace := filepath.Join(root, "code")
+	remote := workspaceSyncBareRepo(t)
+	t.Setenv(envHome, home)
+	if _, err := InitWorkspace(workspace); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := SetManifestRemote(remote); err != nil {
+		t.Fatal(err)
+	}
+	project := hardeningProject("apps/app", ProjectTypeLocal, "")
+	manifest := Manifest{Version: ManifestVersion, WorkspaceRoot: workspace, Projects: []Project{project}}
+	if err := SaveManifest(workspace, manifest); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PushWorkspaceManifest(); err != nil {
+		t.Fatal(err)
+	}
+	manifest.Projects[0].Name = "local-app"
+	if err := SaveManifest(workspace, manifest); err != nil {
+		t.Fatal(err)
+	}
+	if err := SaveReconcilePlan(ReconcilePlan{
+		Version:       1,
+		WorkspaceRoot: workspace,
+		Conflicts: []MergeConflict{
+			{Entity: "project", Key: "apps/app", Field: "*"},
+			{Entity: "project", Key: "apps/worker", Field: "*"},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	msg := dashboardSyncStatusCmd()()
+	loaded, ok := msg.(syncStatusLoadedMsg)
+	if !ok {
+		t.Fatalf("msg = %T, want syncStatusLoadedMsg", msg)
+	}
+	status := loaded.status
+	if !status.Configured || !status.LocalDiffers || status.DiffChanged != 1 {
+		t.Fatalf("status diff = %+v, want configured changed diff", status)
+	}
+	if status.ConflictCount != 2 || !status.ReconcileSaved {
+		t.Fatalf("status conflicts = %+v, want saved conflicts", status)
+	}
+	if status.LastSyncAt == "" {
+		t.Fatalf("status LastSyncAt missing: %+v", status)
+	}
+}
+
 func TestDashboardNavigateAndQuit(t *testing.T) {
 	model := dashboardModel{rows: []dashboardRow{{name: "one"}, {name: "two"}}, noWatch: true}
 

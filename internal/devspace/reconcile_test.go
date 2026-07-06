@@ -373,6 +373,28 @@ func TestWorkspaceReconcileConflictBlocksApply(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := ReconcileWorkspaceManifest("remote", true, map[string]string{project.ID: "local"}); err != nil {
+		t.Fatal(err)
+	}
+	appliedProjectForce, err := LoadManifest(workspaceA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if appliedProjectForce.Projects[0].Name != "local-app" {
+		t.Fatalf("force project local over global remote project name = %q", appliedProjectForce.Projects[0].Name)
+	}
+
+	appliedRemote.Projects[0].Name = "local-app"
+	if err := SaveManifest(workspaceA, appliedRemote); err != nil {
+		t.Fatal(err)
+	}
+	if err := recordBaseManifest(Manifest{
+		Version:       ManifestVersion,
+		WorkspaceRoot: workspaceA,
+		Projects:      []Project{project},
+	}); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := ReconcileWorkspaceManifest("local", true); err != nil {
 		t.Fatal(err)
 	}
@@ -498,6 +520,57 @@ func TestReconcileUserBothChangedConflict(t *testing.T) {
 	}
 }
 
+func TestForceReconcileConflictsPerProjectOverridesGlobal(t *testing.T) {
+	user := reconcileUser()
+	app := testMergeProject("project_app", "apps/app")
+	worker := testMergeProject("project_worker", "apps/worker")
+	base := testMergeManifest(user, []Project{app, worker}, nil)
+	local := testMergeManifest(user, []Project{withMergeName(app, "local-app"), withMergeName(worker, "local-worker")}, nil)
+	remote := testMergeManifest(user, []Project{withMergeName(app, "remote-app"), withMergeName(worker, "remote-worker")}, nil)
+
+	result, err := reconcileManifests(&base, local, remote)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Conflicts) != 2 {
+		t.Fatalf("conflicts = %+v, want 2", result.Conflicts)
+	}
+	forces := map[string]string{app.ID: "remote"}
+	if err := validateProjectForces(result.Conflicts, local, remote, forces); err != nil {
+		t.Fatal(err)
+	}
+	forced := forceReconcileConflicts(result.Merged, result.Conflicts, local, remote, "local", forces)
+	if err := ValidateManifest(forced); err != nil {
+		t.Fatalf("forced manifest validation: %v", err)
+	}
+	gotApp, _ := findProject(forced, app.Path)
+	gotWorker, _ := findProject(forced, worker.Path)
+	if gotApp.Name != "remote-app" {
+		t.Fatalf("app name = %q, want remote-app", gotApp.Name)
+	}
+	if gotWorker.Name != "local-worker" {
+		t.Fatalf("worker name = %q, want local-worker", gotWorker.Name)
+	}
+}
+
+func TestValidateProjectForcesRejectsNonConflictingProject(t *testing.T) {
+	user := reconcileUser()
+	app := testMergeProject("project_app", "apps/app")
+	other := testMergeProject("project_other", "apps/other")
+	base := testMergeManifest(user, []Project{app, other}, nil)
+	local := testMergeManifest(user, []Project{withMergeName(app, "local-app"), other}, nil)
+	remote := testMergeManifest(user, []Project{withMergeName(app, "remote-app"), other}, nil)
+
+	result, err := reconcileManifests(&base, local, remote)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = validateProjectForces(result.Conflicts, local, remote, map[string]string{other.ID: "remote"})
+	if err == nil || !strings.Contains(err.Error(), "no reconcile conflict") {
+		t.Fatalf("error = %v, want no conflict error", err)
+	}
+}
+
 func TestReconcileTwoWayUserConflict(t *testing.T) {
 	user := reconcileUser()
 	remoteUser := user
@@ -534,10 +607,11 @@ func TestWorkspaceReconcileJSONOutput(t *testing.T) {
 	if _, err := SetManifestRemote(remote); err != nil {
 		t.Fatal(err)
 	}
+	project := hardeningProject("apps/app", ProjectTypeLocal, "")
 	if err := SaveManifest(workspaceA, Manifest{
 		Version:       ManifestVersion,
 		WorkspaceRoot: workspaceA,
-		Projects:      []Project{hardeningProject("apps/app", ProjectTypeLocal, "")},
+		Projects:      []Project{project},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -613,6 +687,28 @@ func TestWorkspaceReconcileJSONOutput(t *testing.T) {
 			t.Fatalf("conflict still serializes PascalCase key %q: %v", stale, conflict)
 		}
 	}
+
+	stdout, _, err = executeCommand(t, "test", "workspace", "reconcile", "--json", "--force-project", project.ID+"=remote")
+	if err != nil {
+		t.Fatalf("reconcile --json --force-project error: %v", err)
+	}
+	plan = map[string]any{}
+	if err := json.Unmarshal([]byte(stdout), &plan); err != nil {
+		t.Fatalf("unmarshal forced reconcile --json output: %v\n%s", err, stdout)
+	}
+	conflicts, _ = plan["conflicts"].([]any)
+	if len(conflicts) != 0 {
+		t.Fatalf("forced conflicts = %v, want none", plan["conflicts"])
+	}
+	merged, _ := plan["merged"].(map[string]any)
+	projects, _ := merged["projects"].([]any)
+	if len(projects) != 1 {
+		t.Fatalf("merged projects = %v, want 1", merged["projects"])
+	}
+	mergedProject, _ := projects[0].(map[string]any)
+	if mergedProject["name"] != "remote-app" {
+		t.Fatalf("forced merged project name = %v, want remote-app", mergedProject["name"])
+	}
 }
 
 func TestReconcileForceFlagsMutuallyExclusive(t *testing.T) {
@@ -623,6 +719,18 @@ func TestReconcileForceFlagsMutuallyExclusive(t *testing.T) {
 	} {
 		if _, _, err := executeCommand(t, "test", args...); err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
 			t.Fatalf("%v error = %v, want mutual exclusion error", args, err)
+		}
+	}
+}
+
+func TestReconcileForceProjectFlagRejectsBadDirection(t *testing.T) {
+	t.Setenv(envHome, t.TempDir())
+	for _, args := range [][]string{
+		{"workspace", "reconcile", "--force-project", "project_app=sideways"},
+		{"hosted", "reconcile", "--force-project", "project_app=sideways"},
+	} {
+		if _, _, err := executeCommand(t, "test", args...); err == nil || !strings.Contains(err.Error(), "local or remote") {
+			t.Fatalf("%v error = %v, want direction error", args, err)
 		}
 	}
 }

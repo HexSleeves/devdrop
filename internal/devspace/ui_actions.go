@@ -1,6 +1,7 @@
 package devspace
 
 import (
+	"os"
 	"sort"
 	"time"
 
@@ -121,6 +122,64 @@ func dashboardRefreshCmd(syncMode string) tea.Cmd {
 		}
 		return actionResultMsg{label: "refresh", rows: rows, summary: refresh.Summary, refresh: refresh}
 	}
+}
+
+func dashboardSyncStatusCmd() tea.Cmd {
+	return func() tea.Msg {
+		var status dashboardSyncStatus
+		err := runLocked(func() error {
+			cfg, err := LoadConfig()
+			if err != nil {
+				return err
+			}
+			if cfg.ManifestRemote == "" {
+				status.UnavailableReason = "remote not configured"
+				return nil
+			}
+			status.Configured = true
+			st, err := LoadState()
+			if err != nil && !missing(err) {
+				return err
+			}
+			status.LastSyncAt = st.LastSyncAt
+			if status.LastSyncAt == "" {
+				status.LastSyncAt = baseManifestTimestamp()
+			}
+			diff, err := DiffWorkspaceManifest()
+			if err != nil {
+				return err
+			}
+			status.DiffAdded = len(diff.Added)
+			status.DiffRemoved = len(diff.Removed)
+			status.DiffChanged = len(diff.Changed)
+			status.LocalDiffers = status.DiffAdded+status.DiffRemoved+status.DiffChanged > 0
+			plan, err := LoadReconcilePlan()
+			if err == nil && plan.WorkspaceRoot == cfg.WorkspaceRoot {
+				status.ReconcileSaved = true
+				status.ConflictCount = len(plan.Conflicts)
+			} else if err != nil && !missing(err) {
+				return err
+			}
+			return nil
+		})
+		if err != nil {
+			status.Configured = true
+			status.UnavailableReason = err.Error()
+		}
+		return syncStatusLoadedMsg{status: status}
+	}
+}
+
+func baseManifestTimestamp() string {
+	path, err := baseManifestPath()
+	if err != nil {
+		return ""
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return ""
+	}
+	return info.ModTime().UTC().Format(time.RFC3339)
 }
 
 func dashboardWatchCmd(syncMode string) tea.Cmd {

@@ -173,6 +173,7 @@ func newHostedReconcileCommand() *cobra.Command {
 	var apply bool
 	var forceLocal bool
 	var forceRemote bool
+	var forceProject []string
 	cmd := &cobra.Command{
 		Use:   "reconcile",
 		Short: "Reconcile local and hosted workspace manifests",
@@ -181,7 +182,7 @@ func newHostedReconcileCommand() *cobra.Command {
 			"By default it writes only a review artifact to DEVSPACE_HOME/last-reconcile.json and does not change the workspace manifest or hosted backend.",
 			"With --apply, DevSpace writes DEVSPACE_HOME/manifest-backup.json, pushes the merged manifest to the hosted backend with version-conflict protection, then replaces the local manifest and refreshes the hosted sync baseline. Apply is guarded by the local manifest hash captured when reconcile was generated.",
 			"If no base snapshot exists, reconcile falls back to a conservative two-way union: one-sided additions merge, same-key differences become conflicts.",
-			"Use --force-local or --force-remote to resolve every conflict to that side before applying.",
+			"Use --force-local or --force-remote to resolve every conflict to that side before applying, or repeat --force-project <projectID>=<local|remote> for project-specific conflict choices.",
 		}, "\n\n"),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -195,8 +196,12 @@ func newHostedReconcileCommand() *cobra.Command {
 			if forceRemote {
 				force = "remote"
 			}
+			projectForces, err := parseForceProjectFlags(forceProject)
+			if err != nil {
+				return err
+			}
 			return withAppLock(func() error {
-				plan, err := ReconcileHostedManifest(force, apply)
+				plan, err := ReconcileHostedManifest(force, apply, projectForces)
 				if err != nil && plan.Version == 0 {
 					return err
 				}
@@ -215,6 +220,7 @@ func newHostedReconcileCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&apply, "apply", false, "apply the merged manifest after writing the review plan")
 	cmd.Flags().BoolVar(&forceLocal, "force-local", false, "resolve all conflicts to the local manifest")
 	cmd.Flags().BoolVar(&forceRemote, "force-remote", false, "resolve all conflicts to the remote manifest")
+	cmd.Flags().StringArrayVar(&forceProject, "force-project", nil, "resolve one project conflict as <projectID>=<local|remote>")
 	return cmd
 }
 
@@ -443,6 +449,7 @@ func newWorkspaceReconcileCommand() *cobra.Command {
 	var apply bool
 	var forceLocal bool
 	var forceRemote bool
+	var forceProject []string
 	cmd := &cobra.Command{
 		Use:   "reconcile",
 		Short: "Reconcile local and remote workspace manifests",
@@ -451,7 +458,7 @@ func newWorkspaceReconcileCommand() *cobra.Command {
 			"By default it writes only a review artifact to DEVSPACE_HOME/last-reconcile.json and does not change the workspace manifest.",
 			"With --apply, DevSpace writes DEVSPACE_HOME/manifest-backup.json before replacing the local manifest. The base snapshot refreshes after the merged manifest is pushed. Apply is guarded by the local manifest hash captured when reconcile was generated.",
 			"If no base snapshot exists, reconcile falls back to a conservative two-way union: one-sided additions merge, same-key differences become conflicts.",
-			"Use --force-local or --force-remote to resolve every conflict to that side before applying.",
+			"Use --force-local or --force-remote to resolve every conflict to that side before applying, or repeat --force-project <projectID>=<local|remote> for project-specific conflict choices.",
 		}, "\n\n"),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -465,8 +472,12 @@ func newWorkspaceReconcileCommand() *cobra.Command {
 			if forceRemote {
 				force = "remote"
 			}
+			projectForces, err := parseForceProjectFlags(forceProject)
+			if err != nil {
+				return err
+			}
 			return withAppLock(func() error {
-				plan, err := ReconcileWorkspaceManifest(force, apply)
+				plan, err := ReconcileWorkspaceManifest(force, apply, projectForces)
 				if err != nil && plan.Version == 0 {
 					return err
 				}
@@ -485,7 +496,25 @@ func newWorkspaceReconcileCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&apply, "apply", false, "apply the merged manifest after writing the review plan")
 	cmd.Flags().BoolVar(&forceLocal, "force-local", false, "resolve all conflicts to the local manifest")
 	cmd.Flags().BoolVar(&forceRemote, "force-remote", false, "resolve all conflicts to the remote manifest")
+	cmd.Flags().StringArrayVar(&forceProject, "force-project", nil, "resolve one project conflict as <projectID>=<local|remote>")
 	return cmd
+}
+
+func parseForceProjectFlags(values []string) (map[string]string, error) {
+	forces := map[string]string{}
+	for _, value := range values {
+		projectID, direction, ok := strings.Cut(value, "=")
+		projectID = strings.TrimSpace(projectID)
+		direction = strings.TrimSpace(direction)
+		if !ok || projectID == "" || direction == "" {
+			return nil, fmt.Errorf("--force-project must be <projectID>=<local|remote>")
+		}
+		if direction != "local" && direction != "remote" {
+			return nil, fmt.Errorf("--force-project %s must resolve to local or remote", projectID)
+		}
+		forces[projectID] = direction
+	}
+	return forces, nil
 }
 
 func newWorkspaceRemoteCommand() *cobra.Command {
