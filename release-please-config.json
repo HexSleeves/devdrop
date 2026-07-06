@@ -4,7 +4,7 @@
     ".": {
       "release-type": "go",
       "include-component-in-tag": false,
-      "skip-github-release": true,
+      "skip-github-release": false,
       "bump-minor-pre-major": true,
       "changelog-path": "CHANGELOG.md"
     }
