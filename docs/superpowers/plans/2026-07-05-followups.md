@@ -20,6 +20,17 @@ drift (validation rates it optional; SDD artifacts are historical records).
 
 ---
 
+## Status (2026-07-05, Wave A)
+
+- F1: Scaffolded — worksheet at docs/specs/03-spec-fuse-lazy-mount/03-proofs/03-macos-local-mount-proof.md, awaiting Jacob's Mac run
+- F2: Done — M-1 accepted (repo stays private), recorded in spec-01 validation
+- F3: Partially done — case studies marked Done; demo recording + reflection remain manual; stretch-card decision open
+- F4: Kickoff brief ready — docs/specs/07-spec-access-role-warnings/kickoff-brief.md; awaiting /sdd-html
+- F5: Kickoff brief ready — docs/specs/08-spec-reconcile-ui/kickoff-brief.md; starts after spec 07
+- F6: Opportunistic
+
+---
+
 ## F1 — macOS FUSE local proof (P1 · S · requires Jacob's Mac)
 
 **Why first:** the single item blocking two specs. `docs/architecture/fuse-lazy-mount.md`
