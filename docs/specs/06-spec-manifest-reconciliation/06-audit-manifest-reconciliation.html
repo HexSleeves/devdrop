@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>06-audit-manifest-reconciliation</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff; --fg: #1a1a2e; --muted: #6b7280; --border: #e5e7eb;
+    --card: #f9fafb; --accent: #4f46e5; --pass: #059669; --fail: #dc2626; --warn: #d97706;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1117; --fg:#e6e6ef; --muted:#9ca3af; --border:#262a35; --card:#161922; --accent:#818cf8; --pass:#34d399; --fail:#f87171; --warn:#fbbf24; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height:1.6; }
+  .doc { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  header.doc-header { border-bottom: 1px solid var(--border); padding-bottom:1rem; margin-bottom:2rem; }
+  h1 { margin: .25rem 0; font-size:1.6rem; }
+  h2 { margin-top:2rem; border-bottom:1px solid var(--border); padding-bottom:.35rem; }
+  .meta { color:var(--muted); font-size:.9rem; }
+  .badge { display:inline-block; font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:.25rem .6rem; border-radius:999px; }
+  .badge-type { background:var(--accent); color:#fff; }
+  .status-pass, .status-done, .status-verified { background:var(--pass); color:#fff; }
+  .status-fail, .status-failed { background:var(--fail); color:#fff; }
+  .status-flag, .status-pending, .status-unknown, .status-in-progress { background:var(--warn); color:#111; }
+  table { width:100%; border-collapse: collapse; margin: 1rem 0; }
+  th, td { border:1px solid var(--border); padding:.5rem .75rem; text-align:left; vertical-align:top; }
+  th { background:var(--card); }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem 1.25rem; margin:1rem 0; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem; overflow-x:auto; }
+  .task-list { list-style:none; padding-left:0; }
+  .task { padding:.35rem 0; }
+  .task[data-status="done"] .task-label::before { content: "\2611 "; }
+  .task[data-status="pending"] .task-label::before { content: "\2610 "; }
+  .task[data-status="in-progress"] .task-label::before { content: "\25D1 "; }
+  figure { margin: 1rem 0; }
+  figure img { max-width:100%; border:1px solid var(--border); border-radius:.5rem; }
+  figcaption { color:var(--muted); font-size:.85rem; margin-top:.35rem; }
+  .gate-row td:nth-child(2) { white-space:nowrap; }
+  code { overflow-wrap: anywhere; }
+</style>
+</head>
+<body data-overall-status="PASS">
+<div class="doc">
+  <header class="doc-header">
+    <span class="badge badge-type">AUDIT</span>
+    <h1>06-audit-manifest-reconciliation</h1>
+    <p class="meta">Sequence 06 · Feature: manifest-reconciliation · Phase 2 · Planning Audit · Run 1</p>
+  </header>
+
+  <section id="executive-summary" class="card">
+    <h2>Executive Summary</h2>
+    <p>Overall Status: <span class="badge status-pass" data-role="overall-status">PASS</span></p>
+    <p>Required Gate Failures: <strong>0</strong></p>
+    <p>Flagged Risks: <strong>0</strong></p>
+    <p>All four demoable units trace to named test artifacts; every proof is an exact command or file path. The plan reuses the existing (currently uncalled) <code>mergeManifests</code> three-way engine in <code>internal/devspace/manifest_merge.go</code> rather than duplicating it.</p>
+  </section>
+
+  <section id="gateboard">
+    <h2>Gateboard</h2>
+    <table>
+      <thead>
+        <tr><th>Gate</th><th>Status</th><th>Why it failed (&lt;=10 words)</th><th>Exact fix target</th></tr>
+      </thead>
+      <tbody>
+        <tr class="gate-row"><td>Requirement-to-test traceability</td><td><span class="badge status-pass">PASS</span></td><td>-</td><td>-</td></tr>
+        <tr class="gate-row"><td>Proof artifact verifiability</td><td><span class="badge status-pass">PASS</span></td><td>-</td><td>-</td></tr>
+        <tr class="gate-row"><td>Repository standards consistency</td><td><span class="badge status-pass">PASS</span></td><td>-</td><td>-</td></tr>
+        <tr class="gate-row"><td>Open question resolution</td><td><span class="badge status-pass">PASS</span></td><td>-</td><td>-</td></tr>
+        <tr class="gate-row"><td>Regression-risk blind spots</td><td><span class="badge status-pass">PASS</span></td><td>-</td><td>-</td></tr>
+        <tr class="gate-row"><td>Non-goal leakage</td><td><span class="badge status-pass">PASS</span></td><td>-</td><td>-</td></tr>
+      </tbody>
+    </table>
+    <p class="meta">Regression-risk notes: the only changes to existing flows are post-success base-snapshot writes in pull/push (guarded by the full existing sync suites in <code>make verify</code>); non-happy paths (conflict block, no-base fallback, idempotent re-run, hash-guard mismatch) each have a named planned test. Non-goals hold: no project-content merging, no change to default <code>pull</code>/<code>push</code> refuse-on-divergence behavior, force flags remain explicit opt-ins.</p>
+  </section>
+
+  <section id="traceability">
+    <h2>Requirement → Test Traceability</h2>
+    <table>
+      <thead>
+        <tr><th>Spec requirement</th><th>Task</th><th>Planned test artifact</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>U1: base snapshot on every successful git/hosted pull+push, atomic, 0600</td><td>1.3, 1.4, 1.5</td><td><code>TestSyncRecordsBaseManifest</code>, <code>TestHostedSyncRecordsBaseManifest</code></td></tr>
+        <tr><td>U1: loader with clear "no base" signal</td><td>1.2, 1.5</td><td><code>TestBaseManifestAbsentIsDetectable</code></td></tr>
+        <tr><td>U2: three-way engine; one-sided changes auto-merge; conflicts never auto-resolved</td><td>2.1, 2.2</td><td><code>TestReconcileMergeCases</code></td></tr>
+        <tr><td>U2: reconcile command, review-first plan artifact, <code>--json</code></td><td>2.3, 2.4, 2.6</td><td><code>TestWorkspaceReconcileNonConflicting</code> + CLI <code>--json</code>/<code>--help</code> capture</td></tr>
+        <tr><td>U2: conflicts block apply; explicit <code>--force-local</code>/<code>--force-remote</code></td><td>2.5, 2.7</td><td><code>TestWorkspaceReconcileConflictBlocksApply</code></td></tr>
+        <tr><td>U2: backup + hash-guarded, lock-held, atomic apply</td><td>2.4, 2.6, 2.7</td><td><code>TestWorkspaceReconcileNonConflicting</code></td></tr>
+        <tr><td>U2: documented two-way fallback when no base exists</td><td>2.1, 2.2</td><td><code>TestReconcileMergeCases</code> (fallback case)</td></tr>
+        <tr><td>U3: hosted 409 → same engine, same review artifact</td><td>3.1, 3.4</td><td><code>TestHostedReconcileResolvesVersionConflict</code></td></tr>
+        <tr><td>U3: push with updated version/hash baseline; refresh base</td><td>3.2, 3.4</td><td><code>TestHostedReconcileResolvesVersionConflict</code>, <code>TestHostedReconcileUpdatesBaseOnSuccess</code></td></tr>
+        <tr><td>U3: identical conflict handling on hosted path</td><td>3.1–3.4</td><td><code>TestHostedReconcileConflictBlocksPush</code></td></tr>
+        <tr><td>Cross-cutting: docs + local gate</td><td>4.1–4.3</td><td>Demo transcript in <code>06-proofs/</code>, <code>make verify</code> output, README diff</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="standards-evidence">
+    <h2>Standards Evidence Table (Required)</h2>
+    <table>
+      <thead>
+        <tr><th>Source File</th><th>Read</th><th>Standards Extracted</th><th>Conflicts</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>AGENTS.md</code></td><td>yes</td><td>Behavior-named tests beside code; Conventional Commit prefixes; local-first CLI unless a command opts into sync; run <code>make verify</code> before PR</td><td>Describes <code>make verify</code> as test+vet+build; Makefile adds lint+vulncheck. Precedence: Makefile is authoritative (doc drift only).</td></tr>
+        <tr><td><code>README.md</code></td><td>yes</td><td>"Supported Commands" documents each subcommand with usage; <code>--json</code> variants shown for diff</td><td>none</td></tr>
+        <tr><td><code>CLAUDE.md</code></td><td>yes</td><td><code>safeWorkspacePath</code> for all workspace-relative paths; non-destructive plan/apply; idempotency; <code>DEVSPACE_HOME</code> test isolation</td><td>none</td></tr>
+        <tr><td><code>Makefile</code> / <code>.golangci.yml</code></td><td>yes</td><td><code>verify</code> = test+vet+golangci-lint(gosec)+gofmt-clean+govulncheck+build; errcheck active for operational writes</td><td>none</td></tr>
+        <tr><td><code>.github/workflows/ci.yml</code></td><td>yes</td><td>CI runs test, vet, govulncheck, build, and a FUSE-tagged test job</td><td>none</td></tr>
+        <tr><td><code>CONTRIBUTING.md</code>, <code>.github/pull_request_template.md</code></td><td>not found</td><td>-</td><td>-</td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+</body>
+</html>

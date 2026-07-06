@@ -82,6 +82,35 @@ func printManifestDiff(out io.Writer, diff ManifestDiff) {
 	}
 }
 
+func printReconcilePlan(out io.Writer, plan ReconcilePlan, applied bool) {
+	out = styledWriter(out)
+	fmt.Fprintln(out, currentTheme.Header.Render("Workspace reconcile:"))
+	if plan.TwoWay {
+		fmt.Fprintln(out, currentTheme.Warn.Render("Two-way mode: no base manifest snapshot was found."))
+	}
+	fmt.Fprintf(out, "Auto-merged: %s\n", countStyle(len(plan.Ops))(fmt.Sprint(len(plan.Ops))))
+	for _, op := range plan.Ops {
+		fmt.Fprintf(out, "  %s %s %s\n", strings.ToUpper(op.Action), op.Kind, op.Key)
+	}
+	if len(plan.Ops) == 0 {
+		fmt.Fprintln(out, currentTheme.OK.Render("No local manifest changes."))
+	}
+	fmt.Fprintf(out, "Conflicts: %s\n", countStyle(len(plan.Conflicts))(fmt.Sprint(len(plan.Conflicts))))
+	for _, conflict := range plan.Conflicts {
+		fmt.Fprintf(out, "  %s %s field %s\n", conflict.Entity, conflict.Key, conflict.Field)
+		fmt.Fprintf(out, "    local: %q\n", conflict.Ours)
+		fmt.Fprintf(out, "    remote: %q\n", conflict.Theirs)
+	}
+	if len(plan.Conflicts) == 0 {
+		fmt.Fprintln(out, currentTheme.OK.Render("No reconcile conflicts."))
+	}
+	if applied {
+		fmt.Fprintln(out, currentTheme.OK.Render("Applied reconciled manifest."))
+	} else {
+		fmt.Fprintln(out, currentTheme.Muted.Render("Review saved to DEVSPACE_HOME/last-reconcile.json."))
+	}
+}
+
 func printPlan(out io.Writer, plan Plan) {
 	out = styledWriter(out)
 	fmt.Fprintln(out, currentTheme.Header.Render("Planned changes:"))

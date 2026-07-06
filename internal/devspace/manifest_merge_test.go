@@ -133,12 +133,12 @@ func TestMergeManifests(t *testing.T) {
 			},
 			wantConflicts: 2,
 			wantConflict: []MergeConflict{
-				{Entity: "project", Key: baseProject.ID, Field: "*"},
+				{Entity: "project", Key: baseProject.Path, Field: "*"},
 				{Entity: "access", Key: baseProject.ID + "\x00" + user.ID + "\x00", Field: "*"},
 			},
 		},
 		{
-			name: "delete-vs-modify-keeps",
+			name: "delete-vs-modify-conflicts",
 			base: testMergeManifest(user, []Project{
 				baseProject,
 			}, []ProjectAccess{
@@ -155,6 +155,11 @@ func TestMergeManifests(t *testing.T) {
 			},
 			wantAccess: []ProjectAccess{
 				{ProjectID: baseProject.ID, UserID: user.ID, Role: AccessRoleMaintainer, AddedAt: baseAccess.AddedAt},
+			},
+			wantConflicts: 2,
+			wantConflict: []MergeConflict{
+				{Entity: "project", Key: baseProject.Path, Field: "*"},
+				{Entity: "access", Key: baseProject.ID + "\x00" + user.ID + "\x00", Field: "*"},
 			},
 		},
 	}

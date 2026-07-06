@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>06-task-03-proofs</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff; --fg: #1a1a2e; --muted: #6b7280; --border: #e5e7eb;
+    --card: #f9fafb; --accent: #4f46e5; --pass: #059669; --fail: #dc2626; --warn: #d97706;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1117; --fg:#e6e6ef; --muted:#9ca3af; --border:#262a35; --card:#161922; --accent:#818cf8; --pass:#34d399; --fail:#f87171; --warn:#fbbf24; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height:1.6; }
+  .doc { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  header.doc-header { border-bottom: 1px solid var(--border); padding-bottom:1rem; margin-bottom:2rem; }
+  h1 { margin: .25rem 0; font-size:1.6rem; }
+  h2 { margin-top:2rem; border-bottom:1px solid var(--border); padding-bottom:.35rem; }
+  .meta { color:var(--muted); font-size:.9rem; }
+  .badge { display:inline-block; font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:.25rem .6rem; border-radius:999px; }
+  .badge-type { background:var(--accent); color:#fff; }
+  .status-pass, .status-done, .status-verified { background:var(--pass); color:#fff; }
+  .status-fail, .status-failed { background:var(--fail); color:#fff; }
+  .status-flag, .status-pending, .status-unknown, .status-in-progress { background:var(--warn); color:#111; }
+  table { width:100%; border-collapse: collapse; margin: 1rem 0; }
+  th, td { border:1px solid var(--border); padding:.5rem .75rem; text-align:left; vertical-align:top; }
+  th { background:var(--card); }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem 1.25rem; margin:1rem 0; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem; overflow-x:auto; }
+  .task-list { list-style:none; padding-left:0; }
+  .task { padding:.35rem 0; }
+  .task[data-status="done"] .task-label::before { content: "\2611 "; }
+  .task[data-status="pending"] .task-label::before { content: "\2610 "; }
+  .task[data-status="in-progress"] .task-label::before { content: "\25D1 "; }
+  figure { margin: 1rem 0; }
+  figure img { max-width:100%; border:1px solid var(--border); border-radius:.5rem; }
+  figcaption { color:var(--muted); font-size:.85rem; margin-top:.35rem; }
+  article.artifact { margin: 2rem 0; padding-top: 1.25rem; border-top: 1px solid var(--border); }
+  .proves, .matters, .result-summary { margin: .5rem 0; }
+  code { overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<div class="doc">
+  <header class="doc-header">
+    <span class="badge badge-type">PROOFS</span>
+    <h1>Task 03 Proofs - Hosted-backend reconciliation resolves HTTP 409 version conflicts</h1>
+    <p class="meta">Sequence 06 · Feature: manifest-reconciliation · Task 3.0 · Phase 3</p>
+  </header>
+
+  <h2>Task Summary</h2>
+  <p>This task extended reconciliation to the hosted control-plane backend. When a hosted push is rejected with the optimistic-concurrency version conflict, <code>devspace hosted reconcile</code> now fetches the current hosted manifest with its version/hash baseline, runs the same shared three-way engine against the Task 1.0 base snapshot, and writes the same review-first plan artifact (tagged <code>backend: hosted</code>). On <code>--apply</code> it pushes the merged manifest to the server using the fetched version as the concurrency baseline — so the server accepts it, and a racing third push still safely fails — then writes the merged manifest locally and refreshes the hosted sync state and base snapshot. Conflict handling, backup, and hash guard are byte-for-byte the same code paths as the git backend.</p>
+
+  <h2>What This Task Proves</h2>
+  <ul>
+    <li>A real version-conflict scenario (two machines pushing divergent manifests to one hosted server) is resolved by reconcile into the union, accepted by the server, with the client baseline updated.</li>
+    <li>A genuine conflict blocks the hosted push — neither the server manifest nor the local manifest changes — until an explicit force choice is given.</li>
+    <li>A successful hosted reconcile refreshes the base snapshot (Unit 1 integration), keeping future three-way merges accurate.</li>
+    <li>The engine, plan artifact, force semantics, backup, and guard are shared with the git backend — the hosted wiring is thin (~140 lines plus the command).</li>
+  </ul>
+
+  <h2>Evidence Summary</h2>
+  <ul>
+    <li>All three named proof tests pass against the in-process hardened hosted server (<code>NewHostedSyncServer</code> + <code>httptest</code>, placeholder tokens).</li>
+    <li>Full package suite: 232 tests pass; gofmt and vet clean.</li>
+    <li><code>devspace hosted reconcile --help</code> documents the review-first flow, version-conflict-protected push, backup, and fallback.</li>
+  </ul>
+
+  <article class="artifact">
+    <h2>Artifact: Hosted reconcile proof tests</h2>
+    <p class="proves"><strong>What it proves:</strong> The 409 dead end is resolved end-to-end (divergent pushes → reconcile → merged manifest accepted by the server with the updated baseline); genuine conflicts block the push until forced; a successful apply refreshes the base snapshot.</p>
+    <p class="matters"><strong>Why it matters:</strong> These tests run against the real hardened server handler (constant-time auth, atomic PUT, version checks), not a mock — so they prove the optimistic-concurrency handshake, not just the merge math.</p>
+    <p><strong>Command:</strong></p>
+    <pre><code>go test ./internal/devspace -run 'TestHostedReconcile' -v</code></pre>
+    <p class="result-summary"><strong>Result summary:</strong> All three tests pass in ~1.2s.</p>
+    <pre><code>--- PASS: TestHostedReconcileResolvesVersionConflict (0.47s)
+--- PASS: TestHostedReconcileConflictBlocksPush (0.38s)
+--- PASS: TestHostedReconcileUpdatesBaseOnSuccess (0.38s)
+ok  	github.com/liatrio-forge/devdrop-capstone/internal/devspace	1.240s</code></pre>
+  </article>
+
+  <article class="artifact">
+    <h2>Artifact: Push-first apply sequence with version-conflict protection</h2>
+    <p class="proves"><strong>What it proves:</strong> Apply pushes the normalized merged manifest with <code>client.put(ctx, fetchedVersion, …)</code> before any local write; if another machine pushed between the reconcile's GET and the apply's PUT, the server rejects it and nothing changes locally.</p>
+    <p class="matters"><strong>Why it matters:</strong> Ordering is the safety property here: writing locally before the server accepted the merge could leave local state claiming a sync that never happened. The push-first sequence plus the local hash guard makes the apply atomic-in-effect from the user's perspective.</p>
+    <p><strong>Artifact path:</strong> <code>internal/devspace/reconcile.go</code> — <code>ReconcileHostedManifest</code> apply sequence</p>
+    <p class="result-summary"><strong>Result summary:</strong> hash guard → backup to <code>manifest-backup.json</code> → normalize + validate → <code>put(envelope.Version, normalized)</code> → <code>SaveManifest</code> → <code>recordHostedSync(updated.Version, updated.ManifestHash)</code> → <code>recordBaseManifest(normalized)</code>.</p>
+    <pre><code>normalized := manifestForSync(plan.Merged)
+if err := validateHostedManifest(normalized); err != nil { … }
+updated, err := client.put(context.Background(), envelope.Version, normalized)
+if err != nil { return ReconcilePlan{}, err }        // server 409 → nothing written locally
+if err := SaveManifest(cfg.WorkspaceRoot, plan.Merged); err != nil { … }
+if err := recordHostedSync(updated.Version, updated.ManifestHash); err != nil { … }
+if err := recordBaseManifest(normalized); err != nil { … }</code></pre>
+  </article>
+
+  <article class="artifact">
+    <h2>Artifact: Command surface and documentation</h2>
+    <p class="proves"><strong>What it proves:</strong> <code>devspace hosted reconcile</code> exists under the hosted group with the same flags and semantics as <code>workspace reconcile</code> (<code>--json</code>, <code>--apply</code>, <code>--force-local</code>/<code>--force-remote</code> mutually exclusive, <code>withAppLock</code> at the boundary).</p>
+    <p class="matters"><strong>Why it matters:</strong> Backend parity was the Q3=C decision: hosted users get the identical review-first contract, not a second-class escape hatch.</p>
+    <p><strong>Command:</strong></p>
+    <pre><code>go run ./cmd/devspace hosted reconcile --help</code></pre>
+    <p class="result-summary"><strong>Result summary:</strong> Help documents the three-way merge, the review artifact, the version-conflict-protected push, backup, hash guard, and the two-way fallback.</p>
+    <pre><code>Reconcile computes a three-way merge between the last synced base manifest, the local
+manifest, and the hosted backend manifest.
+
+By default it writes only a review artifact to DEVSPACE_HOME/last-reconcile.json and does
+not change the workspace manifest or hosted backend.
+
+With --apply, DevSpace writes DEVSPACE_HOME/manifest-backup.json, pushes the merged
+manifest to the hosted backend with version-conflict protection, then replaces the local
+manifest and refreshes the hosted sync baseline. Apply is guarded by the local manifest
+hash captured when reconcile was generated.</code></pre>
+  </article>
+
+  <article class="artifact">
+    <h2>Artifact: Full suite and quality gates</h2>
+    <p class="proves"><strong>What it proves:</strong> The hosted wiring (including the shared <code>reusableReconcilePlan</code> extension keyed on hosted version) regresses nothing across sync, hardening, and reconcile behavior.</p>
+    <p class="matters"><strong>Why it matters:</strong> The hosted server contract is hardened for public exposure (<code>hardening_test.go</code>); the whole package staying green confirms the reconcile client honors it.</p>
+    <p><strong>Command:</strong></p>
+    <pre><code>go test ./internal/devspace &amp;&amp; gofmt -l cmd internal &amp;&amp; go vet ./...</code></pre>
+    <p class="result-summary"><strong>Result summary:</strong> 232 tests pass (229 before this task), gofmt clean, vet clean.</p>
+    <pre><code>Go test: 232 passed in 1 packages
+gofmt -l cmd internal: (no output — clean)
+Go vet: No issues found</code></pre>
+  </article>
+
+  <h2>Reviewer Conclusion</h2>
+  <p>Both sync backends now share one reconciliation engine and one review-first contract. The hosted 409 dead end is resolved with a server-verified, version-protected merge push, conflicts still require an explicit human choice, and every successful reconcile keeps the base snapshot accurate for the next divergence. Remaining work (Task 4.0) is demo, README documentation, and the full <code>make verify</code> gate.</p>
+</div>
+</body>
+</html>
