@@ -45,7 +45,11 @@ func resolveEffectiveRole(m Manifest, projectID, localAgeRecipient string) effec
 	candidates, warnings := activeRoleCandidates(m, projectID, user.ID)
 	result.Warnings = append(result.Warnings, warnings...)
 	if len(candidates) == 0 {
-		result.Warnings = append(result.Warnings, "Access role advisory: no active project role was found for the local manifest user.")
+		scope := "project"
+		if projectID == "" {
+			scope = "workspace"
+		}
+		result.Warnings = append(result.Warnings, fmt.Sprintf("Access role advisory: no active %s role was found for the local manifest user.", scope))
 		return result
 	}
 

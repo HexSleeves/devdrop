@@ -93,6 +93,11 @@ Use these rules for future warning-only checks or server-side enforcement.
 - If a user exists but no active project grant applies, continue and warn that
   no project role was found.
 - Unknown roles should continue and warn rather than fail.
+  This applies within effective role resolution itself. Manifests containing
+  an unrecognized role value are currently rejected earlier by
+  `LoadManifest`/`ValidateManifest`, so this warning path is a defense-in-depth
+  safeguard for callers that construct a `Manifest` directly rather than a
+  behavior reachable through the standard CLI today.
 
 Default recommendation for warning-only mode: permissive-with-warning. That
 preserves existing single-user and partially migrated manifests while making the

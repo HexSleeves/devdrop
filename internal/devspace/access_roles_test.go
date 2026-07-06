@@ -123,6 +123,18 @@ func TestEffectiveRoleResolution(t *testing.T) {
 			wantWarning: "unknown project access role",
 		},
 		{
+			name:      "workspace without any active grants warns about workspace role",
+			recipient: localRecipient,
+			manifest: Manifest{
+				Version:       ManifestVersion,
+				WorkspaceRoot: "/tmp/workspace",
+				Projects:      []Project{baseProject},
+				Users:         []User{baseUser},
+			},
+			wantWarning: "no active workspace role",
+			workspace:   true,
+		},
+		{
 			name:      "workspace grants on different projects do not disagree",
 			recipient: localRecipient,
 			manifest: Manifest{
