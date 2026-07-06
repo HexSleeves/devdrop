@@ -4,6 +4,14 @@ This worksheet records the evidence from a local macOS FUSE mount smoke test run
 
 Status: AWAITING RUN
 
+## Build
+
+Build the binary first; all later steps run `./bin/devspace`:
+
+```bash
+go build -trimpath -o bin/devspace ./cmd/devspace
+```
+
 ## macOS Version and Build
 
 Run:
@@ -14,8 +22,8 @@ sw_vers
 
 Output:
 
-```bash
-
+```text
+paste output here
 ```
 
 ## macFUSE Readiness Check
@@ -29,8 +37,8 @@ test -x /Library/Filesystems/macfuse.fs/Contents/Resources/mount_macfuse && echo
 
 Output:
 
-```bash
-
+```text
+paste output here
 ```
 
 ## FUSE-Free Preview
@@ -68,17 +76,11 @@ mkdir -p /tmp/devspace-mount-smoke
 
 Output:
 
-```bash
-
+```text
+paste output here
 ```
 
 ## Real Mount: Attachment and File Access
-
-Build the binary:
-
-```bash
-go build -trimpath -o bin/devspace ./cmd/devspace
-```
 
 In Terminal 1, start the mount:
 
@@ -89,8 +91,8 @@ PATH="/Library/Filesystems/macfuse.fs/Contents/Resources:$PATH" \
 
 Terminal 1 Output (should show mount starting):
 
-```bash
-
+```text
+paste output here
 ```
 
 In Terminal 2, verify the mount and read files:
@@ -103,8 +105,8 @@ cat /tmp/devspace-mount-smoke/apps/demo/README.md
 
 Terminal 2 Output:
 
-```bash
-
+```text
+paste output here
 ```
 
 ## Unmount
@@ -119,8 +121,8 @@ mount | grep devspace-mount-smoke || echo "unmounted"
 
 Unmount Output:
 
-```bash
-
+```text
+paste output here
 ```
 
 ## Troubleshooting Observed
