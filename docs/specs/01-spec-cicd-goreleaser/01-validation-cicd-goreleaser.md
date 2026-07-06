@@ -59,7 +59,7 @@
 
 | Severity | Issue | Impact | Recommendation |
 | --- | --- | --- | --- |
-| MEDIUM (M-1) | Attestation not exercisable: GitHub artifact attestations are unavailable for user-owned **private** repositories. First validation run (28565440468) failed at the attest step; fix PR #13 made the step conditional (`if: !github.event.repository.private`), and run 28565647944 shows it skipping cleanly. Evidence: run annotations, `01-task-05-proofs.md` deviation record. | The spec's `gh attestation verify` acceptance check cannot be demonstrated while the repo is private (verification gap, not a functionality break — releases work end to end). | Make `HexSleeves/devdrop` public when ready; the attest step activates automatically on the next tag, after which run `gh attestation verify checksums.txt --repo HexSleeves/devdrop` once to close this item. |
+| MEDIUM (M-1, accepted 2026-07-05) | Attestation not exercisable: GitHub artifact attestations are unavailable for this private repository. **Rationale:** repo remains private by policy; GitHub attestation verification requires a public repo. First validation run (28565440468) failed at the attest step; fix PR #13 made the step conditional (`if: !github.event.repository.private`), and run 28565647944 shows it skipping cleanly. Evidence: run annotations, `01-task-05-proofs.md` deviation record. | Finding accepted (verification gap, not a functionality break — releases work end to end). Repo will remain private. | Re-open condition: if visibility ever changes, run `gh attestation verify checksums.txt --repo liatrio-forge/devdrop-capstone` against the latest release assets and record the output here. |
 
 ## 4) Evidence Appendix
 

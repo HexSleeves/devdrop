@@ -11,9 +11,9 @@ links as releases, PRs, and recordings are created.
 | Manifest example | Done | `examples/manifest.json` |
 | Release readiness notes | Done | `docs/operations/release-readiness.md` |
 | Capstone spec | Done | `docs/capstone/spec.md` |
-| Case study | Drafted | `docs/capstone/case-study.md` |
-| Demo script | Done | `scripts/demo-check.sh`, `docs/capstone/demo-script.md` |
-| Remote-agent case study | Drafted | `docs/capstone/remote-agent-case-study.md` |
+| Case study | Done | `docs/capstone/case-study.md` |
+| Demo script | Done | `scripts/demo-check.sh`, `docs/capstone/demo-script.md` (demo-check.sh verified 2026-07-06) |
+| Remote-agent case study | Done | `docs/capstone/remote-agent-case-study.md` |
 | Frontier Linear cards | Drafted | `CIL-227` through `CIL-231` |
 | Release binary | Done | https://github.com/liatrio-forge/devdrop-capstone/releases/tag/v0.1.0 |
 | Final demo recording | Pending | Filled at end of wave 5 |
