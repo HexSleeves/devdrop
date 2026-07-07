@@ -8,7 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -260,21 +262,164 @@ func TestUIServerWatchErrorEndsLoop(t *testing.T) {
 	outR, outW := io.Pipe()
 	inR, inW := io.Pipe()
 	go func() {
-		_ = runUIServer(inR, outW, uiServerOptions{watchCmdFactory: factory})
+		_ = runUIServer(inR, outW, uiServerOptions{watchCmdFactory: factory, watchRetryBase: time.Millisecond})
 		_ = outW.Close()
 	}()
 
 	dec := json.NewDecoder(outR)
-	var event map[string]any
-	if err := dec.Decode(&event); err != nil {
-		t.Fatalf("decode event: %v", err)
-	}
-	params := event["params"].(map[string]any)
-	if params["type"] != "watch-error" || params["message"] != "boom 1" {
-		t.Fatalf("event = %+v", event)
+	for i := 0; i < watchRetryMaxAttempts; i++ {
+		var event map[string]any
+		if err := dec.Decode(&event); err != nil {
+			t.Fatalf("decode event %d: %v", i, err)
+		}
+		params := event["params"].(map[string]any)
+		if params["type"] != "watch-error" {
+			t.Fatalf("event %d = %+v", i, event)
+		}
 	}
 	_ = inW.Close()
-	if calls != 1 {
-		t.Fatalf("watch loop re-armed after error: calls = %d", calls)
+	if calls != watchRetryMaxAttempts {
+		t.Fatalf("expected loop to stop after %d consecutive errors, calls = %d", watchRetryMaxAttempts, calls)
 	}
+}
+
+func TestUIServerWatchErrorRecovers(t *testing.T) {
+	dashboardSeedWorkspace(t)
+
+	var mu sync.Mutex
+	calls := 0
+	callSignal := make(chan struct{}, 16)
+	factory := func(string) tea.Cmd {
+		return func() tea.Msg {
+			mu.Lock()
+			calls++
+			n := calls
+			mu.Unlock()
+			callSignal <- struct{}{}
+			switch n {
+			case 1:
+				return watchRefreshMsg{err: errors.New("transient")}
+			case 2:
+				return watchRefreshMsg{
+					refresh: WatchRefresh{FullScan: true},
+					rows:    []dashboardRow{{ref: "apps/api", name: "api", status: dashboardStatusHydrated}},
+					summary: ScanSummary{FoundProjects: 1},
+				}
+			default:
+				return nil
+			}
+		}
+	}
+
+	outR, outW := io.Pipe()
+	inR, inW := io.Pipe()
+	go func() {
+		_ = runUIServer(inR, outW, uiServerOptions{watchCmdFactory: factory, watchRetryBase: time.Millisecond})
+		_ = outW.Close()
+	}()
+
+	dec := json.NewDecoder(outR)
+	var errEvent, refreshEvent map[string]any
+	if err := dec.Decode(&errEvent); err != nil {
+		t.Fatalf("decode error event: %v", err)
+	}
+	if err := dec.Decode(&refreshEvent); err != nil {
+		t.Fatalf("decode refresh event: %v", err)
+	}
+	if params := errEvent["params"].(map[string]any); params["type"] != "watch-error" {
+		t.Fatalf("first event = %+v", errEvent)
+	}
+	if params := refreshEvent["params"].(map[string]any); params["type"] != "watch-refresh" {
+		t.Fatalf("second event = %+v", refreshEvent)
+	}
+
+	// Wait for the third (nil-returning, loop-ending) factory call so the
+	// backoff-reset path after a successful refresh is actually exercised.
+	for i := 0; i < 3; i++ {
+		select {
+		case <-callSignal:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("timed out waiting for factory call %d", i+1)
+		}
+	}
+	_ = inW.Close()
+
+	mu.Lock()
+	got := calls
+	mu.Unlock()
+	if got <= 2 {
+		t.Fatalf("expected more than 2 factory calls (backoff reset path), got %d", got)
+	}
+}
+
+func TestUIServerSyncModeWiring(t *testing.T) {
+	dashboardSeedWorkspace(t)
+
+	waitForSyncMode := func(t *testing.T, opts uiServerOptions) string {
+		t.Helper()
+		gotCh := make(chan string, 1)
+		opts.watchCmdFactory = func(syncMode string) tea.Cmd {
+			return func() tea.Msg {
+				gotCh <- syncMode
+				return nil
+			}
+		}
+
+		outR, outW := io.Pipe()
+		inR, inW := io.Pipe()
+		go func() {
+			_ = runUIServer(inR, outW, opts)
+			_ = outW.Close()
+		}()
+
+		var got string
+		select {
+		case got = <-gotCh:
+		case <-time.After(2 * time.Second):
+			t.Fatal("timed out waiting for watchCmdFactory call")
+		}
+		_ = inW.Close()
+		_, _ = io.Copy(io.Discard, outR)
+		return got
+	}
+
+	for _, mode := range []string{"git", "hosted"} {
+		t.Run(mode, func(t *testing.T) {
+			if got := waitForSyncMode(t, uiServerOptions{SyncMode: mode}); got != mode {
+				t.Fatalf("watchCmdFactory syncMode = %q, want %q", got, mode)
+			}
+		})
+	}
+
+	t.Run("defaults to off", func(t *testing.T) {
+		if got := waitForSyncMode(t, uiServerOptions{}); got != WatchSyncOff {
+			t.Fatalf("default syncMode = %q, want %q", got, WatchSyncOff)
+		}
+	})
+}
+
+func TestUIServerHandlesVeryLongRequestLine(t *testing.T) {
+	dashboardSeedWorkspace(t)
+
+	longReq, err := json.Marshal(uiServerRequest{
+		ID:     1,
+		Method: "hello",
+		Params: json.RawMessage(fmt.Sprintf(`{"padding":%q}`, strings.Repeat("x", 2*1024*1024))),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	messages := uiServerRoundTrip(t, uiServerOptions{Version: "test", NoWatch: true}, []string{
+		string(longReq),
+		`{"id":2,"method":"hello"}`,
+	})
+	if len(messages) != 2 {
+		t.Fatalf("expected 2 responses, got %d: %+v", len(messages), messages)
+	}
+	first := uiResponseResult(t, messages[0])
+	if first["protocol"] != float64(uiProtocolVersion) {
+		t.Fatalf("first response = %+v", first)
+	}
+	uiResponseResult(t, messages[1])
 }

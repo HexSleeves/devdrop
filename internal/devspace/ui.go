@@ -50,7 +50,11 @@ func newUICommand() *cobra.Command {
 }
 
 // findTUIBinary locates the devspace-tui companion binary: next to the
-// devspace executable first, then $DEVSPACE_HOME/bin, then PATH.
+// devspace executable first, then $DEVSPACE_HOME/bin, then PATH. The PATH
+// lookup is a deliberate last resort with the same trust model any CLI uses
+// when resolving a plugin binary via PATH; the adjacent-binary and
+// $DEVSPACE_HOME/bin checks take precedence and are both within the user's
+// own control.
 func findTUIBinary() string {
 	if exe, err := os.Executable(); err == nil {
 		if candidate := filepath.Join(filepath.Dir(exe), tuiBinaryName); isExecutableFile(candidate) {
@@ -80,7 +84,7 @@ func runExternalTUI(path string, noWatch bool) error {
 	if noWatch {
 		args = append(args, "--no-watch")
 	}
-	c := exec.Command(path, args...) //nolint:gosec // path comes from findTUIBinary's fixed locations; launching it is the feature
+	c := exec.Command(path, args...) //nolint:gosec // path is resolved by findTUIBinary (adjacent binary, $DEVSPACE_HOME/bin, or PATH as a last resort); launching the resolved companion binary is the feature, not attacker-controlled input
 	c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stdout, os.Stderr
 	c.Env = os.Environ()
 	if exe, err := os.Executable(); err == nil {

@@ -8,6 +8,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
@@ -102,7 +103,14 @@ type uiServerOptions struct {
 	SyncMode string
 
 	watchCmdFactory func(string) tea.Cmd // test seam, same as dashboardModel
+	watchRetryBase  time.Duration        // base backoff between watch retries; defaults to watchRetryDefaultBase when zero
 }
+
+const (
+	watchRetryDefaultBase = 1 * time.Second
+	watchRetryMaxBackoff  = 30 * time.Second
+	watchRetryMaxAttempts = 5
+)
 
 type uiServer struct {
 	opts uiServerOptions
@@ -118,34 +126,44 @@ func runUIServer(r io.Reader, w io.Writer, opts uiServerOptions) error {
 	if opts.watchCmdFactory == nil {
 		opts.watchCmdFactory = dashboardWatchCmd
 	}
+	if opts.watchRetryBase <= 0 {
+		opts.watchRetryBase = watchRetryDefaultBase
+	}
 	srv := &uiServer{opts: opts, enc: json.NewEncoder(w)}
 	if !opts.NoWatch {
 		go srv.watchLoop()
 	}
-	scanner := bufio.NewScanner(r)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1<<20)
-	// ponytail: requests are handled sequentially — that IS the single-flight
-	// busy guard the dashboard implements with startAction.
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
+	reader := bufio.NewReader(r)
+	// stdin here is a trusted parent-child pipe to the devspace-tui client,
+	// not a network socket, so an unbounded per-line read is fine — nothing
+	// caps request size the way bufio.Scanner's fixed buffer would (and a
+	// scanner hitting that cap would kill the whole session).
+	// Requests are handled sequentially by design; that's the same
+	// single-flight guard the dashboard implements with startAction.
+	for {
+		line, readErr := reader.ReadString('\n')
+		if trimmed := strings.TrimSpace(line); trimmed != "" {
+			var req uiServerRequest
+			if err := json.Unmarshal([]byte(trimmed), &req); err != nil {
+				srv.write(uiServerResponse{Error: &uiServerError{Message: "malformed request: " + err.Error()}})
+			} else {
+				result, err := srv.handle(req)
+				resp := uiServerResponse{ID: req.ID}
+				if err != nil {
+					resp.Error = &uiServerError{Message: err.Error()}
+				} else {
+					resp.Result = result
+				}
+				srv.write(resp)
+			}
 		}
-		var req uiServerRequest
-		if err := json.Unmarshal([]byte(line), &req); err != nil {
-			srv.write(uiServerResponse{Error: &uiServerError{Message: "malformed request: " + err.Error()}})
-			continue
+		if readErr != nil {
+			if readErr == io.EOF {
+				return nil
+			}
+			return readErr
 		}
-		result, err := srv.handle(req)
-		resp := uiServerResponse{ID: req.ID}
-		if err != nil {
-			resp.Error = &uiServerError{Message: err.Error()}
-		} else {
-			resp.Result = result
-		}
-		srv.write(resp)
 	}
-	return scanner.Err()
 }
 
 func (s *uiServer) write(v any) {
@@ -228,9 +246,15 @@ func (s *uiServer) hello() (any, error) {
 }
 
 // watchLoop re-arms the same one-shot watch command the dashboard uses and
-// pushes each refresh as an event. A watch error ends the loop (the client is
-// told); persistent errors would otherwise re-arm in a tight loop.
+// pushes each refresh as an event. Transient errors are retried with
+// exponential backoff (reset on the next successful refresh) so one bad
+// refresh doesn't permanently kill live updates; after
+// watchRetryMaxAttempts consecutive errors the loop gives up, tells the
+// client, and returns rather than spinning forever against a broken
+// watcher.
 func (s *uiServer) watchLoop() {
+	backoff := s.opts.watchRetryBase
+	consecutiveErrors := 0
 	for {
 		msg := s.opts.watchCmdFactory(s.opts.SyncMode)()
 		if msg == nil {
@@ -241,9 +265,24 @@ func (s *uiServer) watchLoop() {
 			return
 		}
 		if refresh.err != nil {
+			consecutiveErrors++
+			if consecutiveErrors >= watchRetryMaxAttempts {
+				s.event(map[string]any{
+					"type":    "watch-error",
+					"message": fmt.Sprintf("watcher stopped after %d consecutive errors: %s", consecutiveErrors, refresh.err),
+				})
+				return
+			}
 			s.event(map[string]any{"type": "watch-error", "message": refresh.err.Error()})
-			return
+			time.Sleep(backoff)
+			backoff *= 2
+			if backoff > watchRetryMaxBackoff {
+				backoff = watchRetryMaxBackoff
+			}
+			continue
 		}
+		consecutiveErrors = 0
+		backoff = s.opts.watchRetryBase
 		s.event(map[string]any{
 			"type":    "watch-refresh",
 			"rows":    uiRows(refresh.rows),
