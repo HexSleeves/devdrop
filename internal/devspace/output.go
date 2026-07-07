@@ -225,6 +225,79 @@ type WorkspaceStatusReport struct {
 	LastScanAt      string `json:"lastScanAt,omitempty"`
 }
 
+// ProjectListRow is the machine-readable row shape for `devspace project --json`.
+type ProjectListRow struct {
+	Project Project      `json:"project"`
+	State   ProjectState `json:"state"`
+}
+
+func buildProjectListRows() ([]ProjectListRow, error) {
+	cfg, err := LoadConfig()
+	if err != nil {
+		return nil, err
+	}
+	m, err := LoadManifest(cfg.WorkspaceRoot)
+	if err != nil {
+		return nil, err
+	}
+	st, err := LoadState()
+	if err != nil && !missing(err) {
+		return nil, err
+	}
+	rows := make([]ProjectListRow, 0, len(m.Projects))
+	for _, p := range m.Projects {
+		rows = append(rows, ProjectListRow{Project: p, State: st.Projects[p.ID]})
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].Project.Path == rows[j].Project.Path {
+			return rows[i].Project.Name < rows[j].Project.Name
+		}
+		return rows[i].Project.Path < rows[j].Project.Path
+	})
+	return rows, nil
+}
+
+func printProjectList(out io.Writer, rows []ProjectListRow) {
+	out = styledWriter(out)
+	if len(rows) == 0 {
+		fmt.Fprintln(out, "No tracked projects. Run `devspace project add <relative-path>` or `devspace scan` to add projects.")
+		return
+	}
+	tableRows := make([][]string, 0, len(rows))
+	for _, row := range rows {
+		tableRows = append(tableRows, []string{
+			valueOrDash(row.Project.Name),
+			valueOrDash(row.Project.Path),
+			valueOrDash(row.Project.Type),
+			strings.ToLower(dashboardStatus(row.State)),
+			yesNo(row.State.Dirty),
+			valueOrDash(row.State.CurrentBranch),
+			yesNo(row.State.EnvFilePresent),
+		})
+	}
+	tbl := table.New().
+		Headers("NAME", "PATH", "TYPE", "STATUS", "DIRTY", "BRANCH", "ENV").
+		Rows(tableRows...).
+		BorderStyle(currentTheme.Muted).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			if row == table.HeaderRow {
+				return currentTheme.Header.Padding(0, 1)
+			}
+			if col == 3 {
+				switch tableRows[row][3] {
+				case "hydrated":
+					return currentTheme.OK.Padding(0, 1)
+				case "missing":
+					return currentTheme.Fail.Padding(0, 1)
+				default:
+					return currentTheme.Warn.Padding(0, 1)
+				}
+			}
+			return lipgloss.NewStyle().Padding(0, 1)
+		})
+	fmt.Fprintln(out, tbl.Render())
+}
+
 // buildWorkspaceStatusReport loads config/manifest/state and aggregates
 // per-project counts. It is the single source of truth for both the
 // aggregate text view (printStatus) and `status --json`.

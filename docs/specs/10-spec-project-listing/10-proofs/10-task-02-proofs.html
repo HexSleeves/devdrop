@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>10-task-02-proofs</title>
+<style>
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; line-height:1.6; color:#1a1a2e; background:#fff; }
+  .doc { max-width:960px; margin:0 auto; padding:2rem 1.5rem 4rem; }
+  h1 { margin:.25rem 0; font-size:1.6rem; }
+  h2 { margin-top:2rem; border-bottom:1px solid #e5e7eb; padding-bottom:.35rem; }
+  .meta { color:#6b7280; }
+  .badge { display:inline-block; padding:.25rem .6rem; border-radius:999px; background:#059669; color:#fff; font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
+  pre, code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  pre { background:#f9fafb; border:1px solid #e5e7eb; border-radius:.5rem; padding:1rem; overflow-x:auto; }
+</style>
+</head>
+<body>
+<main class="doc">
+  <span class="badge">PASS</span>
+  <h1>10-task-02-proofs</h1>
+  <p class="meta">Spec 10 · Task 2.0 · Render the human project table from saved manifest and state</p>
+
+  <h2>Task Summary</h2>
+  <p>The human table is built from saved manifest and state files, sorted by relative path, and displays name, path, type, status, dirty, branch, and env columns.</p>
+
+  <h2>What This Task Proves</h2>
+  <ul>
+    <li>Status labels are derived from saved state: hydrated, placeholder, and missing.</li>
+    <li>Dirty, branch, and env-file values render in the table.</li>
+    <li>Listing does not modify saved manifest or state files.</li>
+  </ul>
+
+  <h2>Evidence Summary</h2>
+  <pre><code>$ go test ./internal/devspace -run 'TestProjectCommandShowsSavedProjectStateWithoutMutating$' -count=1
+ok  	github.com/liatrio-forge/devdrop-capstone/internal/devspace	0.202s
+
+$ devspace project
++------+----------+-------+----------+-------+--------+-----+
+| NAME | PATH     | TYPE  | STATUS   | DIRTY | BRANCH | ENV |
++------+----------+-------+----------+-------+--------+-----+
+| api  | apps/api | local | hydrated | no    | -      | no  |
++------+----------+-------+----------+-------+--------+-----+
+
+manifest unchanged: yes
+state unchanged: yes</code></pre>
+
+  <h2>Artifact</h2>
+  <p>Implementation: <code>buildProjectListRows</code> and <code>printProjectList</code> in <code>internal/devspace/output.go</code>. Regression test: <code>TestProjectCommandShowsSavedProjectStateWithoutMutating</code>.</p>
+
+  <h2>Reviewer Conclusion</h2>
+  <p>Task 2.0 is verified.</p>
+</main>
+</body>
+</html>

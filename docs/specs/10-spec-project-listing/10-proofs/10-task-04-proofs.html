@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>10-task-04-proofs</title>
+<style>
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; line-height:1.6; color:#1a1a2e; background:#fff; }
+  .doc { max-width:960px; margin:0 auto; padding:2rem 1.5rem 4rem; }
+  h1 { margin:.25rem 0; font-size:1.6rem; }
+  h2 { margin-top:2rem; border-bottom:1px solid #e5e7eb; padding-bottom:.35rem; }
+  .meta { color:#6b7280; }
+  .badge { display:inline-block; padding:.25rem .6rem; border-radius:999px; background:#059669; color:#fff; font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
+  pre, code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  pre { background:#f9fafb; border:1px solid #e5e7eb; border-radius:.5rem; padding:1rem; overflow-x:auto; }
+</style>
+</head>
+<body>
+<main class="doc">
+  <span class="badge">PASS</span>
+  <h1>10-task-04-proofs</h1>
+  <p class="meta">Spec 10 · Task 4.0 · Document and verify the new project listing workflow</p>
+
+  <h2>Task Summary</h2>
+  <p>The README now documents <code>devspace project</code>, <code>devspace project --json</code>, and the saved-metadata behavior. Help output exposes <code>--json</code> without hiding existing subcommands.</p>
+
+  <h2>What This Task Proves</h2>
+  <ul>
+    <li>Command reference includes the new list command and JSON mode.</li>
+    <li>Help output includes <code>--json</code>, <code>add</code>, <code>hydrate</code>, <code>remove</code>, and <code>status</code>.</li>
+    <li>The repository verification gate passes.</li>
+  </ul>
+
+  <h2>Evidence Summary</h2>
+  <pre><code>$ go test ./internal/devspace -run 'TestProjectHelpDocumentsJSONFlag$' -count=1
+ok  	github.com/liatrio-forge/devdrop-capstone/internal/devspace	0.202s
+
+$ make verify
+go test ./...
+?   	github.com/liatrio-forge/devdrop-capstone/cmd/devspace	[no test files]
+ok  	github.com/liatrio-forge/devdrop-capstone/internal/devspace	33.385s
+go vet ./...
+test -z "$(gofmt -l cmd internal)" || (gofmt -l cmd internal &amp;&amp; exit 1)
+go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2 run ./...
+0 issues.
+go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+No vulnerabilities found.
+mkdir -p bin
+go build -trimpath -o bin/devspace ./cmd/devspace</code></pre>
+
+  <h2>Artifact</h2>
+  <p>Documentation: <code>README.md</code>. Regression test: <code>TestProjectHelpDocumentsJSONFlag</code>. Verification command: <code>make verify</code>.</p>
+
+  <h2>Reviewer Conclusion</h2>
+  <p>Task 4.0 is verified.</p>
+</main>
+</body>
+</html>

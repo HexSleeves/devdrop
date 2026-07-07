@@ -3,6 +3,7 @@ package devspace
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -195,6 +196,164 @@ func TestProjectAddAndStatusCommands(t *testing.T) {
 			t.Errorf("project status output missing %q:\n%s", want, stdout)
 		}
 	}
+}
+
+func TestProjectCommandListsTrackedProjects(t *testing.T) {
+	initCommandWorkspace(t)
+
+	stdout, _, err := executeCommand(t, "test", "project")
+	if err != nil {
+		t.Fatalf("project list empty error: %v", err)
+	}
+	if !strings.Contains(stdout, "No tracked projects.") {
+		t.Fatalf("project list empty output = %q", stdout)
+	}
+
+	if _, _, err := executeCommand(t, "test", "project", "add", "apps/api"); err != nil {
+		t.Fatalf("project add error: %v", err)
+	}
+	stdout, _, err = executeCommand(t, "test", "project")
+	if err != nil {
+		t.Fatalf("project list error: %v", err)
+	}
+	for _, want := range []string{"api", "apps/api", ProjectTypeLocal, "hydrated"} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("project list output missing %q:\n%s", want, stdout)
+		}
+	}
+
+	stdout, _, err = executeCommand(t, "test", "project", "status", "api")
+	if err != nil {
+		t.Fatalf("project status after list wiring error: %v", err)
+	}
+	if !strings.Contains(stdout, "Project: api") {
+		t.Fatalf("project status output = %q", stdout)
+	}
+}
+
+func TestProjectCommandShowsSavedProjectStateWithoutMutating(t *testing.T) {
+	workspace := initCommandWorkspace(t)
+	manifest := Manifest{
+		Version:       ManifestVersion,
+		WorkspaceRoot: workspace,
+		Projects: []Project{
+			{ID: "project_api", Name: "api", Path: "apps/api", Type: ProjectTypeGit, HydrateMode: HydrateOnDemand},
+			{ID: "project_docs", Name: "docs", Path: "docs/site", Type: ProjectTypeGit, HydrateMode: HydrateOnDemand},
+			{ID: "project_worker", Name: "worker", Path: "services/worker", Type: ProjectTypeLocal, HydrateMode: HydrateManual},
+		},
+	}
+	if err := SaveManifest(workspace, manifest); err != nil {
+		t.Fatalf("SaveManifest: %v", err)
+	}
+	state := State{
+		Projects: map[string]ProjectState{
+			"project_api": {
+				Exists: true, Placeholder: true, CurrentBranch: "main", LastCheckedAt: nowRFC3339(),
+			},
+			"project_docs": {
+				Missing: true, LastCheckedAt: nowRFC3339(),
+			},
+			"project_worker": {
+				Exists: true, Hydrated: true, Dirty: true, EnvFilePresent: true, LastCheckedAt: nowRFC3339(),
+			},
+		},
+	}
+	if err := SaveState(state); err != nil {
+		t.Fatalf("SaveState: %v", err)
+	}
+	beforeManifest, beforeState := readProjectListFiles(t, workspace)
+
+	stdout, _, err := executeCommand(t, "test", "project")
+	if err != nil {
+		t.Fatalf("project list error: %v", err)
+	}
+	for _, want := range []string{"apps/api", "placeholder", "main", "docs/site", "missing", "services/worker", "hydrated", "yes"} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("project list output missing %q:\n%s", want, stdout)
+		}
+	}
+	afterManifest, afterState := readProjectListFiles(t, workspace)
+	if beforeManifest != afterManifest {
+		t.Fatal("project list mutated manifest")
+	}
+	if beforeState != afterState {
+		t.Fatal("project list mutated state")
+	}
+}
+
+func TestProjectCommandJSONHasStableFieldNames(t *testing.T) {
+	workspace := initCommandWorkspace(t)
+	manifest := Manifest{
+		Version:       ManifestVersion,
+		WorkspaceRoot: workspace,
+		Projects: []Project{
+			{ID: "project_api", Name: "api", Path: "apps/api", Type: ProjectTypeGit, Remote: "https://example.invalid/api.git", HydrateMode: HydrateOnDemand},
+		},
+	}
+	if err := SaveManifest(workspace, manifest); err != nil {
+		t.Fatalf("SaveManifest: %v", err)
+	}
+	state := State{Projects: map[string]ProjectState{
+		"project_api": {Exists: true, Placeholder: true, CurrentBranch: "main", LastCheckedAt: nowRFC3339()},
+	}}
+	if err := SaveState(state); err != nil {
+		t.Fatalf("SaveState: %v", err)
+	}
+
+	stdout, _, err := executeCommand(t, "test", "project", "--json")
+	if err != nil {
+		t.Fatalf("project --json error: %v", err)
+	}
+	var rows []struct {
+		Project Project      `json:"project"`
+		State   ProjectState `json:"state"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &rows); err != nil {
+		t.Fatalf("project --json did not parse: %v\n%s", err, stdout)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("rows = %+v, want one row", rows)
+	}
+	if rows[0].Project.Path != "apps/api" || !rows[0].State.Placeholder {
+		t.Fatalf("row = %+v, want full project and matching state", rows[0])
+	}
+	for _, want := range []string{`"project"`, `"state"`, `"hydrateMode"`, `"placeholder"`} {
+		if !strings.Contains(stdout, want) {
+			t.Fatalf("project --json missing field %q:\n%s", want, stdout)
+		}
+	}
+	if strings.Contains(stdout, "\x1b[") {
+		t.Fatalf("project --json contains ANSI escapes:\n%q", stdout)
+	}
+}
+
+func TestProjectHelpDocumentsJSONFlag(t *testing.T) {
+	stdout, _, err := executeCommand(t, "test", "project", "--help")
+	if err != nil {
+		t.Fatalf("project --help error: %v", err)
+	}
+	for _, want := range []string{"--json", "add", "hydrate", "remove", "status"} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("project --help missing %q:\n%s", want, stdout)
+		}
+	}
+}
+
+func readProjectListFiles(t *testing.T, workspace string) (string, string) {
+	t.Helper()
+	manifest, err := os.ReadFile(manifestPath(workspace))
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+	home, err := appHome()
+	if err != nil {
+		t.Fatalf("appHome: %v", err)
+	}
+	state, err := os.ReadFile(filepath.Join(home, "state.json"))
+	if err != nil {
+		t.Fatalf("read state: %v", err)
+	}
+	return string(manifest), string(state)
 }
 
 func TestPlanAndApplyCommandsRoundTrip(t *testing.T) {

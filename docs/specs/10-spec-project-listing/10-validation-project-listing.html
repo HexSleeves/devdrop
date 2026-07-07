@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>10-validation-project-listing</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff; --fg: #1a1a2e; --muted: #6b7280; --border: #e5e7eb;
+    --card: #f9fafb; --accent: #4f46e5; --pass: #059669; --fail: #dc2626; --warn: #d97706;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1117; --fg:#e6e6ef; --muted:#9ca3af; --border:#262a35; --card:#161922; --accent:#818cf8; --pass:#34d399; --fail:#f87171; --warn:#fbbf24; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height:1.6; }
+  .doc { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  header.doc-header { border-bottom: 1px solid var(--border); padding-bottom:1rem; margin-bottom:2rem; }
+  h1 { margin: .25rem 0; font-size:1.6rem; }
+  h2 { margin-top:2rem; border-bottom:1px solid var(--border); padding-bottom:.35rem; }
+  .meta { color:var(--muted); font-size:.9rem; }
+  .badge { display:inline-block; font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:.25rem .6rem; border-radius:999px; }
+  .badge-type { background:var(--accent); color:#fff; }
+  .status-pass, .status-done, .status-verified { background:var(--pass); color:#fff; }
+  .status-fail, .status-failed { background:var(--fail); color:#fff; }
+  .status-flag, .status-pending, .status-unknown, .status-in-progress { background:var(--warn); color:#111; }
+  table { width:100%; border-collapse: collapse; margin: 1rem 0; }
+  th, td { border:1px solid var(--border); padding:.5rem .75rem; text-align:left; vertical-align:top; }
+  th { background:var(--card); }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem 1.25rem; margin:1rem 0; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:1rem; overflow-x:auto; }
+  .task-list { list-style:none; padding-left:0; }
+  .task { padding:.35rem 0; }
+  .task[data-status="done"] .task-label::before { content: "\2611 "; }
+  .task[data-status="pending"] .task-label::before { content: "\2610 "; }
+  .task[data-status="in-progress"] .task-label::before { content: "\25D1 "; }
+  figure { margin: 1rem 0; }
+  figure img { max-width:100%; border:1px solid var(--border); border-radius:.5rem; }
+  figcaption { color:var(--muted); font-size:.85rem; margin-top:.35rem; }
+  .metric-list { list-style:none; padding-left:0; }
+  .metric-list li { padding:.25rem 0; }
+  .gate-list { margin:.5rem 0; }
+</style>
+</head>
+<body data-overall-status="PASS">
+<div class="doc">
+  <header class="doc-header">
+    <span class="badge badge-type">Validation</span>
+    <h1>10-validation-project-listing</h1>
+    <p class="meta">Sequence 10 · Feature: project-listing · Phase 4</p>
+  </header>
+
+  <section id="executive-summary">
+    <h2>1) Executive Summary</h2>
+    <div class="card">
+      <p><strong>Overall:</strong> <span class="badge status-pass" data-role="overall-status">PASS</span></p>
+      <p><strong>Gates tripped:</strong></p>
+      <ul class="gate-list">
+        <li>None - all gates passed for the scoped Spec 10 implementation diff.</li>
+      </ul>
+      <p><strong>Implementation Ready:</strong> Yes - requirements, proofs, focused tests, CodeRabbit review, and <code>make verify</code> all passed.</p>
+      <p><strong>Key metrics:</strong></p>
+      <ul class="metric-list">
+        <li>Requirements Verified: 100% (15/15)</li>
+        <li>Proof Artifacts Working: 100% (4/4)</li>
+        <li>Files Changed vs Expected: 10 scoped changed / 7 planned relevant entries, with proof and audit files as justified supporting artifacts.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="coverage-matrix">
+    <h2>2) Coverage Matrix</h2>
+
+    <h3>Functional Requirements</h3>
+    <table>
+      <thead>
+        <tr><th>Requirement ID/Name</th><th>Status</th><th>Evidence (file:lines, commit, or artifact)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>U1-FR1 bare <code>devspace project</code> runs list view</td><td><span class="badge status-verified">Verified</span></td><td><code>internal/devspace/commands.go:734</code>; <code>TestProjectCommandListsTrackedProjects</code>; <code>10-task-01-proofs.html</code>.</td></tr>
+        <tr><td>U1-FR2 existing project subcommands preserved</td><td><span class="badge status-verified">Verified</span></td><td><code>internal/devspace/commands.go:753</code>; help test checks <code>add</code>, <code>hydrate</code>, <code>remove</code>, and <code>status</code>.</td></tr>
+        <tr><td>U1-FR3 one row per manifest project, sorted by path</td><td><span class="badge status-verified">Verified</span></td><td><code>buildProjectListRows</code> sorts by <code>Project.Path</code>; command tests assert listed rows.</td></tr>
+        <tr><td>U1-FR4 empty-state message</td><td><span class="badge status-verified">Verified</span></td><td><code>printProjectList</code>; focused test and CLI proof show <code>No tracked projects.</code>.</td></tr>
+        <tr><td>U2-FR1 table includes operational fields</td><td><span class="badge status-verified">Verified</span></td><td><code>printProjectList</code> headers: name, path, type, status, dirty, branch, env; <code>10-task-02-proofs.html</code>.</td></tr>
+        <tr><td>U2-FR2 dashboard-equivalent hydration labels</td><td><span class="badge status-verified">Verified</span></td><td><code>dashboardStatus</code> reuse in <code>internal/devspace/output.go:272</code>; tests cover hydrated, placeholder, and missing.</td></tr>
+        <tr><td>U2-FR3 listing is read-only</td><td><span class="badge status-verified">Verified</span></td><td>Manifest/state hash check and <code>TestProjectCommandShowsSavedProjectStateWithoutMutating</code>; no scan/sync/hydrate/apply calls in listing path.</td></tr>
+        <tr><td>U2-FR4 absent branch/state fields use placeholder</td><td><span class="badge status-verified">Verified</span></td><td><code>valueOrDash</code> used for name/path/type/branch; CLI proof shows branch <code>-</code>.</td></tr>
+        <tr><td>U3-FR1 <code>--json</code> flag added</td><td><span class="badge status-verified">Verified</span></td><td><code>cmd.Flags().BoolVar(&amp;jsonOut, "json", ...)</code>; help test.</td></tr>
+        <tr><td>U3-FR2 JSON rows include full Project and ProjectState</td><td><span class="badge status-verified">Verified</span></td><td><code>ProjectListRow</code>; JSON test unmarshals <code>Project</code> and <code>ProjectState</code>.</td></tr>
+        <tr><td>U3-FR3 JSON has no ANSI/table decoration</td><td><span class="badge status-verified">Verified</span></td><td>JSON test checks no ANSI escapes; CLI proof parses through <code>python3 -m json.tool</code>.</td></tr>
+        <tr><td>U3-FR4 JSON does not expose secrets/env values</td><td><span class="badge status-verified">Verified</span></td><td>Output uses saved manifest/state only; proof denylist scan found no token, age identity, password, or secret matches.</td></tr>
+        <tr><td>U4-FR1 README documents text and JSON listing</td><td><span class="badge status-verified">Verified</span></td><td><code>README.md:178</code> documents <code>devspace project</code> and <code>devspace project --json</code>.</td></tr>
+        <tr><td>U4-FR2 help text remains accurate</td><td><span class="badge status-verified">Verified</span></td><td><code>TestProjectHelpDocumentsJSONFlag</code> passed.</td></tr>
+        <tr><td>U4-FR3 README clarifies saved metadata and scan refresh</td><td><span class="badge status-verified">Verified</span></td><td><code>README.md:185</code> states listing reads saved manifest/state and scan refreshes metadata.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Repository Standards</h3>
+    <table>
+      <thead>
+        <tr><th>Standard Area</th><th>Status</th><th>Evidence &amp; Compliance Notes</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Go formatting</td><td><span class="badge status-verified">Verified</span></td><td><code>make verify</code> ran <code>gofmt -l cmd internal</code> and passed.</td></tr>
+        <tr><td>Testing patterns</td><td><span class="badge status-verified">Verified</span></td><td>Tests use existing <code>executeCommand</code> and live beside implementation in <code>commands_test.go</code>.</td></tr>
+        <tr><td>Local-first CLI behavior</td><td><span class="badge status-verified">Verified</span></td><td>Listing path loads config, manifest, and state only; no hosted sync or workspace mutation.</td></tr>
+        <tr><td>Existing output/JSON helpers</td><td><span class="badge status-verified">Verified</span></td><td>Uses <code>writePrettyJSON</code>, <code>styledWriter</code>, <code>table.New</code>, <code>valueOrDash</code>, and <code>yesNo</code>.</td></tr>
+        <tr><td>Quality gates</td><td><span class="badge status-verified">Verified</span></td><td><code>make verify</code> passed: tests, vet, lint, vulncheck, build.</td></tr>
+        <tr><td>CodeRabbit review</td><td><span class="badge status-verified">Verified</span></td><td><code>coderabbit review --type uncommitted --agent --light</code> on a temp clone with only the Spec 10 diff returned <code>findings:0</code>.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Proof Artifacts</h3>
+    <table>
+      <thead>
+        <tr><th>Unit/Task</th><th>Proof Artifact</th><th>Status</th><th>Verification Result</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Task 1.0</td><td><code>10-task-01-proofs.html</code></td><td><span class="badge status-verified">Verified</span></td><td>Exists, is non-empty, and contains empty/populated CLI evidence plus focused test output.</td></tr>
+        <tr><td>Task 2.0</td><td><code>10-task-02-proofs.html</code></td><td><span class="badge status-verified">Verified</span></td><td>Exists, is non-empty, and contains table/read-only evidence.</td></tr>
+        <tr><td>Task 3.0</td><td><code>10-task-03-proofs.html</code></td><td><span class="badge status-verified">Verified</span></td><td>Exists, is non-empty, and contains parseable JSON and sensitive-term scan evidence.</td></tr>
+        <tr><td>Task 4.0</td><td><code>10-task-04-proofs.html</code></td><td><span class="badge status-verified">Verified</span></td><td>Exists, is non-empty, and contains help/docs verification plus <code>make verify</code>.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="validation-issues">
+    <h2>3) Validation Issues</h2>
+    <p>Issues found during validation that prevent verification or indicate problems, drawn from Coverage Matrix "Failed"/"Unknown" rows and any Red Flags encountered. Severity levels come from the Evaluation Rubric (CRITICAL/HIGH/MEDIUM/LOW).</p>
+    <table>
+      <thead>
+        <tr><th>Severity</th><th>Issue</th><th>Impact</th><th>Recommendation</th></tr>
+      </thead>
+      <tbody>
+        <tr><td colspan="4">No issues found.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="evidence-appendix">
+    <h2>4) Evidence Appendix</h2>
+
+    <h3>Git Commits Analyzed</h3>
+    <pre><code>Recent commits touching scoped files were from adjacent Spec 09 and prior work. The Spec 10 implementation validated here is currently an uncommitted scoped diff.
+
+Relevant recent commits:
+- 7ed7f19 feat(ui): devspace tui install downloads the matching companion binary
+- b569f12 feat(ui-server): concurrent request handling and cached sync status
+- 5cec95e feat(tui): implement `devspace tui install` command to download matching companion binary
+
+Scope guard:
+The working tree contains unrelated dirty files outside Spec 10. Validation and CodeRabbit review were scoped to:
+- README.md
+- internal/devspace/commands.go
+- internal/devspace/output.go
+- internal/devspace/commands_test.go
+- docs/specs/10-spec-project-listing/</code></pre>
+
+    <h3>Proof Artifact Test Results</h3>
+    <ul>
+      <li><code>docs/specs/10-spec-project-listing/10-proofs/10-task-01-proofs.html</code>: accessible and non-empty.</li>
+      <li><code>docs/specs/10-spec-project-listing/10-proofs/10-task-02-proofs.html</code>: accessible and non-empty.</li>
+      <li><code>docs/specs/10-spec-project-listing/10-proofs/10-task-03-proofs.html</code>: accessible and non-empty; denylist scan returned no matches.</li>
+      <li><code>docs/specs/10-spec-project-listing/10-proofs/10-task-04-proofs.html</code>: accessible and non-empty.</li>
+    </ul>
+    <pre><code>$ find docs/specs/10-spec-project-listing/10-proofs -maxdepth 1 -type f -name '*.html' -print | sort | xargs -n1 test -s &amp;&amp; echo proof-files-ok
+proof-files-ok
+
+$ printf '%s\n' 'AGE-SECRET-KEY' 'DEVSPACE_HOSTED_' 'BEGIN AGE ENCRYPTED FILE' 'password=' 'secret=' &gt; /tmp/devspace-project-listing-denylist &amp;&amp; rg -n -f /tmp/devspace-project-listing-denylist docs/specs/10-spec-project-listing/10-proofs
+exit 1, no matches</code></pre>
+
+    <h3>File Comparison Results</h3>
+    <pre><code>Expected relevant files from task list:
+- internal/devspace/commands.go
+- internal/devspace/output.go
+- internal/devspace/commands_test.go
+- internal/devspace/ui_model.go
+- internal/devspace/types.go
+- README.md
+- docs/specs/10-spec-project-listing/10-proofs/
+
+Scoped changed files:
+ M README.md
+ M docs/specs/10-spec-project-listing/10-tasks-project-listing.html
+ M internal/devspace/commands.go
+ M internal/devspace/commands_test.go
+ M internal/devspace/output.go
+?? docs/specs/10-spec-project-listing/10-audit-project-listing.html
+?? docs/specs/10-spec-project-listing/10-proofs/10-task-01-proofs.html
+?? docs/specs/10-spec-project-listing/10-proofs/10-task-02-proofs.html
+?? docs/specs/10-spec-project-listing/10-proofs/10-task-03-proofs.html
+?? docs/specs/10-spec-project-listing/10-proofs/10-task-04-proofs.html
+
+Justification:
+- Core implementation files are mapped to Units 1-3.
+- README is mapped to Unit 4.
+- Tasks, audit, proofs, and validation are supporting SDD artifacts.
+- ui_model.go and types.go were referenced but did not need changes because existing helpers/types were reused.</code></pre>
+
+    <h3>Commands Executed</h3>
+    <pre><code>$ python3 .agents/skills/sdd-html/scripts/assess-sdd-state.py .
+Spec 10 detected with spec, tasks, audit, questions, and no prior validation report.
+
+$ go test ./internal/devspace -run 'TestProjectCommand(ListsTrackedProjects|ShowsSavedProjectStateWithoutMutating|JSONHasStableFieldNames|HelpDocumentsJSONFlag)$' -count=1
+ok  	github.com/liatrio-forge/devdrop-capstone/internal/devspace	0.215s
+
+$ make verify
+go test ./...
+?   	github.com/liatrio-forge/devdrop-capstone/cmd/devspace	[no test files]
+ok  	github.com/liatrio-forge/devdrop-capstone/internal/devspace	34.385s
+go vet ./...
+test -z "$(gofmt -l cmd internal)" || (gofmt -l cmd internal &amp;&amp; exit 1)
+go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2 run ./...
+0 issues.
+go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+No vulnerabilities found.
+mkdir -p bin
+go build -trimpath -o bin/devspace ./cmd/devspace
+
+$ coderabbit review --type uncommitted --agent --light
+{"type":"complete","status":"review_completed","findings":0}
+
+$ python3 - &lt;&lt;'PY'
+from pathlib import Path
+import re
+s=Path('docs/specs/10-spec-project-listing/10-tasks-project-listing.html').read_text()
+print('pending elements:', len(re.findall(r'&lt;(?:section|li)[^&gt;]+data-status="pending"', s)))
+print('in-progress elements:', len(re.findall(r'&lt;(?:section|li)[^&gt;]+data-status="in-progress"', s)))
+print('done elements:', len(re.findall(r'&lt;(?:section|li)[^&gt;]+data-status="done"', s)))
+PY
+pending elements: 0
+in-progress elements: 0
+done elements: 22</code></pre>
+  </section>
+
+  <section id="validation-metadata">
+    <h2>Validation Metadata</h2>
+    <p><strong>Validation Completed:</strong> 2026-07-07 14:05:09 CDT</p>
+    <p><strong>Validation Performed By:</strong> Codex</p>
+  </section>
+</div>
+</body>
+</html>

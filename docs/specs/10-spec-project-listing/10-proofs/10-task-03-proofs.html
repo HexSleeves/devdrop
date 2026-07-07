@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>10-task-03-proofs</title>
+<style>
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; line-height:1.6; color:#1a1a2e; background:#fff; }
+  .doc { max-width:960px; margin:0 auto; padding:2rem 1.5rem 4rem; }
+  h1 { margin:.25rem 0; font-size:1.6rem; }
+  h2 { margin-top:2rem; border-bottom:1px solid #e5e7eb; padding-bottom:.35rem; }
+  .meta { color:#6b7280; }
+  .badge { display:inline-block; padding:.25rem .6rem; border-radius:999px; background:#059669; color:#fff; font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
+  pre, code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  pre { background:#f9fafb; border:1px solid #e5e7eb; border-radius:.5rem; padding:1rem; overflow-x:auto; }
+</style>
+</head>
+<body>
+<main class="doc">
+  <span class="badge">PASS</span>
+  <h1>10-task-03-proofs</h1>
+  <p class="meta">Spec 10 · Task 3.0 · Add stable devspace project --json output</p>
+
+  <h2>Task Summary</h2>
+  <p><code>devspace project --json</code> emits a parseable array of rows shaped as <code>{"project": Project, "state": ProjectState}</code>, using the same saved rows as the table view.</p>
+
+  <h2>What This Task Proves</h2>
+  <ul>
+    <li>JSON output parses cleanly through <code>python3 -m json.tool</code>.</li>
+    <li>Rows include full project and saved state payloads.</li>
+    <li>JSON output contains no ANSI escape bytes.</li>
+  </ul>
+
+  <h2>Evidence Summary</h2>
+  <pre><code>$ devspace project --json | python3 -m json.tool
+[
+    {
+        "project": {
+            "id": "project_73776ec8bf13",
+            "name": "api",
+            "path": "apps/api",
+            "type": "local",
+            "hydrateMode": "manual",
+            "ignore": [
+                "node_modules",
+                "dist",
+                "build",
+                ".next",
+                "turbo",
+                "target",
+                "vendor",
+                "coverage",
+                ".cache",
+                ".DS_Store",
+                "*.log"
+            ],
+            "setup": {}
+        },
+        "state": {
+            "hydrated": true,
+            "exists": true,
+            "dirty": false,
+            "envFilePresent": false,
+            "lastCheckedAt": "2026-07-07T18:44:58Z",
+            "placeholder": false,
+            "stale": false,
+            "missing": false
+        }
+    }
+]
+
+$ go test ./internal/devspace -run 'TestProjectCommandJSONHasStableFieldNames$' -count=1
+ok  	github.com/liatrio-forge/devdrop-capstone/internal/devspace	0.202s</code></pre>
+
+  <h2>Security Check</h2>
+  <pre><code>$ rg -n -f /tmp/devspace-project-listing-denylist docs/specs/10-spec-project-listing/10-proofs
+no matches</code></pre>
+
+  <h2>Artifact</h2>
+  <p>Implementation: <code>ProjectListRow</code> in <code>internal/devspace/output.go</code> and <code>--json</code> wiring in <code>internal/devspace/commands.go</code>. Regression test: <code>TestProjectCommandJSONHasStableFieldNames</code>.</p>
+
+  <h2>Reviewer Conclusion</h2>
+  <p>Task 3.0 is verified.</p>
+</main>
+</body>
+</html>

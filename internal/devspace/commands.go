@@ -733,7 +733,24 @@ func newMountCommand() *cobra.Command {
 }
 
 func newProjectCommand() *cobra.Command {
-	cmd := &cobra.Command{Use: "project", Short: "Manage projects"}
+	var jsonOut bool
+	cmd := &cobra.Command{
+		Use:   "project",
+		Short: "Manage projects",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			rows, err := buildProjectListRows()
+			if err != nil {
+				return err
+			}
+			if jsonOut {
+				return writePrettyJSON(cmd.OutOrStdout(), rows)
+			}
+			printProjectList(cmd.OutOrStdout(), rows)
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "print machine-readable project list")
 	cmd.AddCommand(&cobra.Command{
 		Use:   "add <relative-path>",
 		Short: "Track a project path",
