@@ -5,11 +5,32 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
 )
+
+func TestFindTUIBinaryUsesAppHomeBin(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("DEVSPACE_HOME", home)
+	t.Setenv("PATH", t.TempDir())
+	if got := findTUIBinary(); got != "" {
+		t.Fatalf("findTUIBinary with nothing installed = %q, want empty", got)
+	}
+	bin := filepath.Join(home, "bin", tuiBinaryName)
+	if err := os.MkdirAll(filepath.Dir(bin), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(bin, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := findTUIBinary(); got != bin {
+		t.Fatalf("findTUIBinary = %q, want %q", got, bin)
+	}
+}
 
 func uiServerRoundTrip(t *testing.T, opts uiServerOptions, requests []string) []map[string]any {
 	t.Helper()

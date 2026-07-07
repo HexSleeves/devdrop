@@ -7,7 +7,7 @@ DIST_DIR ?= dist
 GOLANGCI_LINT ?= go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 GOVULNCHECK ?= go run golang.org/x/vuln/cmd/govulncheck@v1.1.4
 
-.PHONY: all fmt format fmt-check test vet lint vulncheck build verify precommit install-hooks clean
+.PHONY: all fmt format fmt-check test vet lint vulncheck build verify precommit install-hooks clean tui-verify tui-build tui-build-all
 
 all: verify
 
@@ -34,6 +34,16 @@ build:
 	go build -trimpath -o $(BIN_DIR)/$(BINARY_NAME) $(CMD_PATH)
 
 verify: test vet lint vulncheck build
+
+# devspace-tui (Bun) — not part of `verify` so Go-only work never needs Bun.
+tui-verify:
+	cd tui && bun install --frozen-lockfile && bun run typecheck && bun test
+
+tui-build:
+	cd tui && bun install --frozen-lockfile && bun run build
+
+tui-build-all:
+	cd tui && bun install --frozen-lockfile && ./build-all.sh
 
 precommit: fmt lint test build
 
