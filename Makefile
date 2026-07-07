@@ -7,65 +7,111 @@ DIST_DIR ?= dist
 GOLANGCI_LINT ?= go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 GOVULNCHECK ?= go run golang.org/x/vuln/cmd/govulncheck@v1.1.4
 
-.PHONY: all fmt format fmt-check test vet lint vulncheck build verify precommit install-hooks clean tui-install tui-verify tui-build tui-build-all
+.PHONY: \
+	all fmt format fmt-check test test-race test-one cover cover-html vet lint vulncheck build verify install run \
+	precommit install-hooks clean \
+	tui-install tui-verify tui-build tui-build-all tui-dev tui-install-local \
+	snapshot ci \
+	help
 
-all: verify
+.DEFAULT_GOAL := help
 
-fmt format:
+##@ Go
+
+all: verify ## Run all checks and build the binary
+
+fmt format: ## Format the code
 	gofmt -w cmd internal
 
-fmt-check:
+fmt-check: ## Check that the code is gofmt-formatted
 	test -z "$$(gofmt -l cmd internal)" || (gofmt -l cmd internal && exit 1)
 
-test:
+test: ## Run the tests
 	go test ./...
 
-vet:
+test-race: ## Run the tests with the race detector
+	go test ./... -race
+
+test-one: ## Run a single test: make test-one T=TestName
+	@test -n "$(T)" || (echo "Usage: make test-one T=TestName" && exit 1)
+	go test ./... -run '^$(T)$$' -v
+
+cover: ## Run tests with a coverage profile and print a summary
+	mkdir -p $(BIN_DIR)
+	go test ./... -coverprofile=$(BIN_DIR)/coverage.out -covermode=atomic
+	go tool cover -func=$(BIN_DIR)/coverage.out
+
+cover-html: cover ## Generate an HTML coverage report (prints the path; does not open a browser)
+	go tool cover -html=$(BIN_DIR)/coverage.out -o $(BIN_DIR)/coverage.html
+	@echo "Coverage report: $(BIN_DIR)/coverage.html"
+
+vet: ## Run go vet
 	go vet ./...
 
-lint: fmt-check
+lint: fmt-check ## Run golangci-lint
 	$(GOLANGCI_LINT) run ./...
 
-vulncheck:
+vulncheck: ## Run govulncheck
 	$(GOVULNCHECK) ./...
 
-build:
+build: ## Build the binary
 	mkdir -p $(BIN_DIR)
 	go build -trimpath -o $(BIN_DIR)/$(BINARY_NAME) $(CMD_PATH)
 
-verify: test vet lint vulncheck build
+install: ## go install the binary (into GOBIN/GOPATH bin)
+	go install -trimpath $(CMD_PATH)
 
-# devspace-tui (Bun) — not part of `verify` so Go-only work never needs Bun.
-tui-install:
-	cd tui && bun install --frozen-lockfile
+run: build ## Build then run the binary, e.g. make run ARGS="workspace --json"
+	./$(BIN_DIR)/$(BINARY_NAME) $(ARGS)
 
-tui-verify: tui-install
-	cd tui && bun run typecheck && bun test
+verify: test vet lint vulncheck build ## Run all checks and build the binary (the local CI gate)
 
-tui-build: tui-install
-	cd tui && bun run build
+##@ Dev
 
-tui-build-all: tui-install
-	cd tui && ./build-all.sh
+precommit: fmt lint test build ## Run the pre-commit hook checks locally
 
-precommit: fmt lint test build
-
-install-hooks:
+install-hooks: ## Point git at .githooks (runs precommit checks on commit)
 	git config core.hooksPath .githooks
 	chmod +x .githooks/pre-commit
 
-clean:
+clean: ## Remove build, dist, and coverage artifacts
 	rm -rf $(BIN_DIR) $(DIST_DIR)
 
-help:
-	@echo "Usage: make <target>"
-	@echo "Targets:"
-	@echo "  all - Run all checks and build the binary"
-	@echo "  fmt - Format the code"
-	@echo "  fmt-check - Check if the code is formatted"
-	@echo "  test - Run the tests"
-	@echo "  vet - Run the vet checks"
-	@echo "  lint - Run the lint checks"
-	@echo "  vulncheck - Run the vulnerability checks"
-	@echo "  build - Build the binary"
-	@echo "  verify - Run all checks and build the binary"
+##@ TUI
+
+# devspace-tui (Bun) — not part of `verify` so Go-only work never needs Bun.
+tui-install: ## Install devspace-tui (Bun) dependencies
+	cd tui && bun install --frozen-lockfile
+
+tui-verify: tui-install ## Typecheck and test devspace-tui
+	cd tui && bun run typecheck && bun test
+
+tui-build: tui-install ## Build devspace-tui for the current platform
+	cd tui && bun run build
+
+tui-build-all: tui-install ## Build devspace-tui for all release platforms
+	cd tui && ./build-all.sh
+
+tui-dev: build tui-install ## Run devspace-tui in dev mode against the local Go binary
+	cd tui && DEVSPACE_BIN=../$(BIN_DIR)/$(BINARY_NAME) bun run dev
+
+tui-install-local: tui-build ## Build devspace-tui and install it into $$DEVSPACE_HOME/bin (or ~/.devspace/bin)
+	@dest="$${DEVSPACE_HOME:-$$HOME/.devspace}/bin"; \
+	mkdir -p "$$dest"; \
+	cp tui/dist/devspace-tui "$$dest/"; \
+	echo "Installed devspace-tui to $$dest"
+
+##@ Release
+
+snapshot: ## Build a local snapshot release via goreleaser (no publish)
+	@command -v goreleaser >/dev/null 2>&1 || (echo "goreleaser not found; see https://goreleaser.com/install/" && exit 1)
+	goreleaser release --snapshot --clean --skip=publish
+
+ci: verify tui-verify ## Run everything CI runs (Go verify + TUI verify)
+
+##@ Help
+
+help: ## Show this help
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage: make \033[36m<target>\033[0m\n"} \
+		/^[a-zA-Z0-9_ -]+:.*##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 } \
+		/^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) }' $(MAKEFILE_LIST)
