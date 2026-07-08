@@ -229,6 +229,9 @@ func projectNameExists(projects []Project, name string) bool {
 }
 
 func mergeProject(old, next Project) Project {
+	if old.Name != "" {
+		next.Name = old.Name
+	}
 	if old.EnvProfiles != nil && next.EnvProfiles == nil {
 		next.EnvProfiles = old.EnvProfiles
 	}

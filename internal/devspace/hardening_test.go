@@ -138,6 +138,21 @@ func TestHardeningScanDisambiguatesDuplicateBasenames(t *testing.T) {
 	if !names["family-events-backend"] || !names["client-b-family-events-backend"] {
 		t.Fatalf("duplicate basename was not disambiguated predictably: %+v", m.Projects)
 	}
+
+	if _, err := ScanWorkspace(); err != nil {
+		t.Fatalf("rescan failed: %v", err)
+	}
+	m, err = LoadManifest(workspace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rescanned := map[string]bool{}
+	for _, p := range m.Projects {
+		rescanned[p.Name] = true
+	}
+	if !rescanned["family-events-backend"] || !rescanned["client-b-family-events-backend"] {
+		t.Fatalf("rescan changed project names: %+v", m.Projects)
+	}
 }
 
 func TestHardeningRejectsPathTraversal(t *testing.T) {
