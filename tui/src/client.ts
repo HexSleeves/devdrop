@@ -26,6 +26,8 @@ export class DevspaceClient {
   private closeListeners = new Set<(err?: Error) => void>();
   private earlyEvents: ServerEvent[] = [];
   private buffer = "";
+  private isClosed = false;
+  private closeError?: Error;
 
   constructor(
     private transport: ClientTransport,
@@ -36,6 +38,7 @@ export class DevspaceClient {
     method: M,
     ...args: RequestMap[M]["params"] extends undefined ? [] : [RequestMap[M]["params"]]
   ): Promise<RequestMap[M]["result"]> {
+    if (this.isClosed) return Promise.reject(this.closeError ?? new Error("devspace ui-server exited"));
     const id = this.nextId++;
     const params = args[0];
     return new Promise((resolve, reject) => {
@@ -59,6 +62,10 @@ export class DevspaceClient {
   }
 
   onClose(listener: (err?: Error) => void): () => void {
+    if (this.isClosed) {
+      listener(this.closeError);
+      return () => {};
+    }
     this.closeListeners.add(listener);
     return () => this.closeListeners.delete(listener);
   }
@@ -74,8 +81,11 @@ export class DevspaceClient {
     }
   }
 
-  /** Signal that the server went away; rejects all in-flight requests. */
+  /** Signal that the server went away; rejects all in-flight requests. Idempotent. */
   closed(err?: Error): void {
+    if (this.isClosed) return;
+    this.isClosed = true;
+    this.closeError = err;
     const failure = err ?? new Error("devspace ui-server exited");
     for (const [, pending] of this.pending) {
       if (pending.timer) clearTimeout(pending.timer);

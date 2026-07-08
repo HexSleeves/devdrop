@@ -122,4 +122,31 @@ describe("DevspaceClient", () => {
     client.closed(new Error("devspace ui-server exited: connection refused"));
     await expect(req).rejects.toThrow("devspace ui-server exited: connection refused");
   });
+
+  test("onClose() registered after closed() fires immediately", () => {
+    const { client } = pair();
+    client.closed(new Error("devspace ui-server exited: connection refused"));
+    const errors: (Error | undefined)[] = [];
+    client.onClose((err) => errors.push(err));
+    expect(errors).toHaveLength(1);
+    expect(errors[0]?.message).toBe("devspace ui-server exited: connection refused");
+  });
+
+  test("request() after closed() rejects immediately without a transport write", async () => {
+    const { client, sent } = pair();
+    client.closed(new Error("devspace ui-server exited: connection refused"));
+    const req = client.request("scan");
+    await expect(req).rejects.toThrow("devspace ui-server exited: connection refused");
+    expect(sent).toHaveLength(0);
+  });
+
+  test("closed() twice notifies listeners once", () => {
+    const { client } = pair();
+    const errors: (Error | undefined)[] = [];
+    client.onClose((err) => errors.push(err));
+    client.closed(new Error("first"));
+    client.closed(new Error("second"));
+    expect(errors).toHaveLength(1);
+    expect(errors[0]?.message).toBe("first");
+  });
 });
