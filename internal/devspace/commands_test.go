@@ -232,15 +232,127 @@ func TestHostedServeHelpDocumentsFlags(t *testing.T) {
 	}
 }
 
-func TestWorkspaceRemoteSetHelpDocumentsCommitFlags(t *testing.T) {
-	stdout, _, err := executePrivateCommand(t, newWorkspaceCommand(), "remote", "set", "--help")
+func TestSyncCommandRemoteSetHelpDocumentsCommitFlags(t *testing.T) {
+	stdout, _, err := executeCommand(t, "test", "sync", "remote", "set", "--help")
 	if err != nil {
-		t.Fatalf("workspace remote set --help error: %v", err)
+		t.Fatalf("sync remote set --help error: %v", err)
 	}
 	for _, want := range []string{"--commit-email", "--commit-name"} {
 		if !strings.Contains(stdout, want) {
-			t.Errorf("workspace remote set --help missing flag %q in output:\n%s", want, stdout)
+			t.Errorf("sync remote set --help missing flag %q in output:\n%s", want, stdout)
 		}
+	}
+}
+
+func TestSyncCommandSurface(t *testing.T) {
+	root := NewRootCommand("test")
+	syncCmd, _, err := root.Find([]string{"sync"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, cmd := range syncCmd.Commands() {
+		if !cmd.Hidden && cmd.Name() != "help" {
+			got = append(got, cmd.Name())
+		}
+	}
+	slices.Sort(got)
+	want := []string{"diff", "pull", "push", "reconcile", "remote"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("sync commands = %v, want %v", got, want)
+	}
+
+	for _, args := range [][]string{{"workspace"}, {"workspace", "scan"}, {"workspace", "push"}, {"workspace", "remote", "get"}} {
+		if _, _, err := executeCommand(t, "test", args...); err == nil || !strings.Contains(err.Error(), "unknown command") {
+			t.Errorf("devspace %s error = %v, want unknown command", strings.Join(args, " "), err)
+		}
+	}
+}
+
+func TestSyncCommandRemoteCreateSetGet(t *testing.T) {
+	initCommandWorkspace(t)
+	createdRemote := filepath.Join(t.TempDir(), "created.git")
+	stdout, _, err := executeCommand(t, "test", "sync", "remote", "create", "local", createdRemote)
+	if err != nil {
+		t.Fatalf("sync remote create local: %v", err)
+	}
+	if strings.TrimSpace(stdout) != createdRemote || !isBareGitRepo(createdRemote) {
+		t.Fatalf("create output = %q, bare repo = %v", stdout, isBareGitRepo(createdRemote))
+	}
+
+	setRemote := workspaceSyncBareRepo(t)
+	stdout, _, err = executeCommand(t, "test", "sync", "remote", "set", setRemote, "--commit-email", "sync@example.invalid", "--commit-name", "Sync Test")
+	if err != nil {
+		t.Fatalf("sync remote set: %v", err)
+	}
+	if strings.TrimSpace(stdout) != setRemote {
+		t.Fatalf("set output = %q, want %q", stdout, setRemote)
+	}
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.ManifestCommitEmail != "sync@example.invalid" || cfg.ManifestCommitName != "Sync Test" {
+		t.Fatalf("commit identity = %q/%q", cfg.ManifestCommitName, cfg.ManifestCommitEmail)
+	}
+	stdout, _, err = executeCommand(t, "test", "sync", "remote", "get")
+	if err != nil || strings.TrimSpace(stdout) != setRemote {
+		t.Fatalf("sync remote get output = %q, error = %v", stdout, err)
+	}
+
+	stdout, _, err = executeCommand(t, "test", "sync", "remote", "create", "github", "owner/repo", "--help")
+	if err != nil {
+		t.Fatalf("sync remote create github --help: %v", err)
+	}
+	for _, flag := range []string{"--private", "--public"} {
+		if !strings.Contains(stdout, flag) {
+			t.Errorf("github help missing %s:\n%s", flag, stdout)
+		}
+	}
+}
+
+func TestSyncCommandPushPullDiffJSONAndReconcileFlags(t *testing.T) {
+	initCommandWorkspace(t)
+	remote := workspaceSyncBareRepo(t)
+	if _, _, err := executeCommand(t, "test", "sync", "remote", "set", remote); err != nil {
+		t.Fatal(err)
+	}
+	stdout, _, err := executeCommand(t, "test", "sync", "push")
+	if err != nil || !strings.Contains(stdout, "Pushed workspace manifest") {
+		t.Fatalf("sync push output = %q, error = %v", stdout, err)
+	}
+	stdout, _, err = executeCommand(t, "test", "sync", "diff", "--json")
+	if err != nil {
+		t.Fatalf("sync diff --json: %v", err)
+	}
+	var diff ManifestDiff
+	if err := json.Unmarshal([]byte(stdout), &diff); err != nil {
+		t.Fatalf("sync diff --json did not parse: %v\n%s", err, stdout)
+	}
+	if strings.Contains(stdout, "\x1b[") {
+		t.Fatalf("sync diff --json contains ANSI escapes: %q", stdout)
+	}
+	stdout, _, err = executeCommand(t, "test", "sync", "pull")
+	if err != nil {
+		t.Fatalf("sync pull: %v", err)
+	}
+	for _, want := range []string{"Pulled workspace manifest", "devspace plan && devspace apply", "devspace project update --all"} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("sync pull output missing %q:\n%s", want, stdout)
+		}
+	}
+
+	stdout, _, err = executeCommand(t, "test", "sync", "reconcile", "--help")
+	if err != nil {
+		t.Fatalf("sync reconcile --help: %v", err)
+	}
+	for _, flag := range []string{"--apply", "--force-local", "--force-remote", "--force-project", "--json"} {
+		if !strings.Contains(stdout, flag) {
+			t.Errorf("sync reconcile help missing %s:\n%s", flag, stdout)
+		}
+	}
+	if _, _, err := executeCommand(t, "test", "sync", "reconcile", "--force-local", "--force-remote"); err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("sync reconcile force error = %v", err)
 	}
 }
 
@@ -366,16 +478,16 @@ func TestDoctorCommandRunsAndReports(t *testing.T) {
 	}
 }
 
-func TestProjectAddAndStatusCommands(t *testing.T) {
+func TestProjectCommandTrackAndStatus(t *testing.T) {
 	initCommandWorkspace(t)
 
 	// Track a project via the command surface.
-	stdout, _, err := executeCommand(t, "test", "project", "add", "apps/app")
+	stdout, _, err := executeCommand(t, "test", "project", "track", "apps/app")
 	if err != nil {
-		t.Fatalf("project add error: %v", err)
+		t.Fatalf("project track error: %v", err)
 	}
-	if !strings.Contains(stdout, "Added project app at apps/app") {
-		t.Fatalf("project add output = %q", stdout)
+	if !strings.Contains(stdout, "Tracked project app at apps/app") {
+		t.Fatalf("project track output = %q", stdout)
 	}
 
 	// Status for a single tracked project.
@@ -398,8 +510,8 @@ func TestProjectListRenderingShowsTrackedProjects(t *testing.T) {
 		t.Fatalf("project list empty output = %q", stdout)
 	}
 
-	if _, _, err := executeCommand(t, "test", "project", "add", "apps/api"); err != nil {
-		t.Fatalf("project add error: %v", err)
+	if _, _, err := executeCommand(t, "test", "project", "track", "apps/api"); err != nil {
+		t.Fatalf("project track error: %v", err)
 	}
 	stdout = renderProjectList(t)
 	for _, want := range []string{"api", "apps/api", ProjectTypeLocal, "hydrated"} {
@@ -464,7 +576,7 @@ func TestProjectListRenderingShowsSavedStateWithoutMutating(t *testing.T) {
 	}
 }
 
-func TestProjectListJSONHasStableFieldNames(t *testing.T) {
+func TestProjectCommandListJSONHasStableFieldNames(t *testing.T) {
 	workspace := initCommandWorkspace(t)
 	manifest := Manifest{
 		Version:       ManifestVersion,
@@ -483,15 +595,10 @@ func TestProjectListJSONHasStableFieldNames(t *testing.T) {
 		t.Fatalf("SaveState: %v", err)
 	}
 
-	rows, err := buildProjectListRows()
+	stdout, _, err := executeCommand(t, "test", "project", "list", "--json")
 	if err != nil {
-		t.Fatalf("buildProjectListRows: %v", err)
+		t.Fatalf("project list --json: %v", err)
 	}
-	var out bytes.Buffer
-	if err := writePrettyJSON(&out, rows); err != nil {
-		t.Fatalf("write project list JSON: %v", err)
-	}
-	stdout := out.String()
 	var decodedRows []struct {
 		Project Project      `json:"project"`
 		State   ProjectState `json:"state"`
@@ -520,13 +627,58 @@ func TestProjectHelpShowsResourceActions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("project --help error: %v", err)
 	}
-	for _, want := range []string{"add", "hydrate", "remove", "update"} {
+	for _, want := range []string{"list", "track", "untrack", "update"} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("project --help missing %q:\n%s", want, stdout)
 		}
 	}
+	for _, removed := range []string{"add", "hydrate", "remove", "status"} {
+		if strings.Contains(stdout, "  "+removed+" ") {
+			t.Errorf("project --help still lists removed command %q:\n%s", removed, stdout)
+		}
+	}
 	if strings.Contains(stdout, "--json") {
 		t.Fatalf("project group help exposes action-specific --json flag:\n%s", stdout)
+	}
+}
+
+func TestProjectCommandSurface(t *testing.T) {
+	root := NewRootCommand("test")
+	projectCmd, _, err := root.Find([]string{"project"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, cmd := range projectCmd.Commands() {
+		if !cmd.Hidden && cmd.Name() != "help" {
+			got = append(got, cmd.Name())
+		}
+	}
+	slices.Sort(got)
+	want := []string{"list", "track", "untrack", "update"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("project commands = %v, want %v", got, want)
+	}
+	for _, name := range []string{"add", "remove", "hydrate", "status"} {
+		if _, _, err := executeCommand(t, "test", "project", name); err == nil || !strings.Contains(err.Error(), "unknown command") {
+			t.Errorf("project %s error = %v, want unknown command", name, err)
+		}
+	}
+}
+
+func TestProjectCommandUpdateSingleAndAll(t *testing.T) {
+	initCommandWorkspace(t)
+	if _, _, err := executeCommand(t, "test", "project", "track", "apps/api"); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"project", "update", "api"}, {"project", "update", "--all"}} {
+		stdout, _, err := executeCommand(t, "test", args...)
+		if err != nil {
+			t.Fatalf("devspace %s: %v", strings.Join(args, " "), err)
+		}
+		if !strings.Contains(stdout, "Updated projects:") {
+			t.Fatalf("devspace %s output = %q", strings.Join(args, " "), stdout)
+		}
 	}
 }
 
@@ -577,8 +729,8 @@ func renderProjectList(t *testing.T) string {
 
 func TestPlanAndApplyCommandsRoundTrip(t *testing.T) {
 	initCommandWorkspace(t)
-	if _, _, err := executeCommand(t, "test", "project", "add", "services/api"); err != nil {
-		t.Fatalf("project add error: %v", err)
+	if _, _, err := executeCommand(t, "test", "project", "track", "services/api"); err != nil {
+		t.Fatalf("project track error: %v", err)
 	}
 
 	planOut, _, err := executeCommand(t, "test", "plan")
@@ -649,7 +801,7 @@ func TestDoctorJSONHasStableFieldNames(t *testing.T) {
 
 func TestWorkspaceDiffJSONHasStableFieldNames(t *testing.T) {
 	initCommandWorkspace(t)
-	stdout, _, err := executePrivateCommand(t, newWorkspaceCommand(), "diff", "--json")
+	stdout, _, err := executePrivateCommand(t, newSyncCommand(), "diff", "--json")
 	// No manifest remote is configured in this isolated workspace, so the
 	// command is expected to fail; the point of this test is only that a
 	// configured remote's diff would serialize with these exact field names,

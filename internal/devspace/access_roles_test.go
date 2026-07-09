@@ -221,32 +221,32 @@ func TestEffectiveRoleResolution(t *testing.T) {
 	}
 }
 
-func TestWorkspacePushWithoutRoleMetadataEmitsNoAdvisory(t *testing.T) {
+func TestSyncPushWithoutRoleMetadataEmitsNoAdvisory(t *testing.T) {
 	commandWorkspaceWithoutRoleMetadata(t)
 	remote := filepath.Join(t.TempDir(), "manifest.git")
 	if _, err := CreateLocalManifestRemote(remote); err != nil {
 		t.Fatal(err)
 	}
 
-	stdout, stderr, err := executePrivateCommand(t, newWorkspaceCommand(), "push")
+	stdout, stderr, err := executeCommand(t, "test", "sync", "push")
 	if err != nil {
-		t.Fatalf("workspace push error: %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+		t.Fatalf("sync push error: %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
 	}
 	assertNoAccessWarning(t, stderr)
 }
 
-func TestWorkspacePushEmitsAccessRoleAdvisoryWarning(t *testing.T) {
+func TestSyncPushEmitsAccessRoleAdvisoryWarning(t *testing.T) {
 	commandWorkspaceWithProjectRole(t, AccessRoleDeveloper)
 	remote := filepath.Join(t.TempDir(), "manifest.git")
 	if _, err := CreateLocalManifestRemote(remote); err != nil {
 		t.Fatal(err)
 	}
 
-	stdout, stderr, err := executePrivateCommand(t, newWorkspaceCommand(), "push")
+	stdout, stderr, err := executeCommand(t, "test", "sync", "push")
 	if err != nil {
-		t.Fatalf("workspace push error: %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+		t.Fatalf("sync push error: %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
 	}
-	assertAccessWarning(t, stderr, "devspace workspace push")
+	assertAccessWarning(t, stderr, "devspace sync push")
 }
 
 func TestHostedPushEmitsAccessRoleAdvisoryWarningBeforeTransportError(t *testing.T) {
@@ -262,24 +262,24 @@ func TestHostedPushEmitsAccessRoleAdvisoryWarningBeforeTransportError(t *testing
 	assertAccessWarning(t, stderr, "devspace hosted push")
 }
 
-func TestProjectRemoveWithoutRoleMetadataEmitsNoAdvisory(t *testing.T) {
+func TestProjectUntrackWithoutRoleMetadataEmitsNoAdvisory(t *testing.T) {
 	_, project := commandWorkspaceWithoutRoleMetadata(t)
 
-	stdout, stderr, err := executeCommand(t, "test", "project", "remove", project.Name)
+	stdout, stderr, err := executeCommand(t, "test", "project", "untrack", project.Name)
 	if err != nil {
-		t.Fatalf("project remove error: %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+		t.Fatalf("project untrack error: %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
 	}
 	assertNoAccessWarning(t, stderr)
 }
 
-func TestProjectRemoveEmitsAccessRoleAdvisoryWarning(t *testing.T) {
+func TestProjectUntrackEmitsAccessRoleAdvisoryWarning(t *testing.T) {
 	_, project := commandWorkspaceWithProjectRole(t, AccessRoleDeveloper)
 
-	stdout, stderr, err := executeCommand(t, "test", "project", "remove", project.Name)
+	stdout, stderr, err := executeCommand(t, "test", "project", "untrack", project.Name)
 	if err != nil {
-		t.Fatalf("project remove error: %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+		t.Fatalf("project untrack error: %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
 	}
-	assertAccessWarning(t, stderr, "devspace project remove")
+	assertAccessWarning(t, stderr, "devspace project untrack")
 }
 
 func TestEnvRecipientChangesEmitAccessRoleAdvisoryWarnings(t *testing.T) {

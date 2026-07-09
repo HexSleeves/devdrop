@@ -57,7 +57,7 @@ func TestScanCommandPrintsPlainProgressLineWhenPiped(t *testing.T) {
 	}
 }
 
-func TestHydrateCommandPrintsPlainProgressLineWhenPiped(t *testing.T) {
+func TestProjectUpdateCommandHydratesWhenPiped(t *testing.T) {
 	workspace := initCommandWorkspace(t)
 	remote := hardeningBareRepo(t)
 	if err := SaveManifest(workspace, Manifest{
@@ -67,12 +67,12 @@ func TestHydrateCommandPrintsPlainProgressLineWhenPiped(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	stdout, _, err := executeCommand(t, "test", "project", "hydrate", "lazy")
+	stdout, _, err := executeCommand(t, "test", "project", "update", "lazy")
 	if err != nil {
-		t.Fatalf("hydrate error: %v", err)
+		t.Fatalf("project update error: %v", err)
 	}
-	if !strings.Contains(stdout, "Hydrating lazy...") {
-		t.Fatalf("expected plain progress line for non-terminal output, got %q", stdout)
+	if !strings.Contains(stdout, "hydrate lazy: updated") {
+		t.Fatalf("expected hydrate result for project update, got %q", stdout)
 	}
 }
 

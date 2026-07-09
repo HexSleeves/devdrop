@@ -495,7 +495,7 @@ func TestRemoveProjectRescanBehavior(t *testing.T) {
 	}
 }
 
-func TestProjectRemoveCommandOutputRetainsSecrets(t *testing.T) {
+func TestProjectUntrackCommandOutputRetainsSecrets(t *testing.T) {
 	home := t.TempDir()
 	workspace := filepath.Join(t.TempDir(), "code")
 	t.Setenv(envHome, home)
@@ -519,12 +519,12 @@ func TestProjectRemoveCommandOutputRetainsSecrets(t *testing.T) {
 	var errOut bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&errOut)
-	cmd.SetArgs([]string{"project", "remove", "app"})
+	cmd.SetArgs([]string{"project", "untrack", "app"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("command failed: %v\n%s", err, errOut.String())
 	}
 	got := out.String()
-	wantRemoved := "Removed project app (work/app) from the manifest. Files on disk were not touched.\n"
+	wantRemoved := "Untracked project app (work/app) from the manifest. Files on disk were not touched.\n"
 	if !strings.Contains(got, wantRemoved) {
 		t.Fatalf("missing removal output %q in:\n%s", wantRemoved, got)
 	}

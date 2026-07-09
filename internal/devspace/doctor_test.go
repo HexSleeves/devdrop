@@ -57,6 +57,7 @@ func TestDoctorReportsProjectStatesWithoutMutatingWorkspaceFiles(t *testing.T) {
 		"[OK] Config:",
 		"[OK] Manifest:",
 		"[WARN] Manifest remote: not configured",
+		"`devspace sync remote set <url-or-path>`",
 		"[OK] Last plan: saved plan hash matches current manifest",
 		"[WARN] Projects: 4 tracked; hydrated: 2, placeholders: 1, missing: 1, dirty: 1, missing .env: 3",
 		"Project placeholder: placeholder, missing .env",
@@ -78,6 +79,18 @@ func TestDoctorReportsProjectStatesWithoutMutatingWorkspaceFiles(t *testing.T) {
 	}
 	if !bytes.Equal(beforeManifest, afterManifest) || !bytes.Equal(beforePlan, afterPlan) {
 		t.Fatal("doctor mutated manifest or last plan")
+	}
+}
+
+func TestDoctorMissingManifestGuidanceUsesSyncPull(t *testing.T) {
+	workspace := hardeningInitWorkspace(t, "code")
+	if err := os.Remove(manifestPath(workspace)); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	_ = RunDoctor(&out)
+	if !strings.Contains(out.String(), "`devspace sync pull`") || strings.Contains(out.String(), "devspace workspace") {
+		t.Fatalf("doctor guidance = %q", out.String())
 	}
 }
 

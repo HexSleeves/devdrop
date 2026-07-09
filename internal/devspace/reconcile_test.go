@@ -410,7 +410,7 @@ func TestWorkspaceReconcileConflictBlocksApply(t *testing.T) {
 func TestWorkspaceReconcileForceProjectFlagsResolveMultipleConflicts(t *testing.T) {
 	workspace, projects := setupWorkspaceReconcileProjectConflicts(t)
 
-	if _, _, err := executePrivateCommand(t, newWorkspaceCommand(),
+	if _, _, err := executePrivateCommand(t, newSyncCommand(),
 		"reconcile", "--apply",
 		"--force-project", projects[0].ID+"=remote",
 		"--force-project", projects[1].ID+"=local",
@@ -525,7 +525,7 @@ func TestHostedReconcileForceProjectFlagsResolveMultipleConflicts(t *testing.T) 
 func TestWorkspaceReconcileForceProjectOverridesGlobalForce(t *testing.T) {
 	workspace, projects := setupWorkspaceReconcileProjectConflicts(t)
 
-	if _, _, err := executePrivateCommand(t, newWorkspaceCommand(),
+	if _, _, err := executePrivateCommand(t, newSyncCommand(),
 		"reconcile", "--apply", "--force-local",
 		"--force-project", projects[0].ID+"=remote",
 	); err != nil {
@@ -907,7 +907,7 @@ func TestWorkspaceReconcileJSONOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	stdout, _, err := executePrivateCommand(t, newWorkspaceCommand(), "reconcile", "--json")
+	stdout, _, err := executePrivateCommand(t, newSyncCommand(), "reconcile", "--json")
 	if err != nil {
 		t.Fatalf("reconcile --json error: %v", err)
 	}
@@ -944,7 +944,7 @@ func TestWorkspaceReconcileJSONOutput(t *testing.T) {
 		}
 	}
 
-	stdout, _, err = executePrivateCommand(t, newWorkspaceCommand(), "reconcile", "--json", "--force-project", project.ID+"=remote")
+	stdout, _, err = executePrivateCommand(t, newSyncCommand(), "reconcile", "--json", "--force-project", project.ID+"=remote")
 	if err != nil {
 		t.Fatalf("reconcile --json --force-project error: %v", err)
 	}
@@ -1006,7 +1006,7 @@ func TestReconcileForceProjectFlagRejectsDuplicateProject(t *testing.T) {
 func executeReconcileValidationCommand(t *testing.T, args ...string) error {
 	t.Helper()
 	if args[0] == "workspace" {
-		_, _, err := executePrivateCommand(t, newWorkspaceCommand(), args[1:]...)
+		_, _, err := executePrivateCommand(t, newSyncCommand(), args[1:]...)
 		return err
 	}
 	_, _, err := executeCommand(t, "test", args...)

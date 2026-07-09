@@ -400,6 +400,24 @@ func TestProjectUpdateHydratesMissingGitProject(t *testing.T) {
 	}
 }
 
+func TestProjectUpdateHydratesEmptyGitProject(t *testing.T) {
+	workspace := hardeningInitWorkspace(t, "code")
+	remote := hardeningBareRepo(t)
+	if err := os.MkdirAll(filepath.Join(workspace, "apps", "app"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	project := hardeningProject("apps/app", ProjectTypeGit, remote)
+	if err := SaveManifest(workspace, Manifest{Version: ManifestVersion, WorkspaceRoot: workspace, Projects: []Project{project}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := updateProject(workspace, project); got.Action != "hydrate" || got.Status != "updated" {
+		t.Fatalf("result = %+v, want hydrated update", got)
+	}
+	if !exists(filepath.Join(workspace, "apps", "app", ".git")) {
+		t.Fatal("empty project directory was not hydrated")
+	}
+}
+
 func TestProjectUpdatePullsCleanHydratedRepo(t *testing.T) {
 	workspace := hardeningInitWorkspace(t, "code")
 	remote := hardeningBareRepo(t)
@@ -454,6 +472,39 @@ func TestProjectUpdateSkipsDirtyRepo(t *testing.T) {
 	}
 	if !exists(filepath.Join(local, "dirty.txt")) {
 		t.Fatal("dirty file was changed")
+	}
+}
+
+func TestProjectUpdateSafetySkips(t *testing.T) {
+	workspace := hardeningInitWorkspace(t, "code")
+	remote := hardeningBareRepo(t)
+
+	nonGit := hardeningProject("apps/non-git", ProjectTypeGit, remote)
+	hardeningWriteFile(t, filepath.Join(workspace, nonGit.Path, "README.md"), "local\n", 0o644)
+	checkoutWithoutRemote := hardeningProject("apps/no-checkout-remote", ProjectTypeGit, remote)
+	hardeningGitRepo(t, filepath.Join(workspace, checkoutWithoutRemote.Path))
+	detached := hardeningProject("apps/detached", ProjectTypeGit, remote)
+	hardeningRun(t, workspace, "git", "clone", remote, filepath.Join(workspace, detached.Path))
+	hardeningRun(t, filepath.Join(workspace, detached.Path), "git", "checkout", "--detach")
+
+	tests := []struct {
+		name    string
+		project Project
+		reason  string
+	}{
+		{name: "local-only", project: hardeningProject("apps/local", ProjectTypeLocal, ""), reason: "not a Git project"},
+		{name: "missing manifest remote", project: hardeningProject("apps/no-remote", ProjectTypeGit, ""), reason: "project has no Git remote"},
+		{name: "non-Git destination", project: nonGit, reason: "non-empty and is not a Git checkout"},
+		{name: "checkout without remote", project: checkoutWithoutRemote, reason: "checkout has no Git remote"},
+		{name: "detached HEAD", project: detached, reason: "detached HEAD"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := updateProject(workspace, tc.project)
+			if got.Action != "skip" || got.Status != "skipped" || !strings.Contains(got.Reason, tc.reason) {
+				t.Fatalf("result = %+v, want skipped reason %q", got, tc.reason)
+			}
+		})
 	}
 }
 

@@ -42,6 +42,17 @@ func TestHostedConfigSetGetStoresEndpointTokenAndWorkspace(t *testing.T) {
 	}
 }
 
+func TestHostedSyncGuidanceUsesCanonicalGitSync(t *testing.T) {
+	hardeningInitWorkspace(t, "code")
+	_, err := GetHostedSync()
+	if err == nil || !strings.Contains(err.Error(), "Git-backed `devspace sync push/pull`") {
+		t.Fatalf("missing hosted config error = %v", err)
+	}
+	if strings.Contains(err.Error(), "devspace workspace") {
+		t.Fatalf("hosted guidance still references removed workspace command: %v", err)
+	}
+}
+
 func TestHostedServerRateLimiterMapIsBounded(t *testing.T) {
 	handler, err := NewHostedSyncServer(HostedSyncServerOptions{StoreDir: t.TempDir(), Token: "test-token", MaxLimiters: 8})
 	if err != nil {

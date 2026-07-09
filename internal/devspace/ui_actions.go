@@ -117,7 +117,7 @@ func dashboardRemoveCmd(ref string) tea.Cmd {
 		var project Project
 		var warnings []string
 		err := runLocked(func() error {
-			warnings = accessRoleAdvisoryWarnings("devspace project remove", ref, AccessRoleOwner, AccessRoleMaintainer)
+			warnings = accessRoleAdvisoryWarnings("devspace project untrack", ref, AccessRoleOwner, AccessRoleMaintainer)
 			var removeErr error
 			project, removeErr = RemoveProject(ref)
 			return removeErr

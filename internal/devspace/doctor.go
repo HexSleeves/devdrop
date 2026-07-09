@@ -132,7 +132,7 @@ func checkManifest(report *doctorReport, cfg Config, workspaceReady bool) (Manif
 	}
 	path := manifestPath(cfg.WorkspaceRoot)
 	if !exists(path) {
-		report.add(doctorFail, "Manifest", fmt.Sprintf("missing %s; run `devspace init` or `devspace workspace pull`", path), true)
+		report.add(doctorFail, "Manifest", fmt.Sprintf("missing %s; run `devspace init` or `devspace sync pull`", path), true)
 		return Manifest{}, false
 	}
 	m, err := LoadManifest(cfg.WorkspaceRoot)
@@ -151,7 +151,7 @@ func checkManifest(report *doctorReport, cfg Config, workspaceReady bool) (Manif
 
 func checkManifestRemote(report *doctorReport, cfg Config, gitAvailable bool) {
 	if strings.TrimSpace(cfg.ManifestRemote) == "" {
-		report.add(doctorWarn, "Manifest remote", "not configured; workspace push/pull are unavailable until `devspace workspace remote set <url-or-path>`", false)
+		report.add(doctorWarn, "Manifest remote", "not configured; sync push/pull are unavailable until `devspace sync remote set <url-or-path>`", false)
 		return
 	}
 	report.add(doctorOK, "Manifest remote", redactRemote(cfg.ManifestRemote), false)
@@ -169,7 +169,7 @@ func checkManifestRemote(report *doctorReport, cfg Config, gitAvailable bool) {
 		return
 	}
 	if !exists(repo) {
-		report.add(doctorWarn, "Manifest repo", fmt.Sprintf("%s does not exist yet; workspace push/pull will clone or initialize it", repo), false)
+		report.add(doctorWarn, "Manifest repo", fmt.Sprintf("%s does not exist yet; sync push/pull will clone or initialize it", repo), false)
 		return
 	}
 	info := gitInfo(repo)

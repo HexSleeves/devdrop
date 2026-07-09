@@ -120,7 +120,7 @@ func GetHostedSync() (Config, error) {
 		return Config{}, err
 	}
 	if strings.TrimSpace(cfg.HostedSyncEndpoint) == "" {
-		return Config{}, fmt.Errorf("no hosted sync endpoint configured; run `devspace hosted config set <endpoint> --token <token>` or use Git-backed `devspace workspace push/pull`")
+		return Config{}, fmt.Errorf("no hosted sync endpoint configured; run `devspace hosted config set <endpoint> --token <token>` or use Git-backed `devspace sync push/pull`")
 	}
 	if err := validateHostedEndpoint(cfg.HostedSyncEndpoint); err != nil {
 		return Config{}, fmt.Errorf("configured hosted sync endpoint is invalid: %w; re-run `devspace hosted config set`", err)
@@ -210,7 +210,7 @@ func PullHostedManifest() (HostedSyncResult, error) {
 		return HostedSyncResult{}, err
 	}
 	if !hasRemote {
-		return HostedSyncResult{}, fmt.Errorf("hosted manifest not found for workspace %q; push one first or use Git-backed `devspace workspace pull`", cfg.HostedSyncWorkspace)
+		return HostedSyncResult{}, fmt.Errorf("hosted manifest not found for workspace %q; push one first or use Git-backed `devspace sync pull`", cfg.HostedSyncWorkspace)
 	}
 	localized := localizeSyncedManifest(remote.Manifest, cfg)
 	if err := validateHostedManifest(localized); err != nil {

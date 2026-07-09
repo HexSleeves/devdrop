@@ -275,7 +275,7 @@ func ReconcileWorkspaceManifest(force string, apply bool, forceProjects ...map[s
 		return ReconcilePlan{}, err
 	}
 	if currentHash != plan.ManifestHash {
-		return ReconcilePlan{}, fmt.Errorf("manifest changed since reconcile was generated; run `devspace workspace reconcile` again before apply")
+		return ReconcilePlan{}, fmt.Errorf("manifest changed since reconcile was generated; run `devspace sync reconcile` again before apply")
 	}
 	backup, err := manifestBackupPath()
 	if err != nil {

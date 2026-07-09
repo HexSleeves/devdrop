@@ -21,10 +21,8 @@ import (
 // Retain private command and rendering paths while later Spec 13 tasks migrate
 // their behavior to canonical commands. They are intentionally unregistered.
 var (
-	_ = newWorkspaceCommand
 	_ = newMountCommand
 	_ = newTUICommand
-	_ = printProjectList
 )
 
 func NewRootCommand(version string) *cobra.Command {
@@ -64,18 +62,6 @@ func addCommandGroup(root *cobra.Command, groupID string, commands ...*cobra.Com
 		cmd.GroupID = groupID
 	}
 	root.AddCommand(commands...)
-}
-
-func newSyncCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "sync",
-		Short:   "Synchronize workspace manifest metadata",
-		Long:    "Synchronize workspace manifest metadata through the configured Git remote. Source code, .env files, and secrets are never transferred.",
-		Example: "  devspace sync --help",
-		Args:    cobra.NoArgs,
-	}
-	cmd.RunE = func(cmd *cobra.Command, args []string) error { return cmd.Help() }
-	return cmd
 }
 
 func newExperimentalCommand() *cobra.Command {
@@ -415,34 +401,24 @@ func isLoopbackBindHost(host string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
-func newWorkspaceCommand() *cobra.Command {
-	var jsonOut bool
+func newSyncCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "workspace",
-		Short: "Manage workspace",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			overview, err := buildWorkspaceOverview()
-			if err != nil {
-				return err
-			}
-			if jsonOut {
-				return writePrettyJSON(cmd.OutOrStdout(), overview)
-			}
-			printWorkspaceOverview(cmd.OutOrStdout(), overview)
-			return nil
-		},
+		Use:     "sync",
+		Short:   "Synchronize workspace manifest metadata",
+		Long:    "Synchronize workspace manifest metadata through the configured Git remote. Source code, .env files, and secrets are never transferred.",
+		Example: "  devspace sync --help\n  devspace sync remote create local ~/Projects/devspace-manifest.git\n  devspace sync push\n  devspace sync pull",
+		Args:    cobra.NoArgs,
 	}
-	cmd.Flags().BoolVar(&jsonOut, "json", false, "print machine-readable workspace overview")
-	cmd.AddCommand(newScanCommand())
-	cmd.AddCommand(newWorkspaceRemoteCommand())
-	cmd.AddCommand(newWorkspaceReconcileCommand())
+	cmd.RunE = func(cmd *cobra.Command, args []string) error { return cmd.Help() }
+	cmd.AddCommand(newSyncRemoteCommand())
+	cmd.AddCommand(newSyncReconcileCommand())
 	cmd.AddCommand(&cobra.Command{
 		Use:   "push",
 		Short: "Push workspace manifest to the configured Git remote",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withAppLock(func() error {
-				warnings := accessRoleAdvisoryWarnings("devspace workspace push", "", AccessRoleOwner, AccessRoleMaintainer)
+				warnings := accessRoleAdvisoryWarnings("devspace sync push", "", AccessRoleOwner, AccessRoleMaintainer)
 				printAccessRoleAdvisories(cmd.ErrOrStderr(), warnings)
 				changed, err := PushWorkspaceManifest()
 				if err != nil {
@@ -460,6 +436,7 @@ func newWorkspaceCommand() *cobra.Command {
 	cmd.AddCommand(&cobra.Command{
 		Use:   "pull",
 		Short: "Pull workspace manifest from the configured Git remote",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withAppLock(func() error {
 				_, err := PullWorkspaceManifest()
@@ -468,6 +445,7 @@ func newWorkspaceCommand() *cobra.Command {
 				}
 				printOK(cmd.OutOrStdout(), "Pulled workspace manifest.")
 				printLine(cmd.OutOrStdout(), "Next: devspace plan && devspace apply")
+				printLine(cmd.OutOrStdout(), "Then: devspace project update --all")
 				return nil
 			})
 		},
@@ -494,7 +472,7 @@ func newWorkspaceCommand() *cobra.Command {
 	return cmd
 }
 
-func newWorkspaceReconcileCommand() *cobra.Command {
+func newSyncReconcileCommand() *cobra.Command {
 	var jsonOut bool
 	var apply bool
 	var forceLocal bool
@@ -570,7 +548,7 @@ func parseForceProjectFlags(values []string) (map[string]string, error) {
 	return forces, nil
 }
 
-func newWorkspaceRemoteCommand() *cobra.Command {
+func newSyncRemoteCommand() *cobra.Command {
 	cmd := &cobra.Command{Use: "remote", Short: "Manage workspace manifest remote"}
 	var commitEmail, commitName string
 	setCmd := &cobra.Command{
@@ -778,13 +756,34 @@ func newMountCommand() *cobra.Command {
 
 func newProjectCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "project",
-		Short: "Manage projects",
-		Args:  cobra.NoArgs,
+		Use:     "project",
+		Short:   "Manage tracked projects",
+		Long:    "List, track, untrack, restore, or safely fast-forward projects recorded in the workspace manifest.",
+		Example: "  devspace project list\n  devspace project track apps/api\n  devspace project update --all",
+		Args:    cobra.NoArgs,
 	}
 	cmd.RunE = func(cmd *cobra.Command, args []string) error { return cmd.Help() }
+	var listJSON bool
+	listCmd := &cobra.Command{
+		Use:   "list",
+		Short: "List tracked projects",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			rows, err := buildProjectListRows()
+			if err != nil {
+				return err
+			}
+			if listJSON {
+				return writePrettyJSON(cmd.OutOrStdout(), rows)
+			}
+			printProjectList(cmd.OutOrStdout(), rows)
+			return nil
+		},
+	}
+	listCmd.Flags().BoolVar(&listJSON, "json", false, "print machine-readable project list")
+	cmd.AddCommand(listCmd)
 	cmd.AddCommand(&cobra.Command{
-		Use:   "add <relative-path>",
+		Use:   "track <relative-path>",
 		Short: "Track a project path",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -793,30 +792,7 @@ func newProjectCommand() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				printOK(cmd.OutOrStdout(), "Added project %s at %s", p.Name, p.Path)
-				return nil
-			})
-		},
-	})
-	cmd.AddCommand(&cobra.Command{
-		Use:   "hydrate <project>",
-		Short: "Clone a placeholder Git project",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return withAppLock(func() error {
-				var p Project
-				err := runWithSpinner(cmd.OutOrStdout(), fmt.Sprintf("Hydrating %s", args[0]), func() error {
-					var hydrateErr error
-					p, hydrateErr = HydrateProject(args[0])
-					return hydrateErr
-				})
-				if err != nil {
-					return err
-				}
-				printOK(cmd.OutOrStdout(), "Hydrated %s", p.Name)
-				if p.Setup.InstallCommand != "" {
-					printLine(cmd.OutOrStdout(), "Suggested setup: %s", p.Setup.InstallCommand)
-				}
+				printOK(cmd.OutOrStdout(), "Tracked project %s at %s", p.Name, p.Path)
 				return nil
 			})
 		},
@@ -849,18 +825,18 @@ func newProjectCommand() *cobra.Command {
 	updateCmd.Flags().BoolVar(&updateAll, "all", false, "update all tracked Git projects")
 	cmd.AddCommand(updateCmd)
 	cmd.AddCommand(&cobra.Command{
-		Use:   "remove <project>",
+		Use:   "untrack <project>",
 		Short: "Untrack a project (files on disk are not touched)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withAppLock(func() error {
-				warnings := accessRoleAdvisoryWarnings("devspace project remove", args[0], AccessRoleOwner, AccessRoleMaintainer)
+				warnings := accessRoleAdvisoryWarnings("devspace project untrack", args[0], AccessRoleOwner, AccessRoleMaintainer)
 				printAccessRoleAdvisories(cmd.ErrOrStderr(), warnings)
 				p, err := RemoveProject(args[0])
 				if err != nil {
 					return err
 				}
-				printOK(cmd.OutOrStdout(), "Removed project %s (%s) from the manifest. Files on disk were not touched.", p.Name, p.Path)
+				printOK(cmd.OutOrStdout(), "Untracked project %s (%s) from the manifest. Files on disk were not touched.", p.Name, p.Path)
 				cfg, err := LoadConfig()
 				if err != nil {
 					return err

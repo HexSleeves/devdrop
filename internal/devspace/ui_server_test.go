@@ -235,8 +235,8 @@ func TestUIServerRemoveReturnsAccessAdvisoryWarnings(t *testing.T) {
 	if !ok || len(warnings) == 0 {
 		t.Fatalf("warnings = %+v, want advisory warning", result["warnings"])
 	}
-	if got := warnings[0].(string); !strings.Contains(got, "devspace project remove") {
-		t.Fatalf("warning = %q, want project remove advisory", got)
+	if got := warnings[0].(string); !strings.Contains(got, "devspace project untrack") {
+		t.Fatalf("warning = %q, want project untrack advisory", got)
 	}
 }
 

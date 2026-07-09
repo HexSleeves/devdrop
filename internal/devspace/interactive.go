@@ -175,7 +175,7 @@ func runWithSpinner(out io.Writer, label string, work func() error) error {
 // into a graceful InterruptMsg (program.Run returning ErrInterrupted)
 // instead of letting the OS terminate the process outright, which is what
 // happened before this interactive layer existed. Callers of runWithSpinner
-// (project hydrate, scan) run inside withAppLock, whose cross-process file
+// (project update, scan) run inside withAppLock, whose cross-process file
 // lock must stay held for the entire mutating operation; work has no
 // cancellation path of its own (HydrateProject/ScanWorkspace run to
 // completion once started), so returning as soon as the TUI quits would

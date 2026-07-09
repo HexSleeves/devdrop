@@ -73,11 +73,53 @@ func TestManifestRemoteNotReadyErrorGivesCreateCommands(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "manifest remote is not ready") {
 		t.Fatalf("remote not ready error = %v", err)
 	}
-	if !strings.Contains(err.Error(), "devspace workspace remote create github your-org/devspace-manifest --private") {
+	if !strings.Contains(err.Error(), "devspace sync remote create github your-org/devspace-manifest --private") {
 		t.Fatalf("missing github recovery command:\n%v", err)
 	}
-	if !strings.Contains(err.Error(), "devspace workspace remote create local ~/Projects/devspace-manifest.git") {
+	if !strings.Contains(err.Error(), "devspace sync remote create local ~/Projects/devspace-manifest.git") {
 		t.Fatalf("missing local recovery command:\n%v", err)
+	}
+	if strings.Contains(err.Error(), "devspace workspace") {
+		t.Fatalf("remote recovery still references removed workspace command:\n%v", err)
+	}
+}
+
+func TestSyncGuidanceUsesCanonicalCommands(t *testing.T) {
+	hardeningInitWorkspace(t, "code")
+	if _, err := GetManifestRemote(); err == nil || !strings.Contains(err.Error(), "devspace sync remote set <url-or-path>") {
+		t.Fatalf("missing remote error = %v", err)
+	}
+	t.Setenv("PATH", t.TempDir())
+	if _, err := CreateGitHubManifestRemote("owner/repo", true); err == nil || !strings.Contains(err.Error(), "devspace sync remote set git@github.com:owner/repo.git") {
+		t.Fatalf("github fallback error = %v", err)
+	}
+}
+
+func TestSyncDivergenceGuidanceUsesCanonicalPull(t *testing.T) {
+	remote := workspaceSyncBareRepo(t)
+	upstream := filepath.Join(t.TempDir(), "upstream")
+	hardeningRun(t, filepath.Dir(upstream), "git", "clone", remote, upstream)
+	hardeningRun(t, upstream, "git", "config", "user.email", "test@example.com")
+	hardeningRun(t, upstream, "git", "config", "user.name", "Test User")
+	hardeningWriteFile(t, filepath.Join(upstream, syncedManifestName), "{}\n", 0o644)
+	workspaceSyncCommitAndPush(t, upstream, "initial")
+
+	local := filepath.Join(t.TempDir(), "local")
+	hardeningRun(t, filepath.Dir(local), "git", "clone", remote, local)
+	hardeningRun(t, local, "git", "config", "user.email", "test@example.com")
+	hardeningRun(t, local, "git", "config", "user.name", "Test User")
+	hardeningWriteFile(t, filepath.Join(upstream, syncedManifestName), "{\"remote\":1}\n", 0o644)
+	workspaceSyncCommitAndPush(t, upstream, "remote update")
+	hardeningRun(t, local, "git", "fetch", "origin")
+	if err := ensureManifestRepoNotBehind(local); err == nil || err.Error() != "remote manifest is newer; run `devspace sync pull` before pushing" {
+		t.Fatalf("behind error = %v", err)
+	}
+
+	hardeningWriteFile(t, filepath.Join(local, "local.txt"), "local\n", 0o644)
+	hardeningRun(t, local, "git", "add", "local.txt")
+	hardeningRun(t, local, "git", "commit", "-m", "local update")
+	if err := ensureManifestRepoNotBehind(local); err == nil || err.Error() != "remote branch diverged; run `devspace sync pull` and reconcile before pushing" {
+		t.Fatalf("diverged error = %v", err)
 	}
 }
 
@@ -648,7 +690,7 @@ func TestWorkspaceDiffReportsRemoteChangesWithoutReplacingLocalManifest(t *testi
 		t.Fatal(err)
 	}
 
-	cmd := newWorkspaceCommand()
+	cmd := newSyncCommand()
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetArgs([]string{"diff"})

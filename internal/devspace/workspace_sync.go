@@ -64,7 +64,7 @@ func GetManifestRemote() (Config, error) {
 		return Config{}, err
 	}
 	if cfg.ManifestRemote == "" {
-		return Config{}, fmt.Errorf("no manifest remote configured; run `devspace workspace remote set <url-or-path>`")
+		return Config{}, fmt.Errorf("no manifest remote configured; run `devspace sync remote set <url-or-path>`")
 	}
 	return cfg, nil
 }
@@ -109,7 +109,7 @@ func CreateGitHubManifestRemote(repo string, private bool) (Config, error) {
 		return Config{}, fmt.Errorf("GitHub repository must be owner/name, got %q", repo)
 	}
 	if _, err := exec.LookPath("gh"); err != nil {
-		return Config{}, fmt.Errorf("GitHub remote creation requires GitHub CLI (`gh`); install it or create the repo manually, then run `devspace workspace remote set git@github.com:%s.git`", repo)
+		return Config{}, fmt.Errorf("GitHub remote creation requires GitHub CLI (`gh`); install it or create the repo manually, then run `devspace sync remote set git@github.com:%s.git`", repo)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -192,7 +192,7 @@ func PullWorkspaceManifest() (bool, error) {
 	}
 	// The clone's pre-pull contents are only a proxy for the last synced
 	// state and go stale whenever something else advances the cache (e.g.
-	// `workspace diff` fast-forwards the same clone). Prefer the base
+	// `sync diff` fast-forwards the same clone). Prefer the base
 	// snapshot recorded on successful sync boundaries when one exists.
 	base, hasBase, err := loadBaseManifest()
 	if err != nil {
@@ -427,9 +427,9 @@ func ensureManifestRepoNotBehind(repo string) error {
 	}
 	if behind > 0 {
 		if ahead > 0 {
-			return fmt.Errorf("remote branch diverged; run `devspace workspace pull` and reconcile before pushing")
+			return fmt.Errorf("remote branch diverged; run `devspace sync pull` and reconcile before pushing")
 		}
-		return fmt.Errorf("remote manifest is newer; run `devspace workspace pull` before pushing")
+		return fmt.Errorf("remote manifest is newer; run `devspace sync pull` before pushing")
 	}
 	return nil
 }
@@ -630,7 +630,7 @@ func manifestRemoteNotReadyError(remote string, err error) error {
 		!strings.Contains(msg, "not found") {
 		return fmt.Errorf("%s", msg)
 	}
-	return fmt.Errorf("manifest remote is not ready: %s\n\nCreate it first, then rerun sync:\n  devspace workspace remote create github %s --private\n  devspace workspace push\n\nOr use a local bare repo:\n  devspace workspace remote create local ~/Projects/devspace-manifest.git\n  devspace workspace push\n\nOriginal error:\n%s", redactRemote(remote), githubRepoSlug(remote), msg)
+	return fmt.Errorf("manifest remote is not ready: %s\n\nCreate it first, then rerun sync:\n  devspace sync remote create github %s --private\n  devspace sync push\n\nOr use a local bare repo:\n  devspace sync remote create local ~/Projects/devspace-manifest.git\n  devspace sync push\n\nOriginal error:\n%s", redactRemote(remote), githubRepoSlug(remote), msg)
 }
 
 // redactRemote strips credentials from the userinfo component of a remote URL

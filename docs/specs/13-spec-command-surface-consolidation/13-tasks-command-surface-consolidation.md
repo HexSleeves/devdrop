@@ -106,26 +106,26 @@
 - [x] 1.6 Update output guidance and tests that direct users to implicit project listing or removed root paths; keep JSON output byte-clean.
 - [x] 1.7 Run the Task 1 targeted tests, capture sanitized root/status help and JSON output, and write `13-proofs/13-task-01-proofs.md`.
 
-### [ ] 2.0 Replace workspace/project overlap with canonical sync and project workflows
+### [~] 2.0 Replace workspace/project overlap with canonical sync and project workflows
 
 #### 2.0 Proof Artifact(s)
 
 - CLI: an isolated two-machine workflow using `sync remote create local`, `sync push`, `sync pull`, `plan`, `apply`, and `project update --all` recreates and hydrates workspace structure without using a removed command.
 - CLI: `devspace project list`, `track`, `untrack`, and `update` demonstrate explicit manifest membership and repository-update behavior; untrack output confirms files remain untouched.
 - Test: `go test ./internal/devspace -run 'TestSyncCommand|TestProject(Command|Update|Untrack|Track)' -count=1` passes and demonstrates validation, backups, divergence protection, reconciliation, dirty-repo skips, non-destructive untracking, and stable JSON output.
-- Evidence file: `docs/specs/13-spec-command-surface-consolidation/13-proofs/13-task-02-sync-project-workflow.txt` records the reproducible sanitized workflow.
+- Evidence file: `docs/specs/13-spec-command-surface-consolidation/13-proofs/13-task-02-proofs.md` records the reproducible sanitized workflow.
 
 #### 2.0 Tasks
 
-- [ ] 2.1 Add failing `sync` command tests for push, pull, diff, reconcile, remote set/get/create, inherited flags, JSON output, and absence of all `workspace ...` paths including `workspace scan`.
-- [ ] 2.2 Extract reusable command handlers only where needed, then wire `newSyncCommand` to the existing Git-backed domain functions, `withAppLock`, output helpers, force flags, and access advisories.
-- [ ] 2.3 Update Git/hosted sync, reconcile, and doctor remediation messages from `workspace ...` to `sync ...`; update exact-string tests for missing remotes, divergence, and retry guidance.
-- [ ] 2.4 Run focused sync/reconcile/access-role tests to prove metadata-only transport, validation, localization, backups, hash guards, force behavior, and advisory labels are unchanged.
-- [ ] 2.5 Add failing project command tests for explicit `list`, `track`, `untrack`, `update <project>`, `update --all`, group help, JSON list output, and rejection of `add`, `remove`, `hydrate`, and `project status`.
-- [ ] 2.6 Rewire project commands to the existing list/add/remove/update domain behavior under canonical names; make bare `project` show help and keep untrack files/secrets messaging intact.
-- [ ] 2.7 Update project guidance and TUI/ui-server access-advisory labels to `project track`, `project untrack`, and `project update` without changing TUI remove-action behavior.
-- [ ] 2.8 Run project domain/command tests covering missing/empty hydration, clean fast-forward, dirty/detached/local-only/no-remote/non-Git skips, non-destructive untrack, and JSON stability.
-- [ ] 2.9 Execute the isolated two-machine sync/project workflow and write `13-proofs/13-task-02-sync-project-workflow.txt` with sanitized paths/remotes.
+- [x] 2.1 Add failing `sync` command tests for push, pull, diff, reconcile, remote set/get/create, inherited flags, JSON output, and absence of all `workspace ...` paths including `workspace scan`.
+- [x] 2.2 Extract reusable command handlers only where needed, then wire `newSyncCommand` to the existing Git-backed domain functions, `withAppLock`, output helpers, force flags, and access advisories.
+- [x] 2.3 Update Git/hosted sync, reconcile, and doctor remediation messages from `workspace ...` to `sync ...`; update exact-string tests for missing remotes, divergence, and retry guidance.
+- [x] 2.4 Run focused sync/reconcile/access-role tests to prove metadata-only transport, validation, localization, backups, hash guards, force behavior, and advisory labels are unchanged.
+- [x] 2.5 Add failing project command tests for explicit `list`, `track`, `untrack`, `update <project>`, `update --all`, group help, JSON list output, and rejection of `add`, `remove`, `hydrate`, and `project status`.
+- [x] 2.6 Rewire project commands to the existing list/add/remove/update domain behavior under canonical names; make bare `project` show help and keep untrack files/secrets messaging intact.
+- [x] 2.7 Update project guidance and TUI/ui-server access-advisory labels to `project track`, `project untrack`, and `project update` without changing TUI remove-action behavior.
+- [x] 2.8 Run project domain/command tests covering missing/empty hydration, clean fast-forward, dirty/detached/local-only/no-remote/non-Git skips, non-destructive untrack, and JSON stability.
+- [x] 2.9 Execute the isolated two-machine sync/project workflow and write `13-proofs/13-task-02-proofs.md` with sanitized paths/remotes.
 
 ### [ ] 3.0 Consolidate env/setup verbs and move server/mount prototypes under experimental
 

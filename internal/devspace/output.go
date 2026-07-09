@@ -246,7 +246,7 @@ type WorkspaceStatusReport struct {
 	LastScanAt      string `json:"lastScanAt,omitempty"`
 }
 
-// ProjectListRow is the machine-readable row shape for `devspace project --json`.
+// ProjectListRow is the machine-readable row shape for `devspace project list --json`.
 type ProjectListRow struct {
 	Project Project      `json:"project"`
 	State   ProjectState `json:"state"`
