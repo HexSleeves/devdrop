@@ -55,7 +55,7 @@ GOCACHE=$(mktemp -d) go test ./internal/devspace -run 'TestUIServer.*Remove|Test
 
 ```text
 PASS
-ok  	github.com/liatrio-forge/forge-capstone-devspace/internal/devspace	0.963s
+ok  	github.com/liatrio-forge/devdrop-capstone/internal/devspace	0.963s
 ```
 
 **Command:**
@@ -83,7 +83,7 @@ GOCACHE=$(mktemp -d) make verify
 
 ```text
 go test ./...
-ok  	github.com/liatrio-forge/forge-capstone-devspace/internal/devspace	34.347s
+ok  	github.com/liatrio-forge/devdrop-capstone/internal/devspace	34.347s
 go vet ./...
 test -z "$(gofmt -l cmd internal)" || (gofmt -l cmd internal && exit 1)
 go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2 run ./...

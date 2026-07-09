@@ -116,8 +116,8 @@ These are covered by tests in `internal/devspace/hardening_test.go`,
 - Case study reviewed by: wave-5 remote-agent review loop with CodeRabbit and
   CI on the shipped PRs above.
 - Final test command output: `go test ./...` passed in this worktree:
-  `? github.com/liatrio-forge/forge-capstone-devspace/cmd/devspace [no test files]`
-  and `ok github.com/liatrio-forge/forge-capstone-devspace/internal/devspace`. The
+  `? github.com/liatrio-forge/devdrop-capstone/cmd/devspace [no test files]`
+  and `ok github.com/liatrio-forge/devdrop-capstone/internal/devspace`. The
   full `go test ./...` suite passes.
 - Known limitation accepted: hosted sync, daemon/watch, FUSE lazy mounting,
   managed team identity, and explicit dependency install remain frontier

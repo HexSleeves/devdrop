@@ -59,7 +59,7 @@ go test ./internal/devspace -race -run 'TestUIServerWatchClosedEmitsEvent|TestUI
 --- PASS: TestDashboardWatchErrorStopsAfterMaxAttempts (0.00s)
 --- PASS: TestDashboardWatchSuccessResetsErrorCount (0.00s)
 --- PASS: TestDashboardWatcherEmitsRefreshOnFileChange (0.43s)
-ok  	github.com/liatrio-forge/forge-capstone-devspace/internal/devspace	1.747s
+ok  	github.com/liatrio-forge/devdrop-capstone/internal/devspace	1.747s
 ~~~
 
 ## Artifact: TUI client/reducer/text suite

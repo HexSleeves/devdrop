@@ -64,8 +64,8 @@ the build script — sees all four TUI assets.
 
 **Deviation note:** `docker info` reported success but the default
 `/var/run/docker.sock` path was absent because the local Docker CLI targets
-an OrbStack context at a non-standard socket path. Setting
-`DOCKER_HOST=unix:///Users/lecoqjacob/.orbstack/run/docker.sock` (an
+a Docker context at a non-standard socket path. Setting
+`DOCKER_HOST=unix://<docker-socket>` (an
 environment variable pointing at the already-running daemon, not a new
 install) let the `ko` step publish to the local daemon. No software was
 installed to make this work.
@@ -78,7 +78,7 @@ outcome and is informational only from `ko`'s embedded VCS metadata check.
 **Command:**
 
 ```bash
-DOCKER_HOST=unix:///Users/lecoqjacob/.orbstack/run/docker.sock \
+DOCKER_HOST=unix://<docker-socket> \
   goreleaser release --snapshot --clean --skip=publish
 ```
 
@@ -159,7 +159,7 @@ git-ignored, never committed.
 **Command:**
 
 ```bash
-/usr/bin/git -C /Users/lecoqjacob/Projects/liatrio/devspace status --porcelain --ignored | grep -E '^\?\?|dist/'
+/usr/bin/git -C <repo-root> status --porcelain --ignored | grep -E '^\?\?|dist/'
 ```
 
 **Result summary:** All `dist/` and `tui/dist/` entries appear with the `!!`

@@ -23,7 +23,7 @@ GOCACHE=$(mktemp -d) go test ./internal/devspace -run 'TestUIServer.*Remove|Test
 
 ```text
 PASS
-ok  	github.com/liatrio-forge/forge-capstone-devspace/internal/devspace
+ok  	github.com/liatrio-forge/devdrop-capstone/internal/devspace
 ```
 
 ## Artifact: warning protocol and TUI verification

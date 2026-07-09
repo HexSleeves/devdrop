@@ -74,7 +74,7 @@ GOCACHE=$(mktemp -d) go test ./internal/devspace -run 'TestUIServer.*Remove|Test
 === RUN   TestUIServerErrorPaths
 --- PASS: TestUIServerErrorPaths (0.14s)
 PASS
-ok  	github.com/liatrio-forge/forge-capstone-devspace/internal/devspace	1.101s
+ok  	github.com/liatrio-forge/devdrop-capstone/internal/devspace	1.101s
 ```
 
 ## Reviewer Conclusion

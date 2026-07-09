@@ -39,7 +39,7 @@ artifact demonstrates its effect.
 **Command:**
 
 ```bash
-/usr/bin/git -C /Users/lecoqjacob/Projects/liatrio/devspace diff tui/build-all.sh
+/usr/bin/git -C <repo-root> diff tui/build-all.sh
 ```
 
 **Result summary:** Adds a 6-line block (4-line comment + 1 blank + 1
@@ -151,7 +151,7 @@ lockfile-stability requirement and the `--frozen-lockfile` contract.
 **Command:**
 
 ```bash
-/usr/bin/git -C /Users/lecoqjacob/Projects/liatrio/devspace diff --exit-code tui/bun.lock; echo "LOCKFILE_DIFF_EXIT:$?"
+/usr/bin/git -C <repo-root> diff --exit-code tui/bun.lock; echo "LOCKFILE_DIFF_EXIT:$?"
 ```
 
 **Result summary:** Exit 0 — no diff.

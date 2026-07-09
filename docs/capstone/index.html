@@ -2326,7 +2326,7 @@ parent-directory escapes are rejected.
 
 - the local config/state directory is still named `.devdrop`; a future rename/migration may be useful if the product name stays `devspace`.
 - plan/apply is intentionally conservative and may require manual cleanup or explicit future flags for advanced cases.
-- manifest sync supports conflict reconciliation via `devspace workspace reconcile`/`hosted reconcile` with global `--force-local`/`--force-remote` and repeatable `--force-project <id>=<local|remote>`; no interactive merge ui beyond these flags.
+- manifest sync supports conflict reconciliation via `devspace workspace reconcile`/`hosted reconcile` with global `--force-local`/`--force-remote` and repeatable `--force-project &lt;id&gt;=&lt;local|remote&gt;`; no interactive merge ui beyond these flags.
 - git inspection still avoids mutating repos, so stale/outdated remote commit detection remains shallow.
 - encrypted `.env` generation overwrites the target `.env` only when explicitly requested via `env pull`.
 
@@ -2480,7 +2480,7 @@ clearer multi-machine history (manifest conflict reconciliation already shipped 
 
 - The local config/state directory is still named `.devdrop`; a future rename/migration may be useful if the product name stays `devspace`.
 - Plan/apply is intentionally conservative and may require manual cleanup or explicit future flags for advanced cases.
-- Manifest sync supports conflict reconciliation via `devspace workspace reconcile`/`hosted reconcile` with global `--force-local`/`--force-remote` and repeatable `--force-project <id>=<local|remote>`; no interactive merge UI beyond these flags.
+- Manifest sync supports conflict reconciliation via `devspace workspace reconcile`/`hosted reconcile` with global `--force-local`/`--force-remote` and repeatable `--force-project &lt;id&gt;=&lt;local|remote&gt;`; no interactive merge UI beyond these flags.
 - Git inspection still avoids mutating repos, so stale/outdated remote commit detection remains shallow.
 - Encrypted `.env` generation overwrites the target `.env` only when explicitly requested via `env pull`.
 

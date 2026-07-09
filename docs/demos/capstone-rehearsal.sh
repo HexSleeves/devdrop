@@ -19,6 +19,13 @@ DEVSPACE_REPO="${DEVSPACE_REPO:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 SANDBOX="${SANDBOX:-/tmp/devspace-capstone-demo}"
 DS="${DEVSPACE_BIN:-$SANDBOX/bin/devspace}"
 
+case "$SANDBOX" in
+  ""|"/"|"$HOME"|"$HOME"/*)
+    echo "SANDBOX='$SANDBOX' is unsafe; refusing to proceed" >&2
+    exit 1
+    ;;
+esac
+
 # Deterministic git identity for seed repos + manifest commits.
 export GIT_AUTHOR_NAME="Demo Dev" GIT_AUTHOR_EMAIL="demo@example.invalid"
 export GIT_COMMITTER_NAME="Demo Dev" GIT_COMMITTER_EMAIL="demo@example.invalid"
@@ -37,7 +44,7 @@ say()    { printf '\033[2m$ %s\033[0m\n' "$*"; }
 build_binary() {
   if [[ -n "${DEVSPACE_BIN:-}" && -x "$DEVSPACE_BIN" ]]; then DS="$DEVSPACE_BIN"; return; fi
   banner "Building devspace binary"
-  mkdir -p "$SANDBOX/bin"
+  mkdir -p "$(dirname "$DS")"
   ( cd "$DEVSPACE_REPO" && go build -trimpath -o "$DS" ./cmd/devspace )
   echo "built: $DS"
 }
@@ -81,7 +88,7 @@ seed_machine_a() {
   say "devspace workspace push"; "$DS" workspace push
 
   banner "Encrypt a per-project secret (age)  — never leaves as plaintext"
-  say "echo 'super-secret' | devspace env set web-store DATABASE_URL"
+  say "echo 'postgres://demo:secret@localhost/store' | devspace env set web-store DATABASE_URL"
   echo 'postgres://demo:secret@localhost/store' | "$DS" env set web-store DATABASE_URL
   say "devspace env list web-store"; "$DS" env list web-store
 }

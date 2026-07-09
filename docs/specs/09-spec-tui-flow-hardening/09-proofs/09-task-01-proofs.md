@@ -53,7 +53,7 @@ go test ./internal/devspace -race -run 'TestUIServerReadsNotBlockedBySlowAction|
 === RUN   TestSyncStatusCacheCachesWithinTTLAndInvalidates
 --- PASS: TestSyncStatusCacheCachesWithinTTLAndInvalidates (0.00s)
 PASS
-ok  	github.com/liatrio-forge/forge-capstone-devspace/internal/devspace	1.295s
+ok  	github.com/liatrio-forge/devdrop-capstone/internal/devspace	1.295s
 ~~~
 
 ## Artifact: Full UI test selection race-clean
