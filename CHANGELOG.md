@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.3.0](https://github.com/liatrio-forge/forge-capstone-devspace/compare/v0.2.0...v0.3.0) (2026-07-09)
+
+
+### Features
+
+* **tui:** add --help flag and hello-before-renderer startup ([a42928c](https://github.com/liatrio-forge/forge-capstone-devspace/commit/a42928ce3a3f87633cf96c2ed43387b7fbfcf766))
+* **ui:** opentui-based devspace-tui companion dashboard ([#39](https://github.com/liatrio-forge/forge-capstone-devspace/issues/39)) ([6502f91](https://github.com/liatrio-forge/forge-capstone-devspace/commit/6502f91a694de22aa58733ea330a293aff9caa68))
+
+
+### Bug Fixes
+
+* release-please skip-github-release also skips the tag, not just the Release ([#37](https://github.com/liatrio-forge/forge-capstone-devspace/issues/37)) ([fc15e7f](https://github.com/liatrio-forge/forge-capstone-devspace/commit/fc15e7f9f58d93a3d092101e32c7a136e5d4d750))
+* **tui:** make tui-build-all cross-compile all platforms ([#42](https://github.com/liatrio-forge/forge-capstone-devspace/issues/42)) ([9e274e0](https://github.com/liatrio-forge/forge-capstone-devspace/commit/9e274e040bea4a8f670bd35bf1ba12e7c4c1bce0))
+* update Go patch version for vulncheck ([584ca84](https://github.com/liatrio-forge/forge-capstone-devspace/commit/584ca84ae78d0496ad5f8eef1eab5113431d9450))
+
 ## [0.2.0](https://github.com/liatrio-forge/forge-capstone-devspace/compare/v0.1.0...v0.2.0) (2026-07-06)
 
 
