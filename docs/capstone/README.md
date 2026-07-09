@@ -13,14 +13,14 @@ For a browsable HTML version of the repo Markdown, open
 Developers lose time rebuilding workspaces after machine changes, client
 rotations, or repo sprawl. DevDrop proves a smaller, safer alternative to a
 hosted "sync everything" service: track workspace metadata, push the manifest to
-a user-owned Git remote, hydrate projects on demand, and keep env values
+a user-owned Git remote, update projects on demand, and keep env values
 encrypted locally.
 
 ## Deliverable Map
 
 | Forge deliverable | DevDrop artifact |
 | --- | --- |
-| Capstone product | Go CLI built as `devspace`, with local manifest sync, plan/apply, hydration, and encrypted env profiles |
+| Capstone product | Go CLI built as `devspace`, with local manifest sync, plan/apply, explicit project updates, and encrypted env profiles |
 | Case study write-up | [case-study.md](case-study.md) |
 | Proof artifacts | [proof-artifacts.md](proof-artifacts.md), `docs/operations/release-readiness.md`, tests under `internal/devspace/` |
 | Final demo recording | [demo-script.md](demo-script.md) and `../../scripts/demo-check.sh` |
@@ -35,11 +35,12 @@ encrypted locally.
 - `devspace scan` discovers Git projects, dirty state, env presence, and setup
   hints.
 - `devspace plan` and `devspace apply` separate review from mutation.
-- `devspace workspace remote|push|pull` syncs only `manifest.json` through a
+- `devspace sync remote|push|pull` syncs only `manifest.json` through a
   user-owned Git repository.
-- `devspace project hydrate` clones placeholder Git projects on demand.
-- `devspace env set|list|pull` stores encrypted profiles and writes local `.env`
+- `devspace project list|track|untrack|update` manages explicit inventory and repository maintenance without deleting local files.
+- `devspace env set|list|write` stores encrypted profiles and writes local `.env`
   files with `0600` permissions.
+- `devspace setup show|run` keeps review separate from explicit setup execution.
 
 ## Remaining Module 5 Work
 

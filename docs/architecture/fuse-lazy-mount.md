@@ -1,6 +1,6 @@
 # FUSE Lazy Workspace Mount Prototype
 
-`devspace mount <mountpoint>` is a prototype for a FUSE-backed, read-only
+`devspace experimental mount <mountpoint>` is a prototype for a FUSE-backed, read-only
 workspace view backed by the DevDrop manifest. A real mount requires FUSE support;
 `--preview` is the FUSE-free fallback for machines that cannot mount. The feature
 is intentionally outside normal sync, plan, apply, and hydrate workflows so the
@@ -24,7 +24,7 @@ The mount exposes tracked project paths from `.devspace/manifest.json`.
 - `ls <mountpoint>` lists top-level manifest path segments without hydrating
   projects.
 - Traversing into an on-demand Git project runs the same safety path as
-  `devspace project hydrate <project>`.
+  `devspace project update <project>`.
 - Hydration failures are returned to the filesystem caller and logged to stderr;
   the mount does not convert them into empty successful directories.
 - Local-only, manual, metadata-only, or missing projects that cannot hydrate
@@ -45,7 +45,7 @@ FUSE support is optional and platform-specific.
 If FUSE is unavailable, use:
 
 ```bash
-devspace mount /tmp/devspace-mount --preview
+devspace experimental mount /tmp/devspace-mount --preview
 ```
 
 `--preview` prints the manifest-backed entries and hydration status without
@@ -69,8 +69,8 @@ Recommended local proof path after macFUSE is installed and approved:
 sw_vers
 test -d /Library/Filesystems/macfuse.fs && echo "macFUSE present"
 command -v mount_macfuse
-devspace mount /tmp/devspace-mount --preview
-devspace mount /tmp/devspace-mount
+devspace experimental mount /tmp/devspace-mount --preview
+devspace experimental mount /tmp/devspace-mount
 ```
 
 Use `docs/operations/macos-fuse-run-playbook.md` for the step-by-step local
@@ -126,7 +126,7 @@ Future options:
   and approved.
 - Expand the integration job if new mount behavior is added beyond traversal,
   hydration success, and hydration failure propagation.
-- Add a richer project status view in the mount for dirty repositories, missing
+- Add a richer per-project status view in the mount for dirty repositories, missing
   `.env` files, and setup hints.
 - Decide whether the long-term mount should expose project paths, project names,
   or both through separate virtual directories.

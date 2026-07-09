@@ -48,15 +48,15 @@ Type `devspace scan`
 Enter
 Sleep 2.5s
 
-Type `devspace project`
+Type `devspace project list`
 Enter
 Sleep 2.5s
 
-Type `devspace workspace remote create local "$REMOTE"`
+Type `devspace sync remote create local "$REMOTE"`
 Enter
 Sleep 2.5s
 
-Type `devspace workspace push`
+Type `devspace sync push`
 Enter
 Sleep 3s
 
@@ -74,15 +74,15 @@ Type `devspace init --workspace "$CODE_B"`
 Enter
 Sleep 2.5s
 
-Type `devspace workspace remote set "$REMOTE"`
+Type `devspace sync remote set "$REMOTE"`
 Enter
 Sleep 2.5s
 
-Type `devspace workspace pull`
+Type `devspace sync pull`
 Enter
 Sleep 3s
 
-Type `devspace project`
+Type `devspace project list`
 Enter
 Sleep 3s
 
@@ -104,11 +104,11 @@ Type `devspace scan`
 Enter
 Sleep 2.5s
 
-Type `devspace project`
+Type `devspace project list`
 Enter
 Sleep 2.5s
 
-Type `devspace workspace push`
+Type `devspace sync push`
 Enter
 Sleep 3s
 
@@ -122,14 +122,14 @@ Type "echo '--- MACHINE B: CATCH UP ---'"
 Enter
 Sleep 1.5s
 
-Type `devspace workspace pull`
+Type `devspace sync pull`
 Enter
 Sleep 3s
 
-Type `devspace project`
+Type `devspace project list`
 Enter
 Sleep 3s
 
-Type `devspace workspace diff`
+Type `devspace sync diff`
 Enter
 Sleep 3s

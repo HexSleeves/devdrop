@@ -5,8 +5,8 @@ Set FontSize 16
 Set Shell bash
 Set TypingSpeed 40ms
 
-# The full `devspace project` lifecycle: add → status → update (fast-forward
-# from origin) → remove. Setup seeds a project cloned from a local bare
+# The explicit `devspace project` lifecycle: track → list → update (fast-forward
+# from origin) → status → untrack. Setup seeds a project cloned from a local bare
 # origin (project-remote.sh) so `project update` has a real fast-forward.
 Hide
 Type "export DEVSPACE_HOME=$(mktemp -d)"
@@ -32,11 +32,11 @@ Type "clear"
 Enter
 Show
 
-Type "devspace project add api-service"
+Type "devspace project track api-service"
 Enter
 Sleep 2s
 
-Type "devspace project status"
+Type "devspace project list"
 Enter
 Sleep 2s
 
@@ -52,15 +52,15 @@ Type "devspace project update api-service"
 Enter
 Sleep 2s
 
-Type "devspace project status api-service"
+Type "devspace status api-service"
 Enter
 Sleep 2s
 
-Type "devspace project remove api-service"
+Type "devspace project untrack api-service"
 Enter
 Sleep 2s
 
-Type "devspace project status"
+Type "devspace project list"
 Enter
 Sleep 2s
 

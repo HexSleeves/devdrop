@@ -55,18 +55,19 @@ The `devspace` workflow is a pipeline over these: **scan** (`ScanWorkspace`)
 inspects the filesystem and updates manifest + state → **plan** (`BuildPlan`)
 diffs desired manifest against reality and emits `PlanAction`s tagged with a
 `Safety` level → **apply** (`ApplyLastPlan`) executes only safe actions (creating
-empty placeholder folders, never deleting) → **hydrate** (`HydrateProject`) turns
-a placeholder into a real checkout via `git clone`. Plans are persisted to
+empty placeholder folders, never deleting) → **project update**
+(`HydrateProject` for a placeholder) turns it into a real checkout via
+`git clone` and fast-forwards eligible clean repositories. Plans are persisted to
 `last-plan.json` so `apply` acts on a reviewed plan. Most of this lives in
 `workspace.go`.
 
 ### Sync — two independent backends
 
 - **Git remote** (`workspace_sync.go`): push/pull the manifest through a
-  user-owned Git repo (`devspace workspace push/pull`, `remote set/create`).
+  user-owned Git repo (`devspace sync push/pull`, `sync remote set/create`).
 - **Hosted control-plane** (`hosted_sync.go`): opt-in HTTP prototype. The client
   side is configured via `devspace hosted config`; the server is
-  `NewHostedSyncServer` exposed through `devspace hosted serve` and also shipped
+  `NewHostedSyncServer` exposed through `devspace experimental hosted serve` and also shipped
   as a container image (`ghcr.io/liatrio-forge/devspace-hosted`, built by
   GoReleaser `ko`). The API is `GET/PUT /v1/workspaces/{workspace}/manifest` with
   bearer-token auth. The server is hardened for public exposure (constant-time
@@ -78,11 +79,12 @@ a placeholder into a real checkout via `git clone`. Plans are persisted to
 - `watch.go` — event-driven `devspace watch` (fsnotify) that keeps state fresh.
 - `mount.go` — FUSE-backed lazy-workspace mount *prototype*; guarded so normal
   CLI workflows never require FUSE (`go-fuse`).
-- `setup.go` — detects and, only via the explicit `devspace setup` command, runs
-  install/dev commands. Never auto-executes project commands.
+- `setup.go` — detects setup hints for `devspace setup show` and, only via an
+  explicit `devspace setup run`, executes install/dev commands. Never
+  auto-executes project commands.
 - `doctor.go` — `devspace doctor` readiness diagnostics run before sync/apply.
-- `ui.go` / `ui_server.go` / `tui/` — `devspace ui` launches the `devspace-tui`
-  companion (OpenTUI/Bun/React app in `tui/`) when installed, falling back to
+- `ui.go` / `ui_server.go` / `tui/` — `devspace ui` launches the archive-bundled
+  adjacent `devspace-tui` companion (OpenTUI/Bun/React app in `tui/`) when available, falling back to
   the built-in Bubble Tea dashboard (`ui_model.go`; `--legacy` forces it). The
   companion spawns the hidden `devspace ui-server` subcommand and talks stdio
   NDJSON JSON-RPC (`ui_server.go`); both frontends reuse the same

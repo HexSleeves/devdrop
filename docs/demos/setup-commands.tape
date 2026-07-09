@@ -6,7 +6,7 @@ Set Shell bash
 Set TypingSpeed 40ms
 
 # `devspace setup` detects per-project install/dev commands and only ever
-# runs them after review. The demo stays on plan/--dry-run so nothing is
+# runs them after review. The demo stays on show/--dry-run so nothing is
 # actually installed — that's the point of the command.
 Hide
 Type "export DEVSPACE_HOME=$(mktemp -d)"
@@ -39,7 +39,7 @@ Type "clear"
 Enter
 Show
 
-Type "devspace setup plan"
+Type "devspace setup show"
 Enter
 Sleep 3s
 
@@ -51,6 +51,6 @@ Type "devspace setup run web-app --command dev --dry-run"
 Enter
 Sleep 2.5s
 
-Type "devspace setup apply --dry-run"
+Type "devspace setup run --all --dry-run"
 Enter
 Sleep 3s

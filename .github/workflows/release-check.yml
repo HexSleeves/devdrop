@@ -11,6 +11,19 @@ on:
       - go.sum
       - internal/devspace/**
       - scripts/verify-release-archives*.sh
+      - AGENTS.md
+      - CLAUDE.md
+      - README.md
+      - ARCHITECTURE.md
+      - docs/architecture/access-roles.md
+      - docs/architecture/fuse-lazy-mount.md
+      - docs/operations/**
+      - docs/capstone/*.md
+      - docs/demos/*.md
+      - docs/demos/*.sh
+      - docs/demos/*.tape
+      - scripts/check-command-surface.sh
+      - scripts/demo-check.sh
       - tui/**
 
 permissions:

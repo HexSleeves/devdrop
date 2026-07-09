@@ -5,8 +5,8 @@ Set FontSize 16
 Set Shell bash
 Set TypingSpeed 40ms
 
-# Two machines diverge, then `workspace diff` previews and
-# `workspace reconcile` three-way merges the manifests. Setup seeds both
+# Two machines diverge, then `sync diff` previews and
+# `sync reconcile` three-way merges the manifests. Setup seeds both
 # machines already sharing a manifest remote (same shape as
 # workspace-sync.tape); the visible story starts at the divergence.
 Hide
@@ -24,17 +24,17 @@ Type `export DEVSPACE_HOME="$HOME_A"`
 Enter
 Type `devspace init --workspace "$CODE_A" >/dev/null`
 Enter
-Type `devspace workspace remote create local "$REMOTE" >/dev/null`
+Type `devspace sync remote create local "$REMOTE" >/dev/null`
 Enter
-Type `devspace workspace push >/dev/null`
+Type `devspace sync push >/dev/null`
 Enter
 Type `export DEVSPACE_HOME="$HOME_B"`
 Enter
 Type `devspace init --workspace "$CODE_B" >/dev/null`
 Enter
-Type `devspace workspace remote set "$REMOTE" >/dev/null`
+Type `devspace sync remote set "$REMOTE" >/dev/null`
 Enter
-Type `devspace workspace pull >/dev/null`
+Type `devspace sync pull >/dev/null`
 Enter
 Sleep 500ms
 Type "clear"
@@ -57,7 +57,7 @@ Type `devspace scan`
 Enter
 Sleep 2s
 
-Type `devspace workspace push`
+Type `devspace sync push`
 Enter
 Sleep 2s
 
@@ -77,19 +77,19 @@ Type `devspace scan`
 Enter
 Sleep 2s
 
-Type `devspace workspace diff`
+Type `devspace sync diff`
 Enter
 Sleep 3s
 
-Type `devspace workspace reconcile`
+Type `devspace sync reconcile`
 Enter
 Sleep 3s
 
-Type `devspace workspace reconcile --apply`
+Type `devspace sync reconcile --apply`
 Enter
 Sleep 3s
 
-Type `devspace workspace push`
+Type `devspace sync push`
 Enter
 Sleep 2s
 

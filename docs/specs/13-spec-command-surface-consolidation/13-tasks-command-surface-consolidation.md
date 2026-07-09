@@ -168,7 +168,7 @@
 - [x] 4.6 Add or update release/archive verification scripts/tests, then run `make tui-verify`, `goreleaser check`, and a snapshot dry-run where the environment supports Docker/ko.
 - [x] 4.7 Extract and smoke the local-platform archive, verify adjacent companion discovery, and write `13-proofs/13-task-04-proofs.md`; record Docker-only limitations separately from source failures.
 
-### [ ] 5.0 Migrate maintained documentation and demos, then prove release readiness
+### [~] 5.0 Migrate maintained documentation and demos, then prove release readiness
 
 #### 5.0 Proof Artifact(s)
 
@@ -180,11 +180,11 @@
 
 #### 5.0 Tasks
 
-- [ ] 5.1 Add `scripts/check-command-surface.sh` with an explicit maintained-file allowlist and historical-artifact exclusions; make it fail on removed command paths and verify canonical paths are represented.
-- [ ] 5.2 Rewrite the README command section around capture, restore, maintain, and troubleshoot jobs; add the pre-1.0 old-to-new migration table and archive-based UI instructions.
-- [ ] 5.3 Update maintained architecture, operations, and capstone documents to the canonical vocabulary while preserving metadata-only, no-implicit-setup, no-source-sync, and no-secret-upload boundaries.
-- [ ] 5.4 Update `scripts/demo-check.sh` and live demo `.sh`/`.tape` sources to use canonical commands; preserve unrelated in-progress demo edits and do not rewrite completed historical SDD evidence or generated GIFs.
-- [ ] 5.5 Add the scoped command-surface check to an appropriate local/CI verification target and update release-check path filters for TUI build/archive inputs.
+- [x] 5.1 Add `scripts/check-command-surface.sh` with an explicit maintained-file allowlist and historical-artifact exclusions; make it fail on removed command paths and verify canonical paths are represented.
+- [x] 5.2 Rewrite the README command section around capture, restore, maintain, and troubleshoot jobs; add the pre-1.0 old-to-new migration table and archive-based UI instructions.
+- [x] 5.3 Update maintained architecture, operations, and capstone documents to the canonical vocabulary while preserving metadata-only, no-implicit-setup, no-source-sync, and no-secret-upload boundaries.
+- [x] 5.4 Update `scripts/demo-check.sh` and live demo `.sh`/`.tape` sources to use canonical commands; preserve unrelated in-progress demo edits and do not rewrite completed historical SDD evidence or generated GIFs.
+- [x] 5.5 Add the scoped command-surface check to an appropriate local/CI verification target and update release-check path filters for TUI build/archive inputs.
 - [ ] 5.6 Run the command migration scan, `scripts/demo-check.sh`, targeted CLI smoke flows, `make verify`, `make tui-verify`, and `goreleaser check`.
 - [ ] 5.7 Run the snapshot/archive proof path locally or in CI, confirm Linux/macOS amd64/arm64 archive contents, and distinguish Docker/ko environment failures from source/package failures.
 - [ ] 5.8 Reconcile overlapping entries in `plans/README.md` only after their acceptance criteria are satisfied, then write `13-proofs/13-task-05-release-readiness.txt` with sanitized scan, demo, verification, and release evidence.

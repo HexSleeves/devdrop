@@ -8,7 +8,7 @@ GOLANGCI_LINT ?= go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v
 GOVULNCHECK ?= go run golang.org/x/vuln/cmd/govulncheck@v1.1.4
 
 .PHONY: \
-	all fmt format fmt-check test test-race test-one cover cover-html vet lint vulncheck build verify install run \
+	all fmt format fmt-check test test-race test-one cover cover-html vet lint vulncheck build verify command-surface-check install run \
 	precommit install-hooks clean \
 	tui-install tui-verify tui-build tui-build-all tui-dev tui-install-local \
 	snapshot ci \
@@ -61,10 +61,13 @@ build: ## Build the binary
 install: ## go install the binary (into GOBIN/GOPATH bin)
 	go install -trimpath $(CMD_PATH)
 
-run: build ## Build then run the binary, e.g. make run ARGS="workspace --json"
+run: build ## Build then run the binary, e.g. make run ARGS="status --verbose"
 	./$(BIN_DIR)/$(BINARY_NAME) $(ARGS)
 
-verify: test vet lint vulncheck build ## Run all checks and build the binary (the local CI gate)
+command-surface-check: ## Check maintained docs and demos for removed CLI paths
+	scripts/check-command-surface.sh
+
+verify: command-surface-check test vet lint vulncheck build ## Run all checks and build the binary (the local CI gate)
 
 ##@ Dev
 

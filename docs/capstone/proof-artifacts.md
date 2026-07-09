@@ -35,9 +35,9 @@ Expected current baseline:
 
 - `go test ./...` passes.
 - The build produces a local `devspace` binary.
-- `devspace --help` lists apply, completion, doctor, env, hosted, init, mount,
-  plan, project, scan, setup, status, tui, ui, version, watch, and workspace
-  commands.
+- `devspace --help` lists apply, doctor, env, experimental, hosted, init, plan,
+  project, scan, setup, status, sync, ui, and watch as the 14 visible product
+  commands; `devspace --version` remains available.
 - `scripts/demo-check.sh` passes without network access, GitHub auth, Linear
   auth, or real secrets.
 
@@ -62,10 +62,10 @@ Capture the command output and the generated
 7. Initialize workspace B.
 8. Pull the manifest into workspace B.
 9. Run `plan` and `apply` to create placeholder structure.
-10. Hydrate the placeholder Git project.
-11. Store, list, and pull an encrypted env value.
+10. Update the placeholder into a real Git project.
+11. Store, list, and write an encrypted env value.
 12. Assert the generated `.env` mode is `0600`.
-13. Show final `devspace status` and `devspace project status`.
+13. Show final `devspace status` and `devspace status client-a-api`.
 14. Show the remote-agent delivery workflow: `.claude/workflows/wave-ship.js`
     and `.claude/workflows/ship-card.js`.
 15. Show the frontier track: hosted sync, daemon/watch, FUSE, team secrets, and
@@ -73,11 +73,11 @@ Capture the command output and the generated
 
 ## Safety Proof Points
 
-- Path traversal is rejected by manifest validation and project add.
+- Path traversal is rejected by manifest validation and project tracking.
 - Invalid remote manifest JSON is rejected before local replacement.
 - Pull refuses to overwrite local unpushed manifest changes.
 - Apply refuses stale saved plans when the manifest hash changes.
-- Hydrate refuses non-empty destinations.
+- Project update refuses non-empty placeholder destinations.
 - Secret files are encrypted at rest and list output masks values.
 
 These are covered by tests in `internal/devspace/hardening_test.go`,

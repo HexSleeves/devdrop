@@ -67,8 +67,8 @@ The five cards map to the core MVP:
 | Card | Purpose |
 | --- | --- |
 | `CIL-217` | Scaffold the Go CLI and init command |
-| `CIL-218` | Manifest model, workspace scan, and status |
-| `CIL-219` | Project add, workspace sync, and Git hydration |
+| `CIL-218` | Manifest model, workspace discovery, and status |
+| `CIL-219` | Project tracking, manifest sync, and Git materialization |
 | `CIL-220` | Encrypted env profile commands |
 | `CIL-221` | README, examples, and end-to-end MVP verification |
 
@@ -107,7 +107,7 @@ keeps the risk controlled with these rules:
 
 Use the remote-agent system as the "how it was built" segment:
 
-1. Explain the dependency graph: init first, scan/hydrate/env in parallel, docs
+1. Explain the dependency graph: init first, scan/project-update/env in parallel, docs
    and verification last.
 2. Open `.claude/workflows/wave-ship.js`.
 3. Point to `backend: "orca"`, `maxConcurrent`, and `serializedMerge`.

@@ -5,7 +5,7 @@ set -e
 STORE_DIR="$(mktemp -d)"
 LOG_FILE="$STORE_DIR/hosted-sync.log"
 PID_FILE="$STORE_DIR/hosted-sync.pid"
-devspace hosted serve --addr 127.0.0.1:8791 --store "$STORE_DIR" --token demo-token \
+devspace experimental hosted serve --addr 127.0.0.1:8791 --store "$STORE_DIR" --token demo-token \
   >"$LOG_FILE" 2>&1 &
 echo $! >"$PID_FILE"
 if [ -n "${DEMO_WS:-}" ]; then

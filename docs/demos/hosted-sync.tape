@@ -31,7 +31,7 @@ Enter
 Type "devspace init --workspace $DEMO_WS"
 Enter
 Sleep 500ms
-Type "devspace project add api-service"
+Type "devspace project track api-service"
 Enter
 Sleep 500ms
 Type "devspace scan"

@@ -10,25 +10,26 @@ binary publication. This workflow packages the CLI; the hosted server is
 published separately as a container image. It does not add a daemon, FUSE
 behavior, managed team identity, or dependency install behavior.
 
-## devspace-tui companion binary
+## Bundled devspace-tui companion
 
-`devspace ui` launches the `devspace-tui` companion (an OpenTUI/Bun app in
-`tui/`) when it is installed next to `devspace`, in `$DEVSPACE_HOME/bin`, or on
-`PATH`; otherwise it falls back to the built-in dashboard (`--legacy` forces the
-fallback). The release workflow cross-compiles it with Bun
-(`make tui-build-all`) and GoReleaser attaches the four
-`devspace-tui_<os>_<arch>` binaries to the release as extra assets. To install,
-download the binary for your platform, rename it to `devspace-tui`, `chmod +x`,
-and place it in one of the locations above.
+`devspace ui` launches the matching `devspace-tui` companion (an OpenTUI/Bun
+app in `tui/`). Every supported release archive contains both executables at
+the same archive root, so extracting the archive preserves the preferred
+adjacent-binary layout. The CLI may also find a companion in
+`$DEVSPACE_HOME/bin` or on `PATH`; otherwise it uses the built-in dashboard
+(`--legacy` forces that fallback). Release consumers do not need a separate
+installer command.
 
 ## Automated release (primary)
 
 ### How it works
 
-- `.github/workflows/ci.yml` runs `go test`, `go vet`, and a build on every PR
-  and push to `main`.
+- `.github/workflows/ci.yml` runs `make verify` (including the maintained
+  command-surface check), TUI verification, and the bounded FUSE job on every
+  PR and push to `main`.
 - `.github/workflows/release-check.yml` runs a GoReleaser snapshot dry-run on
-  PRs that touch `.goreleaser.yaml` or the release workflows.
+  PRs that touch release configuration, maintained release docs/demos, release
+  scripts, TUI sources, or archive inputs.
 - `.github/workflows/release-please.yml` maintains an automatic **release PR**
   (next version + `CHANGELOG.md`) from conventional commits; merging it pushes
   the `vX.Y.Z` tag.
@@ -42,7 +43,8 @@ and place it in one of the locations above.
   mirror, since Railway can't pull a private image on our plan.
 
 Each release contains four tar.gz archives (`linux`/`darwin` × `amd64`/`arm64`)
-named `devspace_<version>_<os>_<arch>.tar.gz`, plus a `checksums.txt` file
+named `devspace_<version>_<os>_<arch>.tar.gz`, each containing `devspace` and
+`devspace-tui`, plus a `checksums.txt` file
 (SHA256). Windows is not built: the `go-fuse` dependency does not compile on
 Windows. Tags with a prerelease suffix (for example `v0.1.0-rc.1`) are marked
 as GitHub prereleases automatically.
@@ -138,11 +140,14 @@ gh attestation verify checksums.txt --repo liatrio-forge/forge-capstone-devspace
 gh attestation verify devspace_v0.2.0_<goos>_<goarch>.tar.gz --repo liatrio-forge/forge-capstone-devspace
 ```
 
-Then unpack and install:
+Then unpack and install both adjacent executables:
 
 ```bash
-tar -xzf devspace_v0.2.0_<goos>_<goarch>.tar.gz
-install -m 0755 devspace_v0.2.0_<goos>_<goarch>/devspace /usr/local/bin/devspace
+mkdir devspace-release
+tar -xzf devspace_v0.2.0_<goos>_<goarch>.tar.gz -C devspace-release
+install -m 0755 devspace-release/devspace /usr/local/bin/devspace
+install -m 0755 devspace-release/devspace-tui /usr/local/bin/devspace-tui
+devspace ui
 ```
 
 ## Install from source

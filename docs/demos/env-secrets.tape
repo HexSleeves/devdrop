@@ -53,7 +53,7 @@ Type "devspace env list demo-project"
 Enter
 Sleep 2s
 
-Type "devspace env pull demo-project"
+Type "devspace env write demo-project"
 Enter
 Sleep 2s
 

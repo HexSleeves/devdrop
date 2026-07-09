@@ -1,6 +1,6 @@
 # macOS FUSE Run Playbook
 
-Use this playbook to smoke-test `devspace mount` on a developer Mac after
+Use this playbook to smoke-test `devspace experimental mount` on a developer Mac after
 macFUSE has been installed and approved by macOS.
 
 ## Preconditions
@@ -47,7 +47,7 @@ mkdir -p "$workspace/apps/demo"
 printf "hello from devspace\n" > "$workspace/apps/demo/README.md"
 
 ./bin/devspace init --workspace "$workspace"
-./bin/devspace project add apps/demo
+./bin/devspace project track apps/demo
 ```
 
 For a real checkout, initialize DevSpace at the parent workspace and add the
@@ -55,7 +55,7 @@ project by relative path:
 
 ```bash
 ./bin/devspace init --workspace ~/Projects/personal
-./bin/devspace project add devdrop
+./bin/devspace project track devdrop
 ```
 
 Do not initialize the workspace at the same directory you want to track as a
@@ -64,7 +64,7 @@ project. Project paths must be inside the workspace root, not the root itself.
 ```bash
 rm -rf /tmp/devspace-mount-smoke
 mkdir -p /tmp/devspace-mount-smoke
-./bin/devspace mount /tmp/devspace-mount-smoke --preview
+./bin/devspace experimental mount /tmp/devspace-mount-smoke --preview
 ```
 
 Expected result:
@@ -80,7 +80,7 @@ Run the mount in one terminal:
 
 ```bash
 PATH="/Library/Filesystems/macfuse.fs/Contents/Resources:$PATH" \
-  ./bin/devspace mount /tmp/devspace-mount-smoke
+  ./bin/devspace experimental mount /tmp/devspace-mount-smoke
 ```
 
 In a second terminal, verify the mount:
@@ -109,7 +109,7 @@ mount | grep devspace-mount-smoke || echo "unmounted"
 If the process is still running but no mount is attached:
 
 ```bash
-pgrep -af "devspace mount /tmp/devspace-mount-smoke"
+pgrep -af "devspace experimental mount /tmp/devspace-mount-smoke"
 kill <pid>
 ```
 

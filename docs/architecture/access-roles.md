@@ -106,40 +106,38 @@ missing access metadata visible.
 ## Mutating CLI Inventory
 
 The table lists recommended advisory boundaries. The current CLI prints
-warning-only messages for `devspace workspace push`, `devspace hosted push`,
-`devspace project remove`, and `devspace env recipient invite` / `revoke` /
+warning-only messages for `devspace sync push`, `devspace hosted push`,
+`devspace project untrack`, and `devspace env recipient invite` / `revoke` /
 `rotate` when the local effective role falls outside the listed boundary.
 Other rows are documented guidance for future warnings or enforcement.
 
 | CLI surface | Mutation | Recommended advisory boundary | Notes |
 | --- | --- | --- | --- |
 | `devspace init` | Creates local config, identity, state, and manifest files. | No manifest role required | Bootstrap runs before access metadata exists. |
-| `devspace scan` / `devspace workspace scan` | Refreshes local manifest and state from the filesystem. | owner, maintainer, developer | Recommended future policy points viewers to read-only status commands instead. |
+| `devspace scan` | Refreshes local manifest and state from the filesystem. | owner, maintainer, developer | Recommended future policy points viewers to read-only status commands instead. |
 | `devspace watch --sync off` | Continuously refreshes local manifest and state. | owner, maintainer, developer | Same boundary as scan. |
 | `devspace watch --sync git` / `--sync hosted` | Refreshes metadata and pushes it to shared sync. | owner, maintainer | Shared publication should be narrower than local scan. |
 | `devspace plan` | Saves the last plan under local DevSpace state. | owner, maintainer, developer, viewer | Treat as inspect-only despite the cache write. |
 | `devspace apply` | Applies the last safe workspace plan locally. | owner, maintainer, developer | May hydrate or alter local workspace files. |
-| `devspace workspace push` | Publishes the manifest to the configured Git remote. | owner, maintainer | Shared manifest write. |
-| `devspace workspace pull` | Replaces local manifest state from the Git remote. | owner, maintainer, developer, viewer | Local write, but read-oriented from the shared source. |
-| `devspace workspace sync` | Saves a plan and applies it locally. | owner, maintainer, developer | Compatibility alias for plan/apply. |
-| `devspace workspace remote set` | Changes the configured manifest Git remote. | owner, maintainer | Workspace-level sync configuration. |
-| `devspace workspace remote create local` | Creates and configures a local bare manifest remote. | owner, maintainer | Workspace-level sync configuration. |
-| `devspace workspace remote create github` | Creates and configures a GitHub manifest remote. | owner, maintainer | External shared infrastructure. |
+| `devspace sync push` | Publishes the manifest to the configured Git remote. | owner, maintainer | Shared manifest write; metadata only. |
+| `devspace sync pull` | Replaces local manifest state from the Git remote. | owner, maintainer, developer, viewer | Local write, but read-oriented from the shared source; does not update project repositories. |
+| `devspace sync remote set` | Changes the configured manifest Git remote. | owner, maintainer | Workspace-level sync configuration. |
+| `devspace sync remote create local` | Creates and configures a local bare manifest remote. | owner, maintainer | Workspace-level sync configuration. |
+| `devspace sync remote create github` | Creates and configures a GitHub manifest remote. | owner, maintainer | External shared infrastructure. |
 | `devspace hosted config set` | Stores hosted endpoint, token, and workspace ID locally. | owner, maintainer | Token-bearing sync configuration. |
 | `devspace hosted push` | Publishes the manifest to hosted sync. | owner, maintainer | Shared manifest write. |
 | `devspace hosted pull` | Replaces local manifest state from hosted sync. | owner, maintainer, developer, viewer | Local write, but read-oriented from the shared source. |
-| `devspace hosted serve` | Runs a hosted sync server that writes manifest payloads. | owner | Server operator path until per-user auth exists. |
-| `devspace project add` | Adds a project to the manifest. | owner, maintainer | Shared inventory change. |
-| `devspace project hydrate` | Clones a placeholder Git project locally. | owner, maintainer, developer | Local workspace materialization. |
-| `devspace project remove` | Removes a project from manifest tracking. | owner, maintainer | Shared inventory change; files and secrets remain on disk. |
-| `devspace mount <mountpoint>` | Mounts a view that may hydrate projects on lookup. | owner, maintainer, developer | `--preview` should remain available to viewers. |
+| `devspace experimental hosted serve` | Runs a hosted sync server that writes manifest payloads. | owner | Experimental server operator path until per-user auth exists. |
+| `devspace project track` | Adds a project to the manifest. | owner, maintainer | Shared inventory change; existing contents are not modified. |
+| `devspace project update` | Clones a placeholder or fast-forwards an eligible clean Git project locally. | owner, maintainer, developer | Explicit local source materialization. |
+| `devspace project untrack` | Removes a project from manifest tracking. | owner, maintainer | Shared inventory change; files and encrypted profiles remain on disk. |
+| `devspace experimental mount <mountpoint>` | Mounts a view that may update projects on lookup. | owner, maintainer, developer | `--preview` should remain available to viewers. |
 | `devspace env set` | Rewrites an encrypted profile value. | owner, maintainer, developer | Age recipients still determine who can decrypt. |
-| `devspace env pull` | Writes a local `.env` from an encrypted profile. | owner, maintainer, developer, viewer | Only works for users with decryptable ciphertext. |
+| `devspace env write` | Writes a local `.env` from an encrypted profile. | owner, maintainer, developer, viewer | Only works for users with decryptable ciphertext; decrypted values are not printed. |
 | `devspace env recipient invite` | Adds a recipient and access metadata. | owner, maintainer | Changes future decryptability. |
 | `devspace env recipient revoke` | Revokes a recipient from future encrypted writes. | owner, maintainer | Cannot claw back copied or decrypted values. |
 | `devspace env recipient rotate` | Rewraps a profile for active recipients. | owner, maintainer | Changes ciphertext recipient set. |
-| `devspace setup run` | Runs a project setup command locally. | owner, maintainer, developer | Executes project-defined commands. |
-| `devspace setup apply` | Runs install commands across runnable projects. | owner, maintainer, developer | Executes project-defined commands. |
+| `devspace setup run <project>` / `devspace setup run --all` | Runs project setup commands locally after explicit invocation. | owner, maintainer, developer | Executes project-defined commands with confirmation/dry-run safeguards. |
 
 ## Documentation Wording
 
@@ -192,9 +190,9 @@ previous ciphertext, copied `.env` files, or values a user already decrypted.
 - Unknown users are not blocked. The CLI continues and warns so old single-user
   manifests keep working.
 - `developer` remains able to run shared manifest push commands, but
-  `workspace push` and `hosted push` warn because the recommended advisory
+  `sync push` and `hosted push` warn because the recommended advisory
   boundary is owner or maintainer.
-- `env pull` remains governed by age decryptability, not role metadata.
+- `env write` remains governed by age decryptability, not role metadata.
 - Hosted sync does not enforce roles before per-user tokens exist.
 - Reconcile remains role-unaware for this warning tier.
 
@@ -204,7 +202,7 @@ previous ciphertext, copied `.env` files, or values a user already decrypted.
   table-driven tests; do not wire it to command refusal.
 - Add a docs pass replacing permission language with advisory-role wording.
 - Add optional CLI warnings for the highest-risk shared mutations:
-  `workspace push`, `hosted push`, `project remove`, and recipient changes.
+  `sync push`, `hosted push`, `project untrack`, and recipient changes.
 
 ## Remaining Follow-Up Cards
 

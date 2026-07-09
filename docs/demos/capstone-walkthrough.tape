@@ -22,7 +22,7 @@ Show
 # --- Machine B — the payoff ---
 Type "# New machine. Empty workspace. Let's pull my workspace shape." Enter
 Sleep 1.5s
-Type "devspace workspace pull" Enter
+Type "devspace sync pull" Enter
 Sleep 2.5s
 
 Type "# plan: diff desired vs reality — every action is Safety-tagged" Enter
@@ -37,9 +37,9 @@ Sleep 2s
 Type "ls" Enter
 Sleep 2s
 
-Type "# hydrate: turn one placeholder into a real checkout (atomic git clone)" Enter
+Type "# update: turn one placeholder into a real checkout (atomic git clone)" Enter
 Sleep 1s
-Type "devspace project hydrate web-store" Enter
+Type "devspace project update web-store" Enter
 Sleep 3s
 
 Type "# whole-workspace truth, one command" Enter

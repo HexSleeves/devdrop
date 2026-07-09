@@ -80,12 +80,12 @@ seed_machine_a() {
   banner "devspace init + scan  (idempotent: safe to re-run, never rotates keys)"
   say "devspace init --workspace $WS_A"; "$DS" init --workspace "$WS_A"
   say "devspace scan";                   "$DS" scan
-  say "devspace project";                "$DS" project
+  say "devspace project list";           "$DS" project list
 
   banner "Create a manifest remote and push  (your own Git repo = the sync channel)"
-  say "devspace workspace remote create local $MANIFEST_REMOTE"
-  "$DS" workspace remote create local "$MANIFEST_REMOTE"
-  say "devspace workspace push"; "$DS" workspace push
+  say "devspace sync remote create local $MANIFEST_REMOTE"
+  "$DS" sync remote create local "$MANIFEST_REMOTE"
+  say "devspace sync push"; "$DS" sync push
 
   banner "Encrypt a per-project secret (age)  — never leaves as plaintext"
   say "echo 'postgres://demo:secret@localhost/store' | devspace env set web-store DATABASE_URL"
@@ -98,15 +98,15 @@ prepare_machine_b() {
   export DEVSPACE_HOME="$HOME_B"
   mkdir -p "$WS_B"
   say "devspace init --workspace $WS_B"; "$DS" init --workspace "$WS_B"
-  say "devspace workspace remote set $MANIFEST_REMOTE"
-  "$DS" workspace remote set "$MANIFEST_REMOTE"
+  say "devspace sync remote set $MANIFEST_REMOTE"
+  "$DS" sync remote set "$MANIFEST_REMOTE"
   echo "workspace-b contents (empty):"; ls -A "$WS_B" || true
 }
 
 run_machine_b() {
   export DEVSPACE_HOME="$HOME_B"
   banner "Pull the manifest — the shape of the workspace arrives"
-  say "devspace workspace pull"; "$DS" workspace pull
+  say "devspace sync pull"; "$DS" sync pull
 
   banner "PLAN — diff desired vs reality. Every action is Safety-tagged."
   say "devspace plan"; "$DS" plan
@@ -115,8 +115,8 @@ run_machine_b() {
   say "devspace apply"; "$DS" apply
   echo "workspace-b now has placeholders:"; ls -1 "$WS_B"
 
-  banner "HYDRATE — turn one placeholder into a real checkout (git clone, atomic)"
-  say "devspace project hydrate web-store"; "$DS" project hydrate web-store
+  banner "UPDATE — turn one placeholder into a real checkout (git clone, atomic)"
+  say "devspace project update web-store"; "$DS" project update web-store
   echo "web-store is now a real repo:"; ls -A "$WS_B/web-store"
 
   banner "Doctor + status — readiness at a glance"
@@ -129,7 +129,7 @@ case "${1:-full}" in
   seed)
     rm -rf "$SANDBOX"; build_binary; seed_machine_a; prepare_machine_b
     banner "Seeded. Machine B is ready at the PULL step."
-    echo "Next (for live/VHS):  DEVSPACE_HOME=$HOME_B $DS workspace pull"
+    echo "Next (for live/VHS):  DEVSPACE_HOME=$HOME_B $DS sync pull"
     ;;
   full)
     rm -rf "$SANDBOX"; build_binary; seed_machine_a; prepare_machine_b; run_machine_b

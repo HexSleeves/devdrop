@@ -8,7 +8,7 @@ bare Git remotes so the demo works without network access.
 
 DevDrop solves workspace recovery without syncing everything. The demo shows one
 machine publishing safe workspace metadata, a second machine pulling that
-metadata, creating placeholders, hydrating a Git project, and materializing an
+metadata, creating placeholders, updating a Git project, and materializing an
 encrypted env value only when requested.
 
 ## Run The Demo Check
@@ -38,16 +38,16 @@ Narration:
 
 - The workspace contains a real Git project on machine A.
 - `scan` captures metadata and setup hints.
-- `workspace push` sends only `manifest.json` to the manifest remote.
+- `sync push` sends only validated `manifest.json` metadata to the manifest remote; source, dependencies, env files, identities, and secret payloads stay local.
 
-## Machine B: Pull, Plan, Apply, Hydrate
+## Machine B: Pull, Plan, Apply, Update
 
 Narration:
 
 - Pull localizes the workspace root for machine B.
 - `plan` shows safe placeholder actions before mutation.
 - `apply` creates structure only.
-- Hydration uses normal Git clone and refuses unsafe destinations.
+- `project update` uses normal Git clone for placeholders and refuses unsafe destinations.
 
 ## Encrypted Env Profile
 
@@ -56,7 +56,7 @@ Narration:
 - Env values are stored encrypted under the workspace `.devspace/secrets`
   directory.
 - `env list` masks values.
-- `env pull` writes the local `.env` file only on explicit request.
+- `env write` writes the local `.env` file only on explicit request and does not print decrypted values.
 - The generated `.env` has `0600` permissions.
 - `scripts/demo-check.sh` enforces the `0600` assertion automatically.
 

@@ -50,11 +50,11 @@ Scan: 3 projects, 3 git repos, 3 with remotes.
 rotate your machine ID or age key. `scan` only reads the filesystem; it never runs
 your project's code."
 
-### `devspace project`
+### `devspace project list`
 
 Shows the three tracked projects with their git remotes.
 
-### `devspace workspace remote create local <path>` → `devspace workspace push`
+### `devspace sync remote create local <path>` → `devspace sync push`
 
 ```bash
 Created local manifest remote.
@@ -62,7 +62,7 @@ Pushed manifest (committed N change(s)).
 ```
 
 **Talking point:** "Sync is *your* Git repo — a bare repo here, but normally a
-private GitHub repo (`workspace remote create github owner/repo --private`). No
+private GitHub repo (`sync remote create github owner/repo --private`). No
 DevSpace server required. The manifest is just a committed JSON file."
 
 ### `echo '…' | devspace env set web-store DATABASE_URL` → `devspace env list web-store`
@@ -79,11 +79,11 @@ plaintext. When we generate a `.env`, it's written `0600`."
 
 ## Act 2 — Machine B (the new machine) · ~2min · **the payoff**
 
-### `devspace init --workspace <ws-b>` → `devspace workspace remote set <path>`
+### `devspace init --workspace <ws-b>` → `devspace sync remote set <path>`
 
 Empty workspace, fresh home, pointed at the same manifest remote.
 
-### `devspace workspace pull`
+### `devspace sync pull`
 
 ```bash
 Pulled manifest.  Next: devspace plan && devspace apply
@@ -118,10 +118,10 @@ Applied safe plan actions.
 **Talking point:** "Placeholders. Zero bytes of your code touched. `apply` even
 re-checks each destination is still empty at apply time."
 
-### `devspace project hydrate web-store` ← **the magic moment**
+### `devspace project update web-store` ← **the magic moment**
 
 ```bash
-Hydrating web-store...  Hydrated web-store
+Updating web-store...  Hydrated web-store
 Suggested setup: npm install
 → web-store/ is now a real checkout (.git, package.json, README.md)
 ```
@@ -138,13 +138,13 @@ Projects tracked: 3 · Hydrated: 1 · Placeholders: 2
 ```
 
 **Talking point:** "One command, whole-workspace truth. Hydrate the rest when you
-need them — lazy materialization."
+need them — explicit materialization."
 
 ---
 
 ## Closer · 30s
 
-> "That's the loop: **scan → plan → apply → hydrate**, safe at every step, synced
+> "That's the loop: **scan → plan → apply → project update**, safe at every step, synced
 > through a repo you own. No server, no database, secrets encrypted, nothing
 > destructive — ever."
 
@@ -156,15 +156,15 @@ safe actions, live.
 
 ## What to SKIP live (and why)
 
-- **`devspace mount`** — real FUSE lazy-mount, but a runtime-guarded *prototype*
+- **`devspace experimental mount`** — real FUSE lazy-mount, but a runtime-guarded *prototype*
   (needs macFUSE). Mention as "where this is going," don't demo cold.
-- **`devspace hosted serve`** — a working control-plane *prototype*. Demo the
+- **`devspace experimental hosted serve`** — a working control-plane *prototype*. Demo the
   Git-remote sync (rock solid); only show hosted if you've rehearsed it.
 - Don't narrate the `devdrop → devspace` rename — it's plumbing.
 
 ## If something breaks
 
 - Re-run `./capstone-rehearsal.sh clean && ./capstone-rehearsal.sh full` — it's fully idempotent.
-- `hydrate` needs the upstream reachable; the sandbox uses local bare repos so it
+- `project update` needs the upstream reachable; the sandbox uses local bare repos so it
   works offline.
 - Every command is safe to re-run; nothing here can damage real data.

@@ -22,7 +22,7 @@ It does this by:
 - syncing only the manifest through either a user-owned Git remote or an opt-in
   hosted manifest control plane;
 - planning and applying safe placeholder directory creation before hydration;
-- hydrating Git projects with explicit `git clone`;
+- updating missing or eligible clean Git projects with explicit Git operations;
 - managing encrypted per-project environment profiles with `age`;
 - exposing a terminal dashboard for safe workspace operations.
 
@@ -63,28 +63,32 @@ Top-level commands cover local workflow:
 - `ui` opens the interactive dashboard.
 - `status`, `doctor`, `plan`, and `apply` expose read/diagnose/review/apply
   loops.
-- `project hydrate` clones placeholder Git projects.
+- `project update` clones placeholders and fast-forwards eligible clean Git projects.
 - `env` manages encrypted project env profiles.
 - `setup` reviews and runs explicit setup commands.
-- `mount` previews a read-only FUSE workspace view.
+- `experimental mount` previews a read-only FUSE workspace view.
 
-The `workspace` command group owns Git-backed manifest sync:
+The `sync` command group owns Git-backed manifest sync:
 
-- `workspace remote` configures or creates the manifest remote.
-- `workspace push` writes only `manifest.json` to the remote repo.
-- `workspace pull` validates, localizes, and replaces the local manifest.
-- `workspace diff` previews remote manifest differences as `ManifestDiff`.
-- `workspace reconcile` computes a three-way (or two-way fallback) merge
+- `sync remote` configures or creates the manifest remote.
+- `sync push` writes only `manifest.json` to the remote repo.
+- `sync pull` validates, localizes, and replaces the local manifest.
+- `sync diff` previews remote manifest differences as `ManifestDiff`.
+- `sync reconcile` computes a three-way (or two-way fallback) merge
   between local and remote manifests, reviewable before an explicit `--apply`.
 
 The `hosted` command group owns the opt-in hosted control-plane prototype:
 
-- `hosted serve` runs a local HTTP manifest server.
 - `hosted config` stores endpoint/workspace/token configuration.
 - `hosted push` and `hosted pull` sync manifest metadata with version/hash
   conflict checks.
 - `hosted reconcile` runs the same merge/review/apply flow as `workspace
   reconcile`, resolving hosted 409/version conflicts.
+
+The `experimental` group makes prototype boundaries visible:
+
+- `experimental hosted serve` runs the guarded local HTTP manifest server.
+- `experimental mount` runs or previews the optional FUSE workspace view.
 
 ## Manifest Sync Flow
 
@@ -179,7 +183,7 @@ local, remote Manifest) (ReconcileResult, error)`:
   `--force-project <projectID>=<local|remote>` to resolve individual project
   conflicts.
 
-Two commands drive this: `devspace workspace reconcile` (Git-backed sync) and
+Two commands drive this: `devspace sync reconcile` (Git-backed sync) and
 `devspace hosted reconcile` (hosted 409/version conflicts), both wired in
 `commands.go` and taking `withAppLock` at the command boundary. Each supports
 `--json` and `--apply`. Review-first by default: the plan (ops summary +
@@ -219,7 +223,7 @@ workspace files
   -> scan/watch
   -> Manifest + State
   -> status/doctor/plan/ui
-  -> apply/hydrate/setup/env actions
+  -> apply/project-update/setup/env actions
   -> updated workspace files and app-home state
 ```
 

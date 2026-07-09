@@ -16,11 +16,11 @@
 - Workspace scan ignores dependency folders and does not recurse into nested Git repos inside a parent repo.
 - Manifest path validation rejects absolute paths and `..` escapes.
 - Manifest writes create `.bak` backups before replacing existing files.
-- `workspace remote set/get` stores manifest remote configuration outside the manifest.
-- `workspace remote create local` creates a local bare Git manifest remote and sets it.
-- `workspace remote create github` has an explicit GitHub CLI path for creating hosted manifest repos.
-- `workspace push` clones the manifest repo cache, writes only `manifest.json`, commits changed manifests, pushes to the configured remote, and is idempotent with no changes.
-- `workspace pull` validates the remote manifest before replacement, localizes the workspace root, creates a manifest backup, and does not run apply automatically.
+- `sync remote set/get` stores manifest remote configuration outside the manifest.
+- `sync remote create local` creates a local bare Git manifest remote and sets it.
+- `sync remote create github` has an explicit GitHub CLI path for creating hosted manifest repos.
+- `sync push` clones the manifest repo cache, writes only `manifest.json`, commits changed manifests, pushes to the configured remote, and is idempotent with no changes.
+- `sync pull` validates the remote manifest before replacement, localizes the workspace root, creates a manifest backup, and does not run apply automatically or retrieve project source.
 - Git-backed manifest pull works into a second workspace, after which plan/apply recreates placeholder folder structure.
 - Hydration after Git-backed manifest pull works against local bare Git project remotes.
 - `plan` creates safe/skip actions and `plan --json` returns structured JSON.
@@ -39,14 +39,14 @@
 - Initial audit found a temporary compile break from partial path-hardening edits.
 - The original hydrate path deleted placeholder directories before cloning.
 - The original sync path recomputed actions during apply and had no saved plan hash.
-- The original docs still described `workspace sync` as the primary flow.
+- The original docs still described a deprecated compatibility sync alias as the primary flow.
 
 ## What Was Fixed
 
 - Replaced direct placeholder marker deletion with empty-directory placeholders.
 - Added a saved plan file with manifest hash validation.
 - Added top-level `scan`, `plan`, and `apply` commands for the requested workflow.
-- Kept `workspace sync` only as a deprecated compatibility alias.
+- Removed the deprecated compatibility alias in the pre-1.0 command redesign.
 - Added atomic JSON writes with backups.
 - Centralized workspace-relative path validation and used it at mutating call sites.
 - Improved Git clone errors with remote and next-step guidance.
@@ -64,9 +64,9 @@
 ## Remaining Risks
 
 - Plan/apply is intentionally conservative and may require manual cleanup or explicit future flags for advanced cases.
-- Manifest sync conflicts are resolved via `workspace reconcile` / `hosted reconcile`, with global `--force-local`/`--force-remote` and repeatable per-project `--force-project <projectID>=<local|remote>` overrides; there is no interactive merge UI beyond these flags.
+- Manifest sync conflicts are resolved via `sync reconcile` / `hosted reconcile`, with global `--force-local`/`--force-remote` and repeatable per-project `--force-project <projectID>=<local|remote>` overrides; there is no interactive merge UI beyond these flags.
 - Git inspection still avoids mutating repos, so stale/outdated remote commit detection remains shallow.
-- Encrypted `.env` generation overwrites the target `.env` only when explicitly requested via `env pull`.
+- Encrypted `.env` generation overwrites the target `.env` only when explicitly requested via `env write`; decrypted values are not printed.
 
 ## Recommended Next Feature
 

@@ -46,7 +46,7 @@ These remain out of scope:
 - Full source-code syncing.
 - Automatic Git pull, merge, rebase, or conflict resolution for project repos.
 - Plaintext secret upload or remote secret storage.
-- Hidden dependency installation during scan, pull, apply, hydrate, daemon, or
+- Hidden dependency installation during scan, sync, apply, project update, daemon, or
   FUSE reads.
 
 ## User Stories
@@ -95,26 +95,26 @@ so another machine can recreate the workspace shape.
 
 Acceptance:
 
-- `workspace remote create local <path>` creates a local bare Git remote.
-- `workspace remote create github <owner/repo> --private` uses the GitHub CLI.
-- `workspace push` writes only `manifest.json`.
+- `sync remote create local <path>` creates a local bare Git remote.
+- `sync remote create github <owner/repo> --private` uses the GitHub CLI.
+- `sync push` writes only validated `manifest.json` metadata; it does not transfer source, dependencies, env files, identities, or secret payloads.
 - Synced manifests do not include machine-local workspace roots.
-- `workspace pull` validates remote JSON and manifest paths before replacing
+- `sync pull` validates remote JSON and manifest paths before replacing
   the local manifest.
 - Pull creates a `.bak` backup of the previous local manifest.
 - Pull refuses to overwrite local manifest changes that have not been pushed or
   reconciled.
 
-### Hydrate projects on demand
+### Update projects on demand
 
-As a developer, I can run `devspace project hydrate <project>` so a placeholder
+As a developer, I can run `devspace project update <project>` so a placeholder
 Git project becomes a real clone when I need it.
 
 Acceptance:
 
-- Hydration clones only into missing or empty directories.
-- Hydration refuses non-empty destination folders.
-- Hydration gives useful errors when a remote is missing or unreachable.
+- Project update clones only into missing or empty directories and fast-forwards only eligible clean checkouts.
+- Project update refuses non-empty placeholder destinations and skips unsafe repositories with reasons.
+- Project update gives useful errors when a remote is missing or unreachable.
 - Suggested setup commands are printed but not executed.
 
 ### Manage local encrypted env profiles
@@ -128,7 +128,7 @@ Acceptance:
 - Empty or invalid keys are rejected.
 - `env list` masks values.
 - Secret profile files do not contain plaintext values.
-- `env pull` writes the local `.env` file with `0600` permissions.
+- `env write` writes the local `.env` file with `0600` permissions without printing decrypted values.
 
 ## Quality Bar
 

@@ -5,7 +5,7 @@ Set FontSize 16
 Set Shell bash
 Set TypingSpeed 40ms
 
-# `devspace mount --preview` projects the manifest-backed lazy-mount view
+# `devspace experimental mount --preview` projects the manifest-backed lazy-mount view
 # without requiring FUSE: tracked projects appear as entries whether or not
 # they are hydrated on disk yet.
 Hide
@@ -35,10 +35,10 @@ Type "clear"
 Enter
 Show
 
-Type "devspace mount /tmp/devspace-mnt --preview"
+Type "devspace experimental mount /tmp/devspace-mnt --preview"
 Enter
 Sleep 3s
 
-Type "devspace mount /tmp/devspace-mnt --preview --json"
+Type "devspace experimental mount /tmp/devspace-mnt --preview --json"
 Enter
 Sleep 3s

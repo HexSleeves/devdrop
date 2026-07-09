@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+# This is deliberately an allowlist. Completed SDD specs/proofs/validations,
+# docs/architecture/manifest-merge.md (a superseded spike), generated capstone
+# HTML, and generated demo GIFs are historical artifacts and are not scanned.
+maintained_files=(
+  AGENTS.md
+  CLAUDE.md
+  Makefile
+  README.md
+  ARCHITECTURE.md
+  docs/architecture/access-roles.md
+  docs/architecture/fuse-lazy-mount.md
+  docs/operations/macos-fuse-run-playbook.md
+  docs/operations/release-readiness.md
+  docs/operations/release.md
+  docs/capstone/README.md
+  docs/capstone/case-study.md
+  docs/capstone/demo-script.md
+  docs/capstone/playbook-contribution.md
+  docs/capstone/proof-artifacts.md
+  docs/capstone/remote-agent-case-study.md
+  docs/capstone/spec.md
+  docs/demos/README.md
+  docs/demos/capstone-runbook.md
+  docs/demos/capstone-rehearsal.sh
+  docs/demos/hosted-sync-serve.sh
+  docs/demos/mkgitproject.sh
+  docs/demos/project-remote.sh
+  docs/demos/set-api-key.sh
+  docs/demos/spawn-project-later.sh
+  docs/demos/capstone-walkthrough.tape
+  docs/demos/env-secrets.tape
+  docs/demos/getting-started.tape
+  docs/demos/hosted-sync.tape
+  docs/demos/mount-preview.tape
+  docs/demos/project-lifecycle.tape
+  docs/demos/reconcile.tape
+  docs/demos/setup-commands.tape
+  docs/demos/ui-dashboard.tape
+  docs/demos/watch.tape
+  docs/demos/workspace-sync.tape
+  scripts/demo-check.sh
+)
+
+removed_patterns=(
+  'workspace[[:space:]]+(push|pull|diff|reconcile|remote|scan|sync)([^[:alnum:]_-]|$)'
+  'project[[:space:]]+(add|remove|hydrate)([^[:alnum:]_-]|$)'
+  '(^|[^[:alnum:]_-])(devspace|bin/devspace|\./bin/devspace|\$DS|"\$devspace")[[:space:]]+project[[:space:]]+status([^[:alnum:]_-]|$)'
+  'env[[:space:]]+pull([^[:alnum:]_-]|$)'
+  'setup[[:space:]]+(plan|apply)([^[:alnum:]_-]|$)'
+  '(^|[^[:alnum:]_-])(devspace|bin/devspace|\./bin/devspace|\$DS|"\$devspace")[[:space:]]+hosted[[:space:]]+serve([^[:alnum:]_-]|$)'
+  '(^|[^[:alnum:]_-])(devspace|bin/devspace|\./bin/devspace|\$DS|"\$devspace")[[:space:]]+mount([^[:alnum:]_-]|$)'
+  '(^|[^[:alnum:]_-])devspace[[:space:]]+tui([^[:alnum:]_-]|$)'
+  '(^|[^[:alnum:]_-])devspace[[:space:]]+version([^[:alnum:]_-]|$)'
+  '(^|[^[:alnum:]_-])devspace[[:space:]]+workspace([[:space:]]+--json)?[[:space:]`"'"'"']*$'
+  '(^|[^[:alnum:]_-])devspace[[:space:]]+project([[:space:]]+--json)?[[:space:]`"'"'"']*$'
+)
+
+canonical_patterns=(
+  'sync[[:space:]]+remote'
+  'sync[[:space:]]+push'
+  'sync[[:space:]]+pull'
+  'sync[[:space:]]+diff'
+  'sync[[:space:]]+reconcile'
+  'project[[:space:]]+list'
+  'project[[:space:]]+track'
+  'project[[:space:]]+untrack'
+  'project[[:space:]]+update'
+  'env[[:space:]]+write'
+  'setup[[:space:]]+show'
+  'setup[[:space:]]+run'
+  'experimental[[:space:]]+hosted[[:space:]]+serve'
+  'experimental[[:space:]]+mount'
+  'devspace[[:space:]]+ui'
+  'devspace[[:space:]]+--version'
+  'status[[:space:]]+client-a-api'
+)
+
+failed=0
+for file in "${maintained_files[@]}"; do
+  if [[ ! -f "$file" ]]; then
+    echo "command-surface: missing maintained file: $file" >&2
+    failed=1
+  fi
+done
+
+if ((failed)); then
+  exit 1
+fi
+
+if [[ "$(grep -c '^<!-- command-surface-migration:start -->$' README.md)" -ne 1 ||
+      "$(grep -c '^<!-- command-surface-migration:end -->$' README.md)" -ne 1 ]]; then
+  echo "command-surface: README migration exclusion markers must be one start/end pair" >&2
+  exit 1
+fi
+
+# README's marked pre-1.0 migration table names removed paths as historical
+# labels. Only that bounded block is omitted from removed-path matching.
+scan_file() {
+  awk '
+    /<!-- command-surface-migration:start -->/ { excluded = 1; next }
+    /<!-- command-surface-migration:end -->/ { excluded = 0; next }
+    !excluded { print FNR ":" $0 }
+  ' "$1"
+}
+
+for pattern in "${removed_patterns[@]}"; do
+  for file in "${maintained_files[@]}"; do
+    matches="$(scan_file "$file" | grep -E "$pattern" || true)"
+    if [[ -n "$matches" ]]; then
+      while IFS= read -r match; do
+        echo "command-surface: removed path: $file:$match" >&2
+      done <<<"$matches"
+      failed=1
+    fi
+  done
+done
+
+for pattern in "${canonical_patterns[@]}"; do
+  found=0
+  for file in "${maintained_files[@]}"; do
+    if scan_file "$file" | grep -E "$pattern" >/dev/null; then
+      found=1
+      break
+    fi
+  done
+  if (( ! found )); then
+    echo "command-surface: missing canonical path matching: $pattern" >&2
+    failed=1
+  fi
+done
+
+if ((failed)); then
+  exit 1
+fi
+
+echo "command-surface: maintained documentation and demos use canonical commands"

@@ -26,7 +26,7 @@ DevDrop separates workspace knowledge from workspace contents.
 - A local manifest records project metadata.
 - A Git-backed sync flow moves only `manifest.json` through a user-owned remote.
 - A plan/apply workflow shows filesystem changes before creating placeholders.
-- Git projects hydrate on demand with normal `git clone`.
+- Git projects update on demand with normal `git clone` or safe fast-forward.
 - Env values are encrypted locally with age and only materialized into `.env`
   files through an explicit command.
 
@@ -39,7 +39,7 @@ The current MVP proves the core workflow:
 - Push workspace metadata to a Git remote.
 - Pull that metadata on a second machine.
 - Recreate placeholder structure safely.
-- Hydrate a project only when needed.
+- Update a project only when needed.
 - Keep env values encrypted at rest.
 
 ## Why AI-Native Delivery Mattered
