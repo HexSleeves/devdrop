@@ -70,7 +70,7 @@ checksum:
   `checksum.extra_files` is configured — so today's `checksums.txt` does NOT
   cover the tui binaries.
 - GitHub repo for releases: the Go module is
-  `github.com/liatrio-forge/devdrop-capstone` (see `go.mod`) — that is the
+  `github.com/liatrio-forge/forge-capstone-devspace` (see `go.mod`) — that is the
   canonical repo the release workflow publishes to. **The repo is private**
   (a recorded project decision), so unauthenticated downloads fail; the
   installer must send a token when one is available.
@@ -145,7 +145,7 @@ func newTUIInstallCommand(version string) *cobra.Command
 - `--version` (string): release tag to install, e.g. `v0.2.0`. Default: `"v" + version`
   of the running binary. If the running version is `dev` and the flag is
   unset, error: `running a dev build; pass --version vX.Y.Z`.
-- `--repo` (string): `owner/name`, default `liatrio-forge/devdrop-capstone`
+- `--repo` (string): `owner/name`, default `liatrio-forge/forge-capstone-devspace`
   (define as a const `tuiReleaseRepo`).
 
 Install logic (`tuiInstall(out io.Writer, repo, tag string) error`), decided —

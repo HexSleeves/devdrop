@@ -158,7 +158,7 @@ golangci-lint run ./...
 govulncheck ./...
 GOOS=linux GOARCH=amd64 go vet -tags fusetest ./...</code></pre>
     <p class="result-summary"><strong>Result summary:</strong> 135 passed, 0 failed; zero vet/lint issues; zero reachable vulnerabilities; the Linux cross-compile vet check (which actually includes <code>mount_fuse_test.go</code>) is also clean, meaning the hydration-failure logger migration in that file's exercised code path type-checks correctly even though it cannot be executed here. The real execution of this test happens in CI's <code>mount-integration</code> job on every push.</p>
-    <pre><code>ok  	github.com/liatrio-forge/devdrop-capstone/internal/devspace	14.984s
+    <pre><code>ok  	github.com/liatrio-forge/forge-capstone-devspace/internal/devspace	14.984s
 Go vet: No issues found
 0 issues.
 No vulnerabilities found.

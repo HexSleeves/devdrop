@@ -57,7 +57,7 @@ go test ./internal/devspace -run TestTUIInstall -v
 --- PASS: TestTUIInstallSendsAuthHeader (0.01s)
 --- PASS: TestTUIInstallUnsupportedPlatform (0.00s)
 --- PASS: TestTUIInstallDevVersionRequiresVersionFlag (0.00s)
-ok  	github.com/liatrio-forge/devdrop-capstone/internal/devspace	0.047s
+ok  	github.com/liatrio-forge/forge-capstone-devspace/internal/devspace	0.047s
 ~~~
 
 ## Artifact: Command help
@@ -71,7 +71,7 @@ go run ./cmd/devspace tui install --help
 ~~~
 
 **Result summary:** Shows `--version` (release tag, defaulting from the
-running binary's version) and `--repo` (default `liatrio-forge/devdrop-capstone`).
+running binary's version) and `--repo` (default `liatrio-forge/forge-capstone-devspace`).
 
 ~~~text
   USAGE
@@ -80,7 +80,7 @@ running binary's version) and `--repo` (default `liatrio-forge/devdrop-capstone`
   FLAGS
     -h --help   Help for install
     --no-color  Disable styled output regardless of terminal capability
-    --repo      Github repository owner/name (liatrio-forge/devdrop-capstone)
+    --repo      Github repository owner/name (liatrio-forge/forge-capstone-devspace)
     --version   Release tag to install, e.g. v0.2.0 (vdev)
 ~~~
 

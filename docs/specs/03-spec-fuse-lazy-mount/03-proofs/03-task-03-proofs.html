@@ -55,14 +55,14 @@
   <section>
     <h2>Local Verification</h2>
     <pre><code>$ go test ./...
-?   	github.com/liatrio-forge/devdrop-capstone/cmd/devspace	[no test files]
-ok  	github.com/liatrio-forge/devdrop-capstone/internal/devspace	19.436s
+?   	github.com/liatrio-forge/forge-capstone-devspace/cmd/devspace	[no test files]
+ok  	github.com/liatrio-forge/forge-capstone-devspace/internal/devspace	19.436s
 
 $ GOOS=linux go test ./internal/devspace -tags fusetest -c -o /tmp/devspace-fuse.test
 
 $ go test ./...
-?   	github.com/liatrio-forge/devdrop-capstone/cmd/devspace	[no test files]
-ok  	github.com/liatrio-forge/devdrop-capstone/internal/devspace	18.547s
+?   	github.com/liatrio-forge/forge-capstone-devspace/cmd/devspace	[no test files]
+ok  	github.com/liatrio-forge/forge-capstone-devspace/internal/devspace	18.547s
 
 $ make verify
 go test ./...

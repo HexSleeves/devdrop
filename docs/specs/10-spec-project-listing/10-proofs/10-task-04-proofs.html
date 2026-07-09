@@ -33,12 +33,12 @@
 
   <h2>Evidence Summary</h2>
   <pre><code>$ go test ./internal/devspace -run 'TestProjectHelpDocumentsJSONFlag$' -count=1
-ok  	github.com/liatrio-forge/devdrop-capstone/internal/devspace	0.202s
+ok  	github.com/liatrio-forge/forge-capstone-devspace/internal/devspace	0.202s
 
 $ make verify
 go test ./...
-?   	github.com/liatrio-forge/devdrop-capstone/cmd/devspace	[no test files]
-ok  	github.com/liatrio-forge/devdrop-capstone/internal/devspace	33.385s
+?   	github.com/liatrio-forge/forge-capstone-devspace/cmd/devspace	[no test files]
+ok  	github.com/liatrio-forge/forge-capstone-devspace/internal/devspace	33.385s
 go vet ./...
 test -z "$(gofmt -l cmd internal)" || (gofmt -l cmd internal &amp;&amp; exit 1)
 go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2 run ./...
