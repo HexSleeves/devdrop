@@ -648,10 +648,10 @@ func TestWorkspaceDiffReportsRemoteChangesWithoutReplacingLocalManifest(t *testi
 		t.Fatal(err)
 	}
 
-	cmd := NewRootCommand("test")
+	cmd := newWorkspaceCommand()
 	var out bytes.Buffer
 	cmd.SetOut(&out)
-	cmd.SetArgs([]string{"workspace", "diff"})
+	cmd.SetArgs([]string{"diff"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}

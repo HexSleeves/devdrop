@@ -87,24 +87,24 @@
 
 ## Tasks
 
-### [ ] 1.0 Establish the release command taxonomy, grouped help, and consolidated status surface
+### [~] 1.0 Establish the release command taxonomy, grouped help, and consolidated status surface
 
 #### 1.0 Proof Artifact(s)
 
 - CLI: `go run ./cmd/devspace --help` shows grouped core, management, diagnostics/automation, and experimental commands; it exposes no more than 14 product commands and omits `workspace`, `tui`, `mount`, and `version`.
 - CLI: isolated `devspace status`, `devspace status --verbose`, and `devspace status <project> --json` output demonstrates workspace health, saved overview, and project-specific status through one canonical command.
 - Test: `go test ./internal/devspace -run 'TestReleaseCommandTreeContract|TestStatusCommand' -count=1` passes and demonstrates canonical path resolution, removed-path rejection, help examples, JSON cleanliness, and status behavior.
-- Evidence file: `docs/specs/13-spec-command-surface-consolidation/13-proofs/13-task-01-command-taxonomy.txt` records sanitized help and status output.
+- Evidence file: `docs/specs/13-spec-command-surface-consolidation/13-proofs/13-task-01-proofs.md` records sanitized help and status output.
 
 #### 1.0 Tasks
 
-- [ ] 1.1 Add failing command-tree contract tests that define the 14-command maximum, help groups, canonical root names, `--version`, required examples, and rejection of removed root/group paths.
-- [ ] 1.2 Add failing status tests for workspace health, `--verbose` overview/redaction, `<project>` selection, project JSON output, ANSI-free JSON, and invalid argument/flag combinations.
-- [ ] 1.3 Rebuild `NewRootCommand` with Cobra groups and only the canonical root commands; remove `version`, `workspace`, `tui`, and root `mount` registration without aliases or deprecated wrappers.
-- [ ] 1.4 Extend the status command to reuse `buildWorkspaceOverview`, `printWorkspaceOverview`, and `ProjectListRow` for verbose and project-specific output without changing existing workspace status JSON fields.
-- [ ] 1.5 Make resource groups show focused help when no action is provided, and add concise `Long`/`Example` content for the root, status, and newly canonical commands.
-- [ ] 1.6 Update output guidance and tests that direct users to implicit project listing or removed root paths; keep JSON output byte-clean.
-- [ ] 1.7 Run the Task 1 targeted tests, capture sanitized root/status help and JSON output, and write `13-proofs/13-task-01-command-taxonomy.txt`.
+- [x] 1.1 Add failing command-tree contract tests that define the 14-command maximum, help groups, canonical root names, `--version`, required examples, and rejection of removed root/group paths.
+- [x] 1.2 Add failing status tests for workspace health, `--verbose` overview/redaction, `<project>` selection, project JSON output, ANSI-free JSON, and invalid argument/flag combinations.
+- [x] 1.3 Rebuild `NewRootCommand` with Cobra groups and only the canonical root commands; remove `version`, `workspace`, `tui`, and root `mount` registration without aliases or deprecated wrappers.
+- [x] 1.4 Extend the status command to reuse `buildWorkspaceOverview`, `printWorkspaceOverview`, and `ProjectListRow` for verbose and project-specific output without changing existing workspace status JSON fields.
+- [x] 1.5 Make resource groups show focused help when no action is provided, and add concise `Long`/`Example` content for the root, status, and newly canonical commands.
+- [x] 1.6 Update output guidance and tests that direct users to implicit project listing or removed root paths; keep JSON output byte-clean.
+- [x] 1.7 Run the Task 1 targeted tests, capture sanitized root/status help and JSON output, and write `13-proofs/13-task-01-proofs.md`.
 
 ### [ ] 2.0 Replace workspace/project overlap with canonical sync and project workflows
 

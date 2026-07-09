@@ -65,11 +65,11 @@ func TestMountPreviewCommandDoesNotRequireFUSE(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmd := NewRootCommand("test")
+	cmd := newMountCommand()
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&bytes.Buffer{})
-	cmd.SetArgs([]string{"mount", filepath.Join(t.TempDir(), "mnt"), "--preview"})
+	cmd.SetArgs([]string{filepath.Join(t.TempDir(), "mnt"), "--preview"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}

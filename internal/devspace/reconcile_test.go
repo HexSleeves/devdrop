@@ -410,8 +410,8 @@ func TestWorkspaceReconcileConflictBlocksApply(t *testing.T) {
 func TestWorkspaceReconcileForceProjectFlagsResolveMultipleConflicts(t *testing.T) {
 	workspace, projects := setupWorkspaceReconcileProjectConflicts(t)
 
-	if _, _, err := executeCommand(t, "test",
-		"workspace", "reconcile", "--apply",
+	if _, _, err := executePrivateCommand(t, newWorkspaceCommand(),
+		"reconcile", "--apply",
 		"--force-project", projects[0].ID+"=remote",
 		"--force-project", projects[1].ID+"=local",
 	); err != nil {
@@ -525,8 +525,8 @@ func TestHostedReconcileForceProjectFlagsResolveMultipleConflicts(t *testing.T) 
 func TestWorkspaceReconcileForceProjectOverridesGlobalForce(t *testing.T) {
 	workspace, projects := setupWorkspaceReconcileProjectConflicts(t)
 
-	if _, _, err := executeCommand(t, "test",
-		"workspace", "reconcile", "--apply", "--force-local",
+	if _, _, err := executePrivateCommand(t, newWorkspaceCommand(),
+		"reconcile", "--apply", "--force-local",
 		"--force-project", projects[0].ID+"=remote",
 	); err != nil {
 		t.Fatalf("reconcile --force-local --force-project error: %v", err)
@@ -907,7 +907,7 @@ func TestWorkspaceReconcileJSONOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	stdout, _, err := executeCommand(t, "test", "workspace", "reconcile", "--json")
+	stdout, _, err := executePrivateCommand(t, newWorkspaceCommand(), "reconcile", "--json")
 	if err != nil {
 		t.Fatalf("reconcile --json error: %v", err)
 	}
@@ -944,7 +944,7 @@ func TestWorkspaceReconcileJSONOutput(t *testing.T) {
 		}
 	}
 
-	stdout, _, err = executeCommand(t, "test", "workspace", "reconcile", "--json", "--force-project", project.ID+"=remote")
+	stdout, _, err = executePrivateCommand(t, newWorkspaceCommand(), "reconcile", "--json", "--force-project", project.ID+"=remote")
 	if err != nil {
 		t.Fatalf("reconcile --json --force-project error: %v", err)
 	}
@@ -973,7 +973,7 @@ func TestReconcileForceFlagsMutuallyExclusive(t *testing.T) {
 		{"workspace", "reconcile", "--force-local", "--force-remote"},
 		{"hosted", "reconcile", "--force-local", "--force-remote"},
 	} {
-		if _, _, err := executeCommand(t, "test", args...); err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
+		if err := executeReconcileValidationCommand(t, args...); err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
 			t.Fatalf("%v error = %v, want mutual exclusion error", args, err)
 		}
 	}
@@ -985,7 +985,7 @@ func TestReconcileForceProjectFlagRejectsBadDirection(t *testing.T) {
 		{"workspace", "reconcile", "--force-project", "project_app=sideways"},
 		{"hosted", "reconcile", "--force-project", "project_app=sideways"},
 	} {
-		if _, _, err := executeCommand(t, "test", args...); err == nil || !strings.Contains(err.Error(), "local or remote") {
+		if err := executeReconcileValidationCommand(t, args...); err == nil || !strings.Contains(err.Error(), "local or remote") {
 			t.Fatalf("%v error = %v, want direction error", args, err)
 		}
 	}
@@ -997,10 +997,20 @@ func TestReconcileForceProjectFlagRejectsDuplicateProject(t *testing.T) {
 		{"workspace", "reconcile", "--force-project", "project_app=local", "--force-project", "project_app=remote"},
 		{"hosted", "reconcile", "--force-project", "project_app=local", "--force-project", "project_app=remote"},
 	} {
-		if _, _, err := executeCommand(t, "test", args...); err == nil || !strings.Contains(err.Error(), "duplicate --force-project for project_app") {
+		if err := executeReconcileValidationCommand(t, args...); err == nil || !strings.Contains(err.Error(), "duplicate --force-project for project_app") {
 			t.Fatalf("%v error = %v, want duplicate force-project error", args, err)
 		}
 	}
+}
+
+func executeReconcileValidationCommand(t *testing.T, args ...string) error {
+	t.Helper()
+	if args[0] == "workspace" {
+		_, _, err := executePrivateCommand(t, newWorkspaceCommand(), args[1:]...)
+		return err
+	}
+	_, _, err := executeCommand(t, "test", args...)
+	return err
 }
 
 // reconcileRotatedRecipient is a second valid age X25519 recipient used to

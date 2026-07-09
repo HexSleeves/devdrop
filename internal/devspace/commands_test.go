@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -79,13 +80,114 @@ func executeCommand(t *testing.T, version string, args ...string) (stdout, stder
 	return out.String(), errBuf.String(), err
 }
 
-func TestVersionCommandPrintsVersion(t *testing.T) {
-	stdout, _, err := executeCommand(t, "v1.2.3-test", "version")
-	if err != nil {
-		t.Fatalf("version error: %v", err)
+func executePrivateCommand(t *testing.T, command *cobra.Command, args ...string) (stdout, stderr string, err error) {
+	t.Helper()
+	root := &cobra.Command{
+		Use:          "devspace",
+		SilenceUsage: true,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			configureStyles(cmd.OutOrStdout(), false)
+		},
 	}
-	if strings.TrimSpace(stdout) != "v1.2.3-test" {
-		t.Fatalf("version output = %q, want %q", stdout, "v1.2.3-test")
+	root.AddCommand(command)
+	var out, errBuf bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&errBuf)
+	root.SetArgs(append([]string{command.Name()}, args...))
+	err = root.Execute()
+	return out.String(), errBuf.String(), err
+}
+
+func TestReleaseCommandTreeContract(t *testing.T) {
+	root := NewRootCommand("v1.2.3-test")
+	wantCommands := []string{
+		"apply", "doctor", "env", "experimental", "hosted", "init", "plan",
+		"project", "scan", "setup", "status", "sync", "ui", "watch",
+	}
+	var gotCommands []string
+	for _, cmd := range root.Commands() {
+		if !cmd.Hidden && cmd.Name() != "completion" && cmd.Name() != "help" {
+			gotCommands = append(gotCommands, cmd.Name())
+		}
+	}
+	slices.Sort(gotCommands)
+	if !slices.Equal(gotCommands, wantCommands) {
+		t.Fatalf("visible root commands = %v, want %v", gotCommands, wantCommands)
+	}
+	if len(gotCommands) > 14 {
+		t.Fatalf("visible root command count = %d, want at most 14", len(gotCommands))
+	}
+
+	wantGroups := map[string]string{
+		"core":         "Core Workflow",
+		"management":   "Workspace Management",
+		"diagnostics":  "Diagnostics and Automation",
+		"experimental": "Experimental",
+	}
+	for _, group := range root.Groups() {
+		want, ok := wantGroups[group.ID]
+		if !ok {
+			t.Errorf("unexpected root command group %q", group.ID)
+			continue
+		}
+		if strings.TrimSuffix(group.Title, ":") != want {
+			t.Errorf("root command group %q title = %q, want %q", group.ID, group.Title, want)
+		}
+		delete(wantGroups, group.ID)
+	}
+	if len(wantGroups) != 0 {
+		t.Fatalf("missing root command groups: %v", wantGroups)
+	}
+
+	stdout, _, err := executeCommand(t, "v1.2.3-test", "--help")
+	if err != nil {
+		t.Fatalf("root --help error: %v", err)
+	}
+	for _, want := range []string{"Core Workflow", "Workspace Management", "Diagnostics and Automation", "Experimental", "devspace scan", "devspace status --verbose"} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("root --help missing %q:\n%s", want, stdout)
+		}
+	}
+	for _, removed := range []string{"workspace", "tui", "mount", "version"} {
+		if slices.Contains(gotCommands, removed) {
+			t.Errorf("root still exposes removed command %q", removed)
+		}
+	}
+
+	stdout, _, err = executeCommand(t, "v1.2.3-test", "--version")
+	if err != nil {
+		t.Fatalf("root --version error: %v", err)
+	}
+	if !strings.Contains(stdout, "v1.2.3-test") {
+		t.Fatalf("root --version output = %q", stdout)
+	}
+	for _, name := range []string{"sync", "experimental"} {
+		stdout, _, err := executeCommand(t, "test", name)
+		if err != nil {
+			t.Errorf("devspace %s error: %v", name, err)
+			continue
+		}
+		for _, want := range []string{"Usage:", "devspace " + name + " --help"} {
+			if !strings.Contains(stdout, want) {
+				t.Errorf("devspace %s output missing %q:\n%s", name, want, stdout)
+			}
+		}
+	}
+
+	for _, args := range [][]string{{"workspace"}, {"tui"}, {"mount"}, {"version"}, {"project", "status"}, {"sync", "workspace"}} {
+		if _, _, err := executeCommand(t, "test", args...); err == nil || !strings.Contains(err.Error(), "unknown command") {
+			t.Errorf("devspace %s error = %v, want unknown command", strings.Join(args, " "), err)
+		}
+	}
+}
+
+func TestVersionFlagPrintsVersion(t *testing.T) {
+	stdout, _, err := executeCommand(t, "v1.2.3-test", "--version")
+	if err != nil {
+		t.Fatalf("--version error: %v", err)
+	}
+	if !strings.Contains(stdout, "v1.2.3-test") {
+		t.Fatalf("--version output = %q, want configured version", stdout)
 	}
 }
 
@@ -115,7 +217,7 @@ func TestHostedServeHelpDocumentsFlags(t *testing.T) {
 }
 
 func TestWorkspaceRemoteSetHelpDocumentsCommitFlags(t *testing.T) {
-	stdout, _, err := executeCommand(t, "test", "workspace", "remote", "set", "--help")
+	stdout, _, err := executePrivateCommand(t, newWorkspaceCommand(), "remote", "set", "--help")
 	if err != nil {
 		t.Fatalf("workspace remote set --help error: %v", err)
 	}
@@ -162,6 +264,80 @@ func TestStatusCommandReportsWorkspaceHealth(t *testing.T) {
 	}
 }
 
+func TestStatusCommandVerboseShowsRedactedWorkspaceOverview(t *testing.T) {
+	seedWorkspaceOverview(t)
+	stdout, _, err := executeCommand(t, "test", "status", "--verbose")
+	if err != nil {
+		t.Fatalf("status --verbose error: %v", err)
+	}
+	for _, want := range []string{"Workspace", "Machines", "Manifest remote: https://redacted@example.invalid/org/manifest.git", "Projects tracked: 2"} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("status --verbose missing %q:\n%s", want, stdout)
+		}
+	}
+	if strings.Contains(stdout, "secret") {
+		t.Fatalf("status --verbose leaked credentials:\n%s", stdout)
+	}
+}
+
+func TestStatusCommandSelectsProject(t *testing.T) {
+	seedWorkspaceOverview(t)
+	stdout, _, err := executeCommand(t, "test", "status", "api")
+	if err != nil {
+		t.Fatalf("status api error: %v", err)
+	}
+	for _, want := range []string{"Project: api", "Path: apps/api", "Hydrated: true"} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("status api missing %q:\n%s", want, stdout)
+		}
+	}
+}
+
+func TestStatusCommandProjectJSONIsClean(t *testing.T) {
+	seedWorkspaceOverview(t)
+	stdout, _, err := executeCommand(t, "test", "status", "api", "--json")
+	if err != nil {
+		t.Fatalf("status api --json error: %v", err)
+	}
+	var row ProjectListRow
+	if err := json.Unmarshal([]byte(stdout), &row); err != nil {
+		t.Fatalf("status api --json did not parse: %v\n%s", err, stdout)
+	}
+	if row.Project.Name != "api" || row.Project.Path != "apps/api" || !row.State.Hydrated {
+		t.Fatalf("status api --json row = %+v", row)
+	}
+	if strings.Contains(stdout, "\x1b[") {
+		t.Fatalf("status api --json contains ANSI escapes: %q", stdout)
+	}
+}
+
+func TestStatusCommandRejectsInvalidCombinations(t *testing.T) {
+	for _, tc := range []struct {
+		args    []string
+		wantErr string
+	}{
+		{args: []string{"status", "api", "extra"}, wantErr: "accepts at most 1 arg"},
+		{args: []string{"status", "api", "--verbose"}, wantErr: "--verbose cannot be combined with a project"},
+		{args: []string{"status", "--verbose", "--json"}, wantErr: "--verbose and --json are mutually exclusive"},
+	} {
+		if _, _, err := executeCommand(t, "test", tc.args...); err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+			t.Errorf("devspace %s error = %v, want %q", strings.Join(tc.args, " "), err, tc.wantErr)
+		}
+	}
+}
+
+func TestStatusCommandHelpDocumentsConsolidatedSurface(t *testing.T) {
+	stdout, _, err := executeCommand(t, "test", "status", "--help")
+	if err != nil {
+		t.Fatalf("status --help error: %v", err)
+	}
+	for _, want := range []string{"status [project]", "--verbose", "--json", "devspace status api --json"} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("status --help missing %q:\n%s", want, stdout)
+		}
+	}
+}
+
 func TestDoctorCommandRunsAndReports(t *testing.T) {
 	initCommandWorkspace(t)
 	stdout, _, err := executeCommand(t, "test", "doctor")
@@ -187,9 +363,9 @@ func TestProjectAddAndStatusCommands(t *testing.T) {
 	}
 
 	// Status for a single tracked project.
-	stdout, _, err = executeCommand(t, "test", "project", "status", "app")
+	stdout, _, err = executeCommand(t, "test", "status", "app")
 	if err != nil {
-		t.Fatalf("project status error: %v", err)
+		t.Fatalf("status app error: %v", err)
 	}
 	for _, want := range []string{"Project: app", "Path: apps/app", "Hydrated:"} {
 		if !strings.Contains(stdout, want) {
@@ -222,9 +398,9 @@ func TestProjectCommandListsTrackedProjects(t *testing.T) {
 		}
 	}
 
-	stdout, _, err = executeCommand(t, "test", "project", "status", "api")
+	stdout, _, err = executeCommand(t, "test", "status", "api")
 	if err != nil {
-		t.Fatalf("project status after list wiring error: %v", err)
+		t.Fatalf("status api after list wiring error: %v", err)
 	}
 	if !strings.Contains(stdout, "Project: api") {
 		t.Fatalf("project status output = %q", stdout)
@@ -332,7 +508,7 @@ func TestProjectHelpDocumentsJSONFlag(t *testing.T) {
 	if err != nil {
 		t.Fatalf("project --help error: %v", err)
 	}
-	for _, want := range []string{"--json", "add", "hydrate", "remove", "status", "update"} {
+	for _, want := range []string{"--json", "add", "hydrate", "remove", "update"} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("project --help missing %q:\n%s", want, stdout)
 		}
@@ -446,7 +622,7 @@ func TestDoctorJSONHasStableFieldNames(t *testing.T) {
 
 func TestWorkspaceDiffJSONHasStableFieldNames(t *testing.T) {
 	initCommandWorkspace(t)
-	stdout, _, err := executeCommand(t, "test", "workspace", "diff", "--json")
+	stdout, _, err := executePrivateCommand(t, newWorkspaceCommand(), "diff", "--json")
 	// No manifest remote is configured in this isolated workspace, so the
 	// command is expected to fail; the point of this test is only that a
 	// configured remote's diff would serialize with these exact field names,
@@ -477,7 +653,7 @@ func TestMountPreviewJSONHasStableFieldNames(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	stdout, _, err := executeCommand(t, "test", "mount", filepath.Join(t.TempDir(), "mnt"), "--preview", "--json")
+	stdout, _, err := executePrivateCommand(t, newMountCommand(), filepath.Join(t.TempDir(), "mnt"), "--preview", "--json")
 	if err != nil {
 		t.Fatalf("mount --preview --json error: %v", err)
 	}

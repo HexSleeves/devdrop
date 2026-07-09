@@ -278,10 +278,23 @@ func buildProjectListRows() ([]ProjectListRow, error) {
 	return rows, nil
 }
 
+func buildProjectStatusRow(ref string) (ProjectListRow, error) {
+	rows, err := buildProjectListRows()
+	if err != nil {
+		return ProjectListRow{}, err
+	}
+	for _, row := range rows {
+		if row.Project.ID == ref || row.Project.Name == ref || row.Project.Path == ref {
+			return row, nil
+		}
+	}
+	return ProjectListRow{}, fmt.Errorf("project %q not found", ref)
+}
+
 func printProjectList(out io.Writer, rows []ProjectListRow) {
 	out = styledWriter(out)
 	if len(rows) == 0 {
-		fmt.Fprintln(out, "No tracked projects. Run `devspace project add <relative-path>` or `devspace scan` to add projects.")
+		fmt.Fprintln(out, "No tracked projects. Run `devspace project track <relative-path>` or `devspace scan` to add projects.")
 		return
 	}
 	tableRows := make([][]string, 0, len(rows))

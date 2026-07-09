@@ -18,11 +18,22 @@ import (
 	"golang.org/x/term"
 )
 
+// Retain private constructors while later Spec 13 tasks migrate their behavior
+// to canonical command paths. They are intentionally not registered at root.
+var (
+	_ = newWorkspaceCommand
+	_ = newMountCommand
+	_ = newTUICommand
+)
+
 func NewRootCommand(version string) *cobra.Command {
 	var noColor bool
 	cmd := &cobra.Command{
 		Use:          "devspace",
 		Short:        "Synchronize local developer workspace metadata",
+		Long:         "DevSpace captures, restores, and maintains local workspace metadata without copying source code or secrets.",
+		Example:      "  devspace init --workspace ~/code\n  devspace scan\n  devspace status --verbose\n  devspace plan && devspace apply",
+		Version:      version,
 		SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			configureStyles(cmd.OutOrStdout(), noColor)
@@ -33,34 +44,49 @@ func NewRootCommand(version string) *cobra.Command {
 		},
 	}
 	cmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable styled output regardless of terminal capability")
-	cmd.AddCommand(newVersionCommand(version))
-	cmd.AddCommand(newInitCommand())
-	cmd.AddCommand(newScanCommand())
-	cmd.AddCommand(newWatchCommand())
-	cmd.AddCommand(newUICommand())
+	cmd.AddGroup(
+		&cobra.Group{ID: "core", Title: "Core Workflow:"},
+		&cobra.Group{ID: "management", Title: "Workspace Management:"},
+		&cobra.Group{ID: "diagnostics", Title: "Diagnostics and Automation:"},
+		&cobra.Group{ID: "experimental", Title: "Experimental:"},
+	)
+	addCommandGroup(cmd, "core", newInitCommand(), newScanCommand(), newStatusCommand(), newPlanCommand(), newApplyCommand())
+	addCommandGroup(cmd, "management", newSyncCommand(), newHostedCommand(), newProjectCommand(), newEnvCommand(), newSetupCommand())
+	addCommandGroup(cmd, "diagnostics", newUICommand(), newWatchCommand(), newDoctorCommand())
+	addCommandGroup(cmd, "experimental", newExperimentalCommand())
 	cmd.AddCommand(newUIServerCommand(version))
-	cmd.AddCommand(newTUICommand(version))
-	cmd.AddCommand(newPlanCommand())
-	cmd.AddCommand(newApplyCommand())
-	cmd.AddCommand(newWorkspaceCommand())
-	cmd.AddCommand(newHostedCommand())
-	cmd.AddCommand(newProjectCommand())
-	cmd.AddCommand(newEnvCommand())
-	cmd.AddCommand(newStatusCommand())
-	cmd.AddCommand(newDoctorCommand())
-	cmd.AddCommand(newSetupCommand())
-	cmd.AddCommand(newMountCommand())
 	return cmd
 }
 
-func newVersionCommand(version string) *cobra.Command {
-	return &cobra.Command{
-		Use:   "version",
-		Short: "Print version",
-		Run: func(cmd *cobra.Command, args []string) {
-			printLine(cmd.OutOrStdout(), "%s", version)
-		},
+func addCommandGroup(root *cobra.Command, groupID string, commands ...*cobra.Command) {
+	for _, cmd := range commands {
+		cmd.GroupID = groupID
 	}
+	root.AddCommand(commands...)
+}
+
+func newSyncCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "sync",
+		Short:   "Synchronize workspace manifest metadata",
+		Long:    "Synchronize workspace manifest metadata through the configured Git remote. Source code, .env files, and secrets are never transferred.",
+		Example: "  devspace sync --help",
+		Args:    cobra.NoArgs,
+	}
+	cmd.RunE = func(cmd *cobra.Command, args []string) error { return cmd.Help() }
+	return cmd
+}
+
+func newExperimentalCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "experimental",
+		Short:   "Explore unsupported prototype commands",
+		Long:    "Experimental commands are prototypes and are not part of the supported release surface.",
+		Example: "  devspace experimental --help",
+		Args:    cobra.NoArgs,
+	}
+	cmd.RunE = func(cmd *cobra.Command, args []string) error { return cmd.Help() }
+	return cmd
 }
 
 func newInitCommand() *cobra.Command {
@@ -860,14 +886,6 @@ func newProjectCommand() *cobra.Command {
 			})
 		},
 	})
-	cmd.AddCommand(&cobra.Command{
-		Use:   "status [project]",
-		Short: "Show project status",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return printStatus(cmd.OutOrStdout(), args)
-		},
-	})
 	return cmd
 }
 
@@ -1060,21 +1078,52 @@ func secretInput(errOut io.Writer, key string) (string, error) {
 
 func newStatusCommand() *cobra.Command {
 	var jsonOut bool
+	var verbose bool
 	cmd := &cobra.Command{
-		Use:   "status",
-		Short: "Show workspace health",
+		Use:     "status [project]",
+		Short:   "Show workspace health",
+		Long:    "Show aggregate workspace health, saved workspace details with --verbose, or the saved state for one tracked project.",
+		Example: "  devspace status\n  devspace status --verbose\n  devspace status api --json",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := cobra.MaximumNArgs(1)(cmd, args); err != nil {
+				return err
+			}
+			if verbose && len(args) == 1 {
+				return fmt.Errorf("--verbose cannot be combined with a project")
+			}
+			if verbose && jsonOut {
+				return fmt.Errorf("--verbose and --json are mutually exclusive")
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if verbose {
+				overview, err := buildWorkspaceOverview()
+				if err != nil {
+					return err
+				}
+				printWorkspaceOverview(cmd.OutOrStdout(), overview)
+				return nil
+			}
 			if jsonOut {
+				if len(args) == 1 {
+					row, err := buildProjectStatusRow(args[0])
+					if err != nil {
+						return err
+					}
+					return writePrettyJSON(cmd.OutOrStdout(), row)
+				}
 				report, err := buildWorkspaceStatusReport()
 				if err != nil {
 					return err
 				}
 				return writePrettyJSON(cmd.OutOrStdout(), report)
 			}
-			return printStatus(cmd.OutOrStdout(), nil)
+			return printStatus(cmd.OutOrStdout(), args)
 		},
 	}
-	cmd.Flags().BoolVar(&jsonOut, "json", false, "print machine-readable workspace status")
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "print machine-readable workspace or project status")
+	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "show saved workspace details")
 	return cmd
 }
 

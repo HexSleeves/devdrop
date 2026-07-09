@@ -1112,22 +1112,22 @@ func TestRootCommandHelp(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "workspace") || !strings.Contains(out.String(), "env") || !strings.Contains(out.String(), "setup") {
+	if !strings.Contains(out.String(), "sync") || !strings.Contains(out.String(), "env") || !strings.Contains(out.String(), "setup") {
 		t.Fatalf("help did not include expected commands:\n%s", out.String())
 	}
 }
 
-func TestVersionSubcommandMatchesConfiguredVersion(t *testing.T) {
+func TestVersionFlagMatchesConfiguredVersion(t *testing.T) {
 	const want = "v1.2.3-test"
 	cmd := NewRootCommand(want)
 	var out bytes.Buffer
 	cmd.SetOut(&out)
-	cmd.SetArgs([]string{"version"})
+	cmd.SetArgs([]string{"--version"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.TrimSpace(out.String()); got != want {
-		t.Fatalf("version subcommand printed %q, want %q", got, want)
+	if got := strings.TrimSpace(out.String()); !strings.Contains(got, want) {
+		t.Fatalf("version flag printed %q, want configured version %q", got, want)
 	}
 }
 

@@ -228,7 +228,7 @@ func TestWorkspacePushWithoutRoleMetadataEmitsNoAdvisory(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	stdout, stderr, err := executeCommand(t, "test", "workspace", "push")
+	stdout, stderr, err := executePrivateCommand(t, newWorkspaceCommand(), "push")
 	if err != nil {
 		t.Fatalf("workspace push error: %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
 	}
@@ -242,7 +242,7 @@ func TestWorkspacePushEmitsAccessRoleAdvisoryWarning(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	stdout, stderr, err := executeCommand(t, "test", "workspace", "push")
+	stdout, stderr, err := executePrivateCommand(t, newWorkspaceCommand(), "push")
 	if err != nil {
 		t.Fatalf("workspace push error: %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
 	}

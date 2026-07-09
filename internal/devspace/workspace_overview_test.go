@@ -1,7 +1,6 @@
 package devspace
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -48,39 +47,20 @@ func TestWorkspaceOverviewRedactsManifestRemote(t *testing.T) {
 	}
 }
 
-func TestWorkspaceCommandJSONOutputsRedactedOverview(t *testing.T) {
+func TestStatusVerboseRendersWorkspaceOverview(t *testing.T) {
 	seedWorkspaceOverview(t)
 
-	stdout, _, err := executeCommand(t, "test", "workspace", "--json")
+	stdout, _, err := executeCommand(t, "test", "status", "--verbose")
 	if err != nil {
-		t.Fatalf("workspace --json error: %v", err)
-	}
-	var overview WorkspaceOverview
-	if err := json.Unmarshal([]byte(stdout), &overview); err != nil {
-		t.Fatalf("workspace --json did not parse: %v\n%s", err, stdout)
-	}
-	if overview.Sync.ManifestRemote != "https://redacted@example.invalid/org/manifest.git" {
-		t.Fatalf("manifest remote = %q", overview.Sync.ManifestRemote)
-	}
-	if strings.Contains(stdout, "secret") || strings.Contains(stdout, "\x1b[") {
-		t.Fatalf("workspace --json leaked credentials or styling:\n%q", stdout)
-	}
-}
-
-func TestWorkspaceCommandRendersOverview(t *testing.T) {
-	seedWorkspaceOverview(t)
-
-	stdout, _, err := executeCommand(t, "test", "workspace")
-	if err != nil {
-		t.Fatalf("workspace error: %v", err)
+		t.Fatalf("status --verbose error: %v", err)
 	}
 	for _, want := range []string{"Workspace", "Machines", "NAME", "ID", "LAST SEEN", "Users:", "Teams:", "Projects tracked: 2"} {
 		if !strings.Contains(stdout, want) {
-			t.Fatalf("workspace output missing %q:\n%s", want, stdout)
+			t.Fatalf("status --verbose output missing %q:\n%s", want, stdout)
 		}
 	}
 	if strings.Contains(stdout, "secret") {
-		t.Fatalf("workspace output leaked credentials:\n%s", stdout)
+		t.Fatalf("status --verbose output leaked credentials:\n%s", stdout)
 	}
 }
 
