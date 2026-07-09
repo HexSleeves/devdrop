@@ -118,7 +118,7 @@ Other rows are documented guidance for future warnings or enforcement.
 | `devspace watch --sync off` | Continuously refreshes local manifest and state. | owner, maintainer, developer | Same boundary as scan. |
 | `devspace watch --sync git` / `--sync hosted` | Refreshes metadata and pushes it to shared sync. | owner, maintainer | Shared publication should be narrower than local scan. |
 | `devspace plan` | Saves the last plan under local DevSpace state. | owner, maintainer, developer, viewer | Treat as inspect-only despite the cache write. |
-| `devspace apply` | Applies the last safe workspace plan locally. | owner, maintainer, developer | May hydrate or alter local workspace files. |
+| `devspace apply` | Applies the last safe workspace plan locally. | owner, maintainer, developer | Creates planned safe placeholder directories only; repository materialization requires explicit `project update`. |
 | `devspace sync push` | Publishes the manifest to the configured Git remote. | owner, maintainer | Shared manifest write; metadata only. |
 | `devspace sync pull` | Replaces local manifest state from the Git remote. | owner, maintainer, developer, viewer | Local write, but read-oriented from the shared source; does not update project repositories. |
 | `devspace sync remote set` | Changes the configured manifest Git remote. | owner, maintainer | Workspace-level sync configuration. |

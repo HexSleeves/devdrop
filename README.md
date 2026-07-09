@@ -455,7 +455,7 @@ Manifest sync stops with a clear error when:
 - **Manifest remote not ready?** Create it first with `sync remote create local` or `github`.
 - **Wrong workspace?** Check `DEVSPACE_HOME` (or `DEV_DROP_HOME`) and `~/.devspace/config.json`.
 - **Project update fails?** Confirm the project has a remote URL in `manifest.json` and `git clone <remote>` works.
-- **Secrets missing?** Run `devspace env list <project>` to verify keys exist before pulling.
+- **Secrets missing?** Run `devspace env list <project>` to verify keys exist before writing the local `.env`.
 
 
 

@@ -23,6 +23,8 @@ on:
       - docs/demos/*.sh
       - docs/demos/*.tape
       - scripts/check-command-surface.sh
+      - scripts/check-command-surface-self-test.sh
+      - scripts/testdata/removed-command-wrapped.md
       - scripts/demo-check.sh
       - tui/**
 

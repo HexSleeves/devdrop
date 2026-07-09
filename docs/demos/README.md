@@ -71,7 +71,7 @@ never auto-executes project commands.
 
 ### Env secrets — `env set/list/write`, `env recipient export/list`
 
-Encrypted per-project env profiles (native `age`): set a value, pull a `0600`
+Encrypted per-project env profiles (native `age`): set a value, materialize a `0600`
 `.env`, and see who can decrypt it.
 
 ![env-secrets](env-secrets.gif)

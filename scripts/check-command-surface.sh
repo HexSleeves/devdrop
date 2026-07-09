@@ -6,7 +6,8 @@ cd "$repo_root"
 
 # This is deliberately an allowlist. Completed SDD specs/proofs/validations,
 # docs/architecture/manifest-merge.md (a superseded spike), generated capstone
-# HTML, and generated demo GIFs are historical artifacts and are not scanned.
+# HTML, generated demo GIFs, and the intentional negative fixture under
+# scripts/testdata/ are not scanned.
 maintained_files=(
   AGENTS.md
   CLAUDE.md
@@ -81,6 +82,50 @@ canonical_patterns=(
   'status[[:space:]]+client-a-api'
 )
 
+# README's marked pre-1.0 migration table names removed paths as historical
+# labels. Only that bounded block is omitted from command matching.
+scan_file() {
+  awk '
+    /<!-- command-surface-migration:start -->/ { excluded = 1; next }
+    /<!-- command-surface-migration:end -->/ { excluded = 0; next }
+    !excluded { print FNR ":" $0 }
+  ' "$1"
+}
+
+# Match against one whitespace-normalized stream so Markdown line wrapping
+# cannot split a command path into separately clean physical lines.
+normalized_file() {
+  awk '
+    /<!-- command-surface-migration:start -->/ { excluded = 1; next }
+    /<!-- command-surface-migration:end -->/ { excluded = 0; next }
+    !excluded {
+      line = $0
+      gsub(/[[:space:]]+/, " ", line)
+      sub(/^ /, "", line)
+      sub(/ $/, "", line)
+      if (length(line)) printf "%s ", line
+    }
+    END { print "" }
+  ' "$1"
+}
+
+case "${1:-}" in
+  --self-test)
+    fixture="scripts/testdata/removed-command-wrapped.md"
+    if normalized_file "$fixture" | grep -E "${removed_patterns[0]}" >/dev/null; then
+      echo "command-surface self-test: wrapped removed path rejected"
+      exit 0
+    fi
+    echo "command-surface self-test: wrapped removed path was not rejected" >&2
+    exit 1
+    ;;
+  "") ;;
+  *)
+    echo "usage: scripts/check-command-surface.sh [--self-test]" >&2
+    exit 2
+    ;;
+esac
+
 failed=0
 for file in "${maintained_files[@]}"; do
   if [[ ! -f "$file" ]]; then
@@ -99,22 +144,15 @@ if [[ "$(grep -c '^<!-- command-surface-migration:start -->$' README.md)" -ne 1 
   exit 1
 fi
 
-# README's marked pre-1.0 migration table names removed paths as historical
-# labels. Only that bounded block is omitted from removed-path matching.
-scan_file() {
-  awk '
-    /<!-- command-surface-migration:start -->/ { excluded = 1; next }
-    /<!-- command-surface-migration:end -->/ { excluded = 0; next }
-    !excluded { print FNR ":" $0 }
-  ' "$1"
-}
-
 for pattern in "${removed_patterns[@]}"; do
   for file in "${maintained_files[@]}"; do
     matches="$(scan_file "$file" | grep -E "$pattern" || true)"
-    if [[ -n "$matches" ]]; then
+    if normalized_file "$file" | grep -E "$pattern" >/dev/null; then
+      if [[ -z "$matches" ]]; then
+        echo "command-surface: removed path (wrapped): $file: pattern $pattern" >&2
+      fi
       while IFS= read -r match; do
-        echo "command-surface: removed path: $file:$match" >&2
+        [[ -z "$match" ]] || echo "command-surface: removed path: $file:$match" >&2
       done <<<"$matches"
       failed=1
     fi
@@ -124,7 +162,7 @@ done
 for pattern in "${canonical_patterns[@]}"; do
   found=0
   for file in "${maintained_files[@]}"; do
-    if scan_file "$file" | grep -E "$pattern" >/dev/null; then
+    if normalized_file "$file" | grep -E "$pattern" >/dev/null; then
       found=1
       break
     fi

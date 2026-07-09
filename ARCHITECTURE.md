@@ -82,7 +82,7 @@ The `hosted` command group owns the opt-in hosted control-plane prototype:
 - `hosted config` stores endpoint/workspace/token configuration.
 - `hosted push` and `hosted pull` sync manifest metadata with version/hash
   conflict checks.
-- `hosted reconcile` runs the same merge/review/apply flow as `workspace
+- `hosted reconcile` runs the same merge/review/apply flow as `sync
   reconcile`, resolving hosted 409/version conflicts.
 
 The `experimental` group makes prototype boundaries visible:
