@@ -106,7 +106,7 @@
 - [x] 1.6 Update output guidance and tests that direct users to implicit project listing or removed root paths; keep JSON output byte-clean.
 - [x] 1.7 Run the Task 1 targeted tests, capture sanitized root/status help and JSON output, and write `13-proofs/13-task-01-proofs.md`.
 
-### [~] 2.0 Replace workspace/project overlap with canonical sync and project workflows
+### [x] 2.0 Replace workspace/project overlap with canonical sync and project workflows
 
 #### 2.0 Proof Artifact(s)
 
