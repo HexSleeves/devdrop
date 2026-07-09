@@ -131,4 +131,4 @@ PATH       TYPE   HYDRATE MODE   STATUS   DIRTY   ENV
 apps/demo  local  manual         local    false   true
 ```
 
-The experimental mount help retains `--preview`, `--json`, `--hydrate-on-lookup`, and `--debug`, and now directs on-demand repository maintenance to `devspace project update`.
+The experimental mount help retains `--preview`, `--json`, `--hydrate-on-lookup`, and `--debug`, directs on-demand repository maintenance to `devspace project update`, and labels stale-mount cleanup as a previous `devspace experimental mount`.

@@ -237,7 +237,7 @@ func setupHint(setup Setup) string {
 }
 
 func staleMountGuidance(mountpoint string) string {
-	return fmt.Sprintf("Stale mount cleanup: check for a previous devspace mount holding %s, then run `umount %s` or on Linux `fusermount3 -u %s`.", mountpoint, mountpoint, mountpoint)
+	return fmt.Sprintf("Stale mount cleanup: check for a previous `devspace experimental mount` holding %s, then run `umount %s` or on Linux `fusermount3 -u %s`.", mountpoint, mountpoint, mountpoint)
 }
 
 type workspaceMountNode struct {

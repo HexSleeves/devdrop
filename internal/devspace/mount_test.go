@@ -136,7 +136,7 @@ func TestStatusFileAttrReportsGeneratedContentSize(t *testing.T) {
 func TestStaleMountGuidanceIncludesPlatformCleanupCommands(t *testing.T) {
 	guidance := staleMountGuidance("/tmp/devspace-mount")
 	for _, want := range []string{
-		"previous devspace mount",
+		"previous `devspace experimental mount`",
 		"umount /tmp/devspace-mount",
 		"fusermount3 -u /tmp/devspace-mount",
 	} {
