@@ -5,7 +5,7 @@ Set FontSize 16
 Set Shell bash
 Set TypingSpeed 40ms
 
-# The explicit `devspace project` lifecycle: track → list → update (fast-forward
+# The explicit `devspace project track|list|update|untrack` lifecycle (fast-forward
 # from origin) → status → untrack. Setup seeds a project cloned from a local bare
 # origin (project-remote.sh) so `project update` has a real fast-forward.
 Hide

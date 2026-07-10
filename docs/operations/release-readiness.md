@@ -13,7 +13,7 @@
 ## What Passed
 
 - Repeated `init` preserves machine identity, existing config, existing manifest projects, and age identity.
-- Workspace scan ignores dependency folders and does not recurse into nested Git repos inside a parent repo.
+- Project discovery ignores dependency folders and does not recurse into nested Git repos inside a parent repo.
 - Manifest path validation rejects absolute paths and `..` escapes.
 - Manifest writes create `.bak` backups before replacing existing files.
 - `sync remote set/get` stores manifest remote configuration outside the manifest.

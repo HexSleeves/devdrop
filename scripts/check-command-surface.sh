@@ -5,9 +5,9 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
 # This is deliberately an allowlist. Completed SDD specs/proofs/validations,
-# docs/architecture/manifest-merge.md (a superseded spike), generated capstone
-# HTML, generated demo GIFs, and the intentional negative fixture under
-# scripts/testdata/ are not scanned.
+# docs/architecture/manifest-merge.md (a superseded spike), generated demo
+# GIFs, and the intentional negative fixtures under scripts/testdata/ are not
+# scanned. The linked capstone HTML remains part of the maintained surface.
 maintained_files=(
   AGENTS.md
   CLAUDE.md
@@ -22,6 +22,7 @@ maintained_files=(
   docs/capstone/README.md
   docs/capstone/case-study.md
   docs/capstone/demo-script.md
+  docs/capstone/index.html
   docs/capstone/playbook-contribution.md
   docs/capstone/proof-artifacts.md
   docs/capstone/remote-agent-case-study.md
@@ -58,6 +59,8 @@ removed_patterns=(
   '(^|[^[:alnum:]_-])(devspace|bin/devspace|\./bin/devspace|\$DS|"\$devspace")[[:space:]]+mount([^[:alnum:]_-]|$)'
   '(^|[^[:alnum:]_-])devspace[[:space:]]+tui([^[:alnum:]_-]|$)'
   '(^|[^[:alnum:]_-])devspace[[:space:]]+version([^[:alnum:]_-]|$)'
+  '(^|[^[:alnum:]_-])devspace[[:space:]]+workspace([[:space:]]+--json)?[[:space:]]*[`]'
+  '(^|[^[:alnum:]_-])devspace[[:space:]]+project([[:space:]]+--json)?[[:space:]]*[`]'
   '(^|[^[:alnum:]_-])devspace[[:space:]]+workspace([[:space:]]+--json)?[[:space:]`"'"'"']*$'
   '(^|[^[:alnum:]_-])devspace[[:space:]]+project([[:space:]]+--json)?[[:space:]`"'"'"']*$'
 )
@@ -86,10 +89,10 @@ canonical_patterns=(
 # labels. Only that bounded block is omitted from command matching.
 scan_file() {
   local exclude_markers=0
-  [[ "$1" == "README.md" ]] && exclude_markers=1
+  [[ "$1" == "README.md" || "$1" == "docs/capstone/index.html" ]] && exclude_markers=1
   awk -v exclude_markers="$exclude_markers" '
-    exclude_markers && /<!-- command-surface-migration:start -->/ { excluded = 1; next }
-    exclude_markers && /<!-- command-surface-migration:end -->/ { excluded = 0; next }
+    exclude_markers && /command-surface-migration:start/ { excluded = 1; next }
+    exclude_markers && /command-surface-migration:end/ { excluded = 0; next }
     !excluded { print FNR ":" $0 }
   ' "$1"
 }
@@ -98,10 +101,10 @@ scan_file() {
 # cannot split a command path into separately clean physical lines.
 normalized_file() {
   local exclude_markers=0
-  [[ "$1" == "README.md" ]] && exclude_markers=1
+  [[ "$1" == "README.md" || "$1" == "docs/capstone/index.html" ]] && exclude_markers=1
   awk -v exclude_markers="$exclude_markers" '
-    exclude_markers && /<!-- command-surface-migration:start -->/ { excluded = 1; next }
-    exclude_markers && /<!-- command-surface-migration:end -->/ { excluded = 0; next }
+    exclude_markers && /command-surface-migration:start/ { excluded = 1; next }
+    exclude_markers && /command-surface-migration:end/ { excluded = 0; next }
     !excluded {
       line = $0
       gsub(/[[:space:]]+/, " ", line)
@@ -142,13 +145,19 @@ case "${1:-}" in
       scripts/testdata/removed-command-wrapped.md \
       scripts/testdata/removed-command-bare-workspace.md \
       scripts/testdata/removed-command-bare-project.md \
+      scripts/testdata/removed-command-inline-workspace.md \
+      scripts/testdata/removed-command-inline-project.md \
       scripts/testdata/removed-command-fake-markers.md; do
       if check_removed_paths "$fixture" >/dev/null 2>&1; then
         echo "command-surface self-test: removed path was not rejected: $fixture" >&2
         exit 1
       fi
     done
-    echo "command-surface self-test: wrapped and bare removed paths rejected"
+    if ! check_removed_paths scripts/testdata/canonical-command-inline.md >/dev/null 2>&1; then
+      echo "command-surface self-test: canonical inline path was rejected" >&2
+      exit 1
+    fi
+    echo "command-surface self-test: wrapped, bare, and inline removed paths rejected"
     exit 0
     ;;
   "") ;;
@@ -173,6 +182,12 @@ fi
 if [[ "$(grep -c '^<!-- command-surface-migration:start -->$' README.md)" -ne 1 ||
       "$(grep -c '^<!-- command-surface-migration:end -->$' README.md)" -ne 1 ]]; then
   echo "command-surface: README migration exclusion markers must be one start/end pair" >&2
+  exit 1
+fi
+
+if [[ "$(grep -c 'command-surface-migration:start' docs/capstone/index.html)" -ne 3 ||
+      "$(grep -c 'command-surface-migration:end' docs/capstone/index.html)" -ne 3 ]]; then
+  echo "command-surface: capstone HTML migration exclusions must be three generated copies" >&2
   exit 1
 fi
 

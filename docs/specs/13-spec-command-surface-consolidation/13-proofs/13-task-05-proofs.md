@@ -244,6 +244,28 @@ No vulnerabilities found.
 archive validator: all four platform fixtures passed
 ```
 
+## Phase 4 Documentation-Gate Remediation
+
+**What it proves:** The linked interactive capstone reader no longer preserves
+an older command contract, and bare namespace commands are rejected even when
+they appear inside inline prose.
+
+- `docs/capstone/index.html` was regenerated from the maintained canonical
+  Markdown set and added to the production command-surface allowlist.
+- Exact inline fixtures for ``Run `devspace workspace` ...`` and
+  ``Run `devspace project` ...`` now fail the scanner. A positive fixture proves
+  canonical `status` and `project list|update` examples are not rejected.
+- The generated reader's three bounded copies of README's historical migration
+  table are the only excluded regions; their marker counts are enforced.
+
+```text
+command-surface self-test: wrapped, bare, and inline removed paths rejected
+command-surface: maintained documentation and demos use canonical commands
+DevDrop demo-check passed.
+capstone rehearsal: hydrate web-store: updated; 1 updated, 0 skipped, 0 failed
+make verify: PASS; 0 lint issues; no called vulnerabilities
+```
+
 ## Reviewer Conclusion
 
 The maintained release contract is internally consistent and reproducible:
