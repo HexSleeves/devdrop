@@ -150,7 +150,7 @@ printf '%s\n' "$status_placeholder"
 assert_contains "$status_placeholder" "Placeholders: 1"
 update_b="$("$devspace" project update client-a-api)"
 printf '%s\n' "$update_b"
-assert_contains "$update_b" "Hydrated client-a-api"
+assert_contains "$update_b" "hydrate client-a-api: updated"
 [[ -d "$workspace_b/work/client-a-api/.git" ]] || fail "expected hydrated Git repository"
 [[ -f "$workspace_b/work/client-a-api/README.md" ]] || fail "expected hydrated README.md"
 
