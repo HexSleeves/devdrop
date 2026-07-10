@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>DevDrop Markdown Reader</title>
+    <title>DevSpace Markdown Reader</title>
     <meta
       name="description"
-      content="Interactive HTML reader generated from every Markdown file in the DevDrop repository."
+      content="Interactive HTML reader generated from maintained DevSpace and historical capstone Markdown."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -573,11 +573,11 @@
       <aside class="sidebar" id="sidebar">
         <div class="brand">
           <div class="brand-row">
-            <div class="brand-mark">DD</div>
+            <div class="brand-mark">DS</div>
             <div>
-              <h1>DevDrop Markdown</h1>
+              <h1>DevSpace Markdown</h1>
               <p>
-                Interactive HTML reader for every Markdown file in this repo.
+                Interactive HTML reader for maintained and capstone Markdown.
               </p>
             </div>
           </div>
@@ -713,7 +713,7 @@
             data-path="README.md"
             data-search='devspace readme.md # devspace
 
-&gt; **a local-first "dropbox for developers" cli prototype.**
+&gt; **a local-first &quot;dropbox for developers&quot; cli prototype.**
 
 a developer working across multiple machines and many repos knows the drill: the
 workspace layout drifts between laptops, clone urls and remotes live in whoever
@@ -726,8 +726,6 @@ git remotes, setup hints, and encrypted env profiles — without ever syncing fi
 contents, dependency trees, or plaintext secrets.
 
 ---
-
-
 
 ## 📖 table of contents
 
@@ -758,8 +756,6 @@ contents, dependency trees, or plaintext secrets.
 
 ---
 
-
-
 ## overview
 
 ### current mvp status
@@ -778,8 +774,6 @@ this mvp is local-first. it proves the workflow before adding filesystem-level l
 - **secrets:** store encrypted per-project env profiles with native `age` encryption. generate local `.env` files with `0600` permissions.
 - **watching:** keep workspace metadata fresh with an event-driven `devspace watch` mode.
 - **fuse:** preview a fuse-backed lazy workspace mount prototype without requiring fuse for normal cli workflows.
-
-
 
 ### building from source
 
@@ -803,7 +797,7 @@ go run ./cmd/devspace --help
 a workspace is a root directory containing tracked projects and one manifest.
 machines are peers that all sync against that same manifest:
 
-```
+```text
 &lt;workspace root&gt;/
 ├── .devspace/
 │   └── manifest.json        # shared, syncable source of truth
@@ -813,9 +807,9 @@ machines are peers that all sync against that same manifest:
 │                             #   default branch, setup hints, env profiles
 └── ...                      # more tracked project directories
 
-machine "mac-mini" (id, os, arch, own workspaceroot) ─┐
-machine "thinkpad"  (id, os, arch, own workspaceroot) ─┼─ peers registered in the same manifest.json
-machine "..."                                          ┘
+machine &quot;mac-mini&quot; (id, os, arch, own workspaceroot) ─┐
+machine &quot;thinkpad&quot;  (id, os, arch, own workspaceroot) ─┼─ peers registered in the same manifest.json
+machine &quot;...&quot;                                          ┘
 ```
 
 every project entry in the manifest records its relative `path`, `remote`,
@@ -824,13 +818,11 @@ every project entry in the manifest records its relative `path`, `remote`,
 
 state is split into three tiers, all plain json + `age` files, no database:
 
-
 | tier               | location                                          | scope                                    |
 | ------------------ | ------------------------------------------------- | ---------------------------------------- |
 | app home           | `~/.devspace/`                                    | per-machine: config, state, age identity |
 | workspace manifest | `&lt;workspace&gt;/.devspace/manifest.json`             | shared, synced across machines           |
 | secrets            | encrypted per-project env profiles under app home | per-machine, per-project                 |
-
 
 this hierarchy is why the cli is shaped the way it is: `devspace sync …`
 commands operate on the shared manifest and its git remote; explicit
@@ -844,13 +836,11 @@ whole workspace.
 
 devspace respects the following environment variables to configure its runtime behavior:
 
-
 | variable                | description                                                                                                                                                         |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `devspace_home`         | the root directory for devspace application data, configuration, and state. defaults to `~/.devspace`.                                                              |
 | `dev_drop_home`         | deprecated fallback alias for `devspace_home`. maintained for backward compatibility.                                                                               |
 | `devspace_hosted_token` | bearer token used for hosted sync authentication. prefer this over the `--token` cli flag to prevent the token from appearing in shell history or process listings. |
-
 
 ---
 
@@ -1005,6 +995,7 @@ hidden compatibility wrappers.
 | `devspace setup apply` | `devspace setup run --all` |
 | `devspace hosted serve` | `devspace experimental hosted serve` |
 | `devspace mount` | `devspace experimental mount` |
+| `devspace tui install` | extract `devspace` and `devspace-tui` from the same release archive, then run `devspace ui` |
 | `devspace version` | `devspace --version` |
 &lt;!-- command-surface-migration:end --&gt;
 
@@ -1023,23 +1014,23 @@ until it explicitly asks for one project.
 ```bash
 go build -o bin/devspace ./cmd/devspace
 
-tmp="$(mktemp -d)"
-export devspace_home="$tmp/home"
-workspace_a="$tmp/workspace-a"
-remote_src="$tmp/remote-src"
-remote_bare="$tmp/client-a-api.git"
-manifest_remote="$tmp/manifest-sync.git"
+tmp=&quot;$(mktemp -d)&quot;
+export devspace_home=&quot;$tmp/home&quot;
+workspace_a=&quot;$tmp/workspace-a&quot;
+remote_src=&quot;$tmp/remote-src&quot;
+remote_bare=&quot;$tmp/client-a-api.git&quot;
+manifest_remote=&quot;$tmp/manifest-sync.git&quot;
 
-mkdir -p "$remote_src"
-git -c "$remote_src" init -b main
-git -c "$remote_src" config user.name "devspace demo"
-git -c "$remote_src" config user.email "devspace@example.com"
-git -c "$remote_src" commit --allow-empty -m "initial"
-git clone --bare "$remote_src" "$remote_bare"
+mkdir -p &quot;$remote_src&quot;
+git -c &quot;$remote_src&quot; init -b main
+git -c &quot;$remote_src&quot; config user.name &quot;devspace demo&quot;
+git -c &quot;$remote_src&quot; config user.email &quot;devspace@example.com&quot;
+git -c &quot;$remote_src&quot; commit --allow-empty -m &quot;initial&quot;
+git clone --bare &quot;$remote_src&quot; &quot;$remote_bare&quot;
 
-bin/devspace init --workspace "$workspace_a"
-mkdir -p "$workspace_a/work/client-a-api"
-git clone "$remote_bare" "$workspace_a/work/client-a-api"
+bin/devspace init --workspace &quot;$workspace_a&quot;
+mkdir -p &quot;$workspace_a/work/client-a-api&quot;
+git clone &quot;$remote_bare&quot; &quot;$workspace_a/work/client-a-api&quot;
 bin/devspace scan
 ```
 
@@ -1049,7 +1040,7 @@ its remote, branch, and dirty state. `init`/`scan` are idempotent — safe to
 re-run, they never rotate the machine id or age key.
 
 ```bash
-bin/devspace sync remote create local "$manifest_remote"
+bin/devspace sync remote create local &quot;$manifest_remote&quot;
 bin/devspace sync push
 ```
 
@@ -1069,11 +1060,11 @@ already has `client-a-api` checked out, there&#39;s nothing unsafe to create her
 ### machine b (the new machine)
 
 ```bash
-workspace_b="$tmp/workspace-b"
+workspace_b=&quot;$tmp/workspace-b&quot;
 
-export devspace_home="$tmp/home-b"
-bin/devspace init --workspace "$workspace_b"
-bin/devspace sync remote set "$manifest_remote"
+export devspace_home=&quot;$tmp/home-b&quot;
+bin/devspace init --workspace &quot;$workspace_b&quot;
+bin/devspace sync remote set &quot;$manifest_remote&quot;
 bin/devspace sync pull
 ```
 
@@ -1108,8 +1099,6 @@ watch, and more).
 
 ---
 
-
-
 ## architecture &amp; safety
 
 ### safety guarantees
@@ -1136,8 +1125,6 @@ manifest sync stops with a clear error when:
 - pull would overwrite local manifest changes.
 - hosted push/pull would overwrite manifest changes without a matching hosted version/hash baseline.
 
-
-
 ### what this tool will not do without permission
 
 - delete local projects, files, or directories.
@@ -1149,8 +1136,6 @@ manifest sync stops with a clear error when:
 
 ---
 
-
-
 ## troubleshooting &amp; limitations
 
 ### known limitations
@@ -1158,8 +1143,6 @@ manifest sync stops with a clear error when:
 - hosted manifest sync is a runnable prototype, not a managed deployment.
 - placeholder hydration uses full `git clone`; partial clone and sparse checkout are not implemented.
 - secret profile sharing uses public `age` recipients and local re-encryption (no os keychain or identity provider integration).
-
-
 
 ### troubleshooting tips
 
@@ -1169,15 +1152,11 @@ manifest sync stops with a clear error when:
 - **project update fails?** confirm the project has a remote url in `manifest.json` and `git clone &lt;remote&gt;` works.
 - **secrets missing?** run `devspace env list &lt;project&gt;` to verify keys exist before writing the local `.env`.
 
-
-
 ### migration
 
 on first run, an existing `~/.devdrop` application home is automatically migrated to `~/.devspace`. `dev_drop_home` still works as a deprecated alias for `devspace_home`.
 
 ---
-
-
 
 ## roadmap
 
@@ -1188,8 +1167,6 @@ on first run, an existing `~/.devdrop` application home is automatically migrate
 - release-readiness checklist automation.
 
 ---
-
-
 
 ## manifest structure
 
@@ -1250,81 +1227,81 @@ see [examples/manifest.json](examples/manifest.json). the manifest is a versione
                 </h2>
                 <ul>
                   <li>
-                    <a href="#overview">Overview</a>
+                    <a href="#overview-3">Overview</a>
                     <ul>
                       <li>
-                        <a href="#current-mvp-status">Current MVP Status</a>
+                        <a href="#current-mvp-status-4">Current MVP Status</a>
                       </li>
                       <li>
-                        <a href="#building-from-source">Building from Source</a>
+                        <a href="#building-from-source-5">Building from Source</a>
                       </li>
                     </ul>
                   </li>
-                  <li><a href="#topology">Topology</a></li>
+                  <li><a href="#topology-6">Topology</a></li>
                   <li>
-                    <a href="#environment-variables">Environment Variables</a>
+                    <a href="#environment-variables-7">Environment Variables</a>
                   </li>
-                  <li><a href="#release-packaging">Release Packaging</a></li>
-                  <li><a href="#capstone-artifacts">Capstone Artifacts</a></li>
+                  <li><a href="#release-packaging-8">Release Packaging</a></li>
+                  <li><a href="#capstone-artifacts-9">Capstone Artifacts</a></li>
                   <li>
-                    <a href="#supported-commands">Supported Commands</a>
+                    <a href="#supported-commands-10">Supported Commands</a>
                     <ul>
                       <li>
-                        <a href="#capture-a-workspace">Capture a Workspace</a>
+                        <a href="#capture-a-workspace-11">Capture a Workspace</a>
                       </li>
                       <li>
-                        <a href="#restore-a-workspace">Restore a Workspace</a>
+                        <a href="#restore-a-workspace-12">Restore a Workspace</a>
                       </li>
                       <li>
-                        <a href="#maintain-a-workspace">Maintain a Workspace</a>
+                        <a href="#maintain-a-workspace-13">Maintain a Workspace</a>
                       </li>
                       <li>
-                        <a href="#troubleshoot-safely">Troubleshoot Safely</a>
+                        <a href="#troubleshoot-safely-14">Troubleshoot Safely</a>
                       </li>
                       <li>
-                        <a href="#command-reference">Command Reference</a>
+                        <a href="#command-reference-15">Command Reference</a>
                       </li>
                       <li>
-                        <a href="#pre-10-command-migration"
+                        <a href="#pre-1-0-command-migration-16"
                           >Pre-1.0 Command Migration</a
                         >
                       </li>
                     </ul>
                   </li>
                   <li>
-                    <a href="#walkthrough-two-machines-one-workspace"
+                    <a href="#walkthrough-two-machines-one-workspace-17"
                       >Walkthrough: Two Machines, One Workspace</a
                     >
                   </li>
                   <li>
-                    <a href="#architecture--safety"
+                    <a href="#architecture-safety-20"
                       >Architecture &amp; Safety</a
                     >
                     <ul>
                       <li>
-                        <a href="#safety-guarantees">Safety Guarantees</a>
+                        <a href="#safety-guarantees-21">Safety Guarantees</a>
                       </li>
-                      <li><a href="#access-roles">Access Roles</a></li>
+                      <li><a href="#access-roles-22">Access Roles</a></li>
                       <li>
-                        <a href="#conflict-behavior">Conflict Behavior</a>
+                        <a href="#conflict-behavior-23">Conflict Behavior</a>
                       </li>
                       <li>
-                        <a href="#what-this-tool-will-not-do-without-permission"
+                        <a href="#what-this-tool-will-not-do-without-permission-24"
                           >What This Tool Will Not Do</a
                         >
                       </li>
                     </ul>
                   </li>
                   <li>
-                    <a href="#troubleshooting--limitations"
+                    <a href="#troubleshooting-limitations-25"
                       >Troubleshooting &amp; Limitations</a
                     >
                     <ul>
-                      <li><a href="#migration">Migration</a></li>
+                      <li><a href="#migration-28">Migration</a></li>
                     </ul>
                   </li>
-                  <li><a href="#roadmap">Roadmap</a></li>
-                  <li><a href="#manifest-structure">Manifest Structure</a></li>
+                  <li><a href="#roadmap-29">Roadmap</a></li>
+                  <li><a href="#manifest-structure-30">Manifest Structure</a></li>
                 </ul>
                 <hr />
                 <h2 id="overview-3">
@@ -1993,8 +1970,15 @@ devspace experimental mount ~/devspace-view --preview</code></pre>
                       </td>
                     </tr>
                     <tr>
-                      <td>`devspace workspace remote</td>
-                      <td>push</td>
+                      <td>
+                        <code
+                          >devspace workspace
+                          remote|push|pull|diff|reconcile</code
+                        >
+                      </td>
+                      <td>
+                        <code>devspace sync remote|push|pull|diff|reconcile</code>
+                      </td>
                     </tr>
                     <tr>
                       <td>bare <code>devspace project</code></td>
@@ -2037,6 +2021,14 @@ devspace experimental mount ~/devspace-view --preview</code></pre>
                     <tr>
                       <td><code>devspace mount</code></td>
                       <td><code>devspace experimental mount</code></td>
+                    </tr>
+                    <tr>
+                      <td><code>devspace tui install</code></td>
+                      <td>
+                        Extract <code>devspace</code> and
+                        <code>devspace-tui</code> from the same release archive,
+                        then run <code>devspace ui</code>
+                      </td>
                     </tr>
                     <tr>
                       <td><code>devspace version</code></td>
@@ -2558,8 +2550,6 @@ contents, dependency trees, or plaintext secrets.
 
 ---
 
-
-
 ## 📖 Table of Contents
 
 - [Overview](#overview)
@@ -2589,8 +2579,6 @@ contents, dependency trees, or plaintext secrets.
 
 ---
 
-
-
 ## Overview
 
 ### Current MVP Status
@@ -2609,8 +2597,6 @@ This MVP is local-first. It proves the workflow before adding filesystem-level l
 - **Secrets:** Store encrypted per-project env profiles with native `age` encryption. Generate local `.env` files with `0600` permissions.
 - **Watching:** Keep workspace metadata fresh with an event-driven `devspace watch` mode.
 - **FUSE:** Preview a FUSE-backed lazy workspace mount prototype without requiring FUSE for normal CLI workflows.
-
-
 
 ### Building from Source
 
@@ -2634,7 +2620,7 @@ go run ./cmd/devspace --help
 A workspace is a root directory containing tracked projects and one manifest.
 Machines are peers that all sync against that same manifest:
 
-```
+```text
 &lt;workspace root&gt;/
 ├── .devspace/
 │   └── manifest.json        # shared, syncable source of truth
@@ -2655,13 +2641,11 @@ Every project entry in the manifest records its relative `path`, `remote`,
 
 State is split into three tiers, all plain JSON + `age` files, no database:
 
-
 | Tier               | Location                                          | Scope                                    |
 | ------------------ | ------------------------------------------------- | ---------------------------------------- |
 | App home           | `~/.devspace/`                                    | Per-machine: config, state, age identity |
 | Workspace manifest | `&lt;workspace&gt;/.devspace/manifest.json`             | Shared, synced across machines           |
 | Secrets            | Encrypted per-project env profiles under app home | Per-machine, per-project                 |
-
 
 This hierarchy is why the CLI is shaped the way it is: `devspace sync …`
 commands operate on the shared manifest and its Git remote; explicit
@@ -2675,13 +2659,11 @@ whole workspace.
 
 DevSpace respects the following environment variables to configure its runtime behavior:
 
-
 | Variable                | Description                                                                                                                                                         |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `DEVSPACE_HOME`         | The root directory for DevSpace application data, configuration, and state. Defaults to `~/.devspace`.                                                              |
 | `DEV_DROP_HOME`         | Deprecated fallback alias for `DEVSPACE_HOME`. Maintained for backward compatibility.                                                                               |
 | `DEVSPACE_HOSTED_TOKEN` | Bearer token used for hosted sync authentication. Prefer this over the `--token` CLI flag to prevent the token from appearing in shell history or process listings. |
-
 
 ---
 
@@ -2836,6 +2818,7 @@ hidden compatibility wrappers.
 | `devspace setup apply` | `devspace setup run --all` |
 | `devspace hosted serve` | `devspace experimental hosted serve` |
 | `devspace mount` | `devspace experimental mount` |
+| `devspace tui install` | Extract `devspace` and `devspace-tui` from the same release archive, then run `devspace ui` |
 | `devspace version` | `devspace --version` |
 &lt;!-- command-surface-migration:end --&gt;
 
@@ -2939,8 +2922,6 @@ watch, and more).
 
 ---
 
-
-
 ## Architecture &amp; Safety
 
 ### Safety Guarantees
@@ -2967,8 +2948,6 @@ Manifest sync stops with a clear error when:
 - Pull would overwrite local manifest changes.
 - Hosted push/pull would overwrite manifest changes without a matching hosted version/hash baseline.
 
-
-
 ### What This Tool Will Not Do Without Permission
 
 - Delete local projects, files, or directories.
@@ -2980,8 +2959,6 @@ Manifest sync stops with a clear error when:
 
 ---
 
-
-
 ## Troubleshooting &amp; Limitations
 
 ### Known Limitations
@@ -2989,8 +2966,6 @@ Manifest sync stops with a clear error when:
 - Hosted manifest sync is a runnable prototype, not a managed deployment.
 - Placeholder hydration uses full `git clone`; partial clone and sparse checkout are not implemented.
 - Secret profile sharing uses public `age` recipients and local re-encryption (no OS keychain or identity provider integration).
-
-
 
 ### Troubleshooting Tips
 
@@ -3000,15 +2975,11 @@ Manifest sync stops with a clear error when:
 - **Project update fails?** Confirm the project has a remote URL in `manifest.json` and `git clone &lt;remote&gt;` works.
 - **Secrets missing?** Run `devspace env list &lt;project&gt;` to verify keys exist before writing the local `.env`.
 
-
-
 ### Migration
 
 On first run, an existing `~/.devdrop` application home is automatically migrated to `~/.devspace`. `DEV_DROP_HOME` still works as a deprecated alias for `DEVSPACE_HOME`.
 
 ---
-
-
 
 ## Roadmap
 
@@ -3019,8 +2990,6 @@ On first run, an existing `~/.devdrop` application home is automatically migrate
 - Release-readiness checklist automation.
 
 ---
-
-
 
 ## Manifest Structure
 
@@ -3093,7 +3062,11 @@ See [examples/manifest.json](examples/manifest.json). The manifest is a versione
 
 ## known limitations
 
-- hosted sync, daemon/watch mode, fuse lazy mounting, managed team identity, and explicit dependency install are shipped as prototypes (capstone frontier work), not part of the completed local-first mvp baseline.
+- hosted sync, watch mode, fuse lazy mounting, access-role advisories, and
+  explicit setup commands are shipped as prototypes or frontier capabilities,
+  not part of the completed local-first mvp baseline. a managed hosted service,
+  detached watch daemon, managed team identity, and remote secret backup are
+  not shipped.
 - no source-code syncing (manifest exchange between machines in the mvp uses user-owned git remotes only). there is no partial clone or sparse checkout.
 - secret profile sharing uses explicit age recipients only; there is no os keychain integration, remote backup, managed identity provider, or guaranteed clawback after a recipient has copied or decrypted material.
 - dependency/setup commands are detected only as hints and are never executed automatically.
@@ -3107,7 +3080,8 @@ See [examples/manifest.json](examples/manifest.json). The manifest is a versione
 
 ## recommended next feature
 
-clearer multi-machine history (manifest conflict reconciliation already shipped via `reconcile`, spec 06).
+see the maintained roadmap in `readme.md`; manifest conflict reconciliation
+already shipped via `reconcile` (spec 06).
 "
           >
             <header class="doc-header">
@@ -3343,10 +3317,12 @@ clearer multi-machine history (manifest conflict reconciliation already shipped 
                 </h2>
                 <ul>
                   <li>
-                    Hosted sync, daemon/watch mode, FUSE lazy mounting, managed
-                    team identity, and explicit dependency install are shipped
-                    as prototypes (capstone frontier work), not part of the
-                    completed local-first MVP baseline.
+                    Hosted sync, watch mode, FUSE lazy mounting, access-role
+                    advisories, and explicit setup commands are shipped as
+                    prototypes or frontier capabilities, not part of the
+                    completed local-first MVP baseline. A managed hosted
+                    service, detached watch daemon, managed team identity, and
+                    remote secret backup are not shipped.
                   </li>
                   <li>
                     No source-code syncing (manifest exchange between machines
@@ -3410,9 +3386,9 @@ clearer multi-machine history (manifest conflict reconciliation already shipped 
                   >Recommended Next Feature
                 </h2>
                 <p>
-                  Clearer multi-machine history (manifest conflict
-                  reconciliation already shipped via <code>reconcile</code>,
-                  spec 06).
+                  See the maintained roadmap in <code>README.md</code>; manifest
+                  conflict reconciliation already shipped via
+                  <code>reconcile</code> (spec 06).
                 </p>
               </div>
               <div class="source">
@@ -3475,7 +3451,11 @@ clearer multi-machine history (manifest conflict reconciliation already shipped 
 
 ## Known Limitations
 
-- Hosted sync, daemon/watch mode, FUSE lazy mounting, managed team identity, and explicit dependency install are shipped as prototypes (capstone frontier work), not part of the completed local-first MVP baseline.
+- Hosted sync, watch mode, FUSE lazy mounting, access-role advisories, and
+  explicit setup commands are shipped as prototypes or frontier capabilities,
+  not part of the completed local-first MVP baseline. A managed hosted service,
+  detached watch daemon, managed team identity, and remote secret backup are
+  not shipped.
 - No source-code syncing (manifest exchange between machines in the MVP uses user-owned Git remotes only). There is no partial clone or sparse checkout.
 - Secret profile sharing uses explicit age recipients only; there is no OS keychain integration, remote backup, managed identity provider, or guaranteed clawback after a recipient has copied or decrypted material.
 - Dependency/setup commands are detected only as hints and are never executed automatically.
@@ -3489,7 +3469,8 @@ clearer multi-machine history (manifest conflict reconciliation already shipped 
 
 ## Recommended Next Feature
 
-Clearer multi-machine history (manifest conflict reconciliation already shipped via `reconcile`, spec 06).
+See the maintained roadmap in `README.md`; manifest conflict reconciliation
+already shipped via `reconcile` (spec 06).
 </pre
                 >
               </div>
@@ -3515,7 +3496,7 @@ for a browsable html version of the repo markdown, open
 
 developers lose time rebuilding workspaces after machine changes, client
 rotations, or repo sprawl. devdrop proves a smaller, safer alternative to a
-hosted "sync everything" service: track workspace metadata, push the manifest to
+hosted &quot;sync everything&quot; service: track workspace metadata, push the manifest to
 a user-owned git remote, update projects on demand, and keep env values
 encrypted locally.
 
@@ -3556,8 +3537,8 @@ encrypted locally.
 4. capture final proof links in [proof-artifacts.md](proof-artifacts.md).
 5. add the personal reflection after demo feedback is received.
 
-done and verified: `v0.2.0` is the capstone release of record, shipped with github release
-assets (see [proof-artifacts.md](proof-artifacts.md)).
+done and verified: `v0.2.0` is the capstone release of record, shipped with
+github release assets (see [proof-artifacts.md](proof-artifacts.md)).
 '
           >
             <header class="doc-header">
@@ -3818,8 +3799,8 @@ encrypted locally.
 4. Capture final proof links in [proof-artifacts.md](proof-artifacts.md).
 5. Add the personal reflection after demo feedback is received.
 
-Done and verified: `v0.2.0` is the capstone release of record, shipped with GitHub Release
-assets (see [proof-artifacts.md](proof-artifacts.md)).
+Done and verified: `v0.2.0` is the capstone release of record, shipped with
+GitHub Release assets (see [proof-artifacts.md](proof-artifacts.md)).
 </pre
                 >
               </div>
@@ -6177,7 +6158,7 @@ scripts/demo-check.sh --output-dir "$proof_dir"
 the script builds `devspace`, creates two temporary machine homes, creates a
 local bare project remote and a local bare manifest remote, runs the full
 workflow, asserts the generated `.env` mode is `0600`, and prints
-`devdrop demo-check passed.` on success.
+`devspace demo-check passed.` on success.
 
 ## machine a: publish workspace metadata
 

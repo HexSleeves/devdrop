@@ -67,6 +67,7 @@ run: build ## Build then run the binary, e.g. make run ARGS="status --verbose"
 command-surface-check: ## Check maintained docs and demos for removed CLI paths
 	scripts/check-command-surface.sh
 	scripts/check-command-surface-self-test.sh
+	scripts/check-capstone-reader.rb
 
 verify: command-surface-check test vet lint vulncheck build ## Run all checks and build the binary (the local CI gate)
 

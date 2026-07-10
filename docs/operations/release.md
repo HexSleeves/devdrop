@@ -136,7 +136,6 @@ repositories, so provenance verification applies to releases cut after the
 repo is made public:
 
 ```bash
-gh attestation verify checksums.txt --repo liatrio-forge/forge-capstone-devspace
 archive=devspace_vX.Y.Z_linux_amd64.tar.gz # replace with the downloaded archive
 gh attestation verify "$archive" --repo liatrio-forge/forge-capstone-devspace
 ```

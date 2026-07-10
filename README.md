@@ -282,6 +282,7 @@ hidden compatibility wrappers.
 | `devspace setup apply` | `devspace setup run --all` |
 | `devspace hosted serve` | `devspace experimental hosted serve` |
 | `devspace mount` | `devspace experimental mount` |
+| `devspace tui install` | Extract `devspace` and `devspace-tui` from the same release archive, then run `devspace ui` |
 | `devspace version` | `devspace --version` |
 <!-- command-surface-migration:end -->
 

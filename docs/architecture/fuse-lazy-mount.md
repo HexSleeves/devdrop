@@ -109,7 +109,7 @@ Detailed probe and CI evidence is kept in the SDD proof artifacts under
 
 Future options:
 
-- Run the macOS local proof after macFUSE is installed on a developer machine.
+- Repeat the macOS local proof after macFUSE or macOS upgrades.
 - Evaluate a self-hosted Mac runner if automated macOS FUSE regression coverage
   becomes necessary.
 - Evaluate macOS 26 FSKit-backed options when the DevSpace mount dependency path
@@ -122,8 +122,6 @@ Future options:
 
 ## Follow-Up Cards
 
-- Complete a real macOS local mount smoke test on a Mac with macFUSE installed
-  and approved.
 - Expand the integration job if new mount behavior is added beyond traversal,
   hydration success, and hydration failure propagation.
 - Add a richer per-project status view in the mount for dirty repositories, missing
