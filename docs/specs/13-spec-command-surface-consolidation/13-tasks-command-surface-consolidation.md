@@ -168,7 +168,7 @@
 - [x] 4.6 Add or update release/archive verification scripts/tests, then run `make tui-verify`, `goreleaser check`, and a snapshot dry-run where the environment supports Docker/ko.
 - [x] 4.7 Extract and smoke the local-platform archive, verify adjacent companion discovery, and write `13-proofs/13-task-04-proofs.md`; record Docker-only limitations separately from source failures.
 
-### [~] 5.0 Migrate maintained documentation and demos, then prove release readiness
+### [x] 5.0 Migrate maintained documentation and demos, then prove release readiness
 
 #### 5.0 Proof Artifact(s)
 
