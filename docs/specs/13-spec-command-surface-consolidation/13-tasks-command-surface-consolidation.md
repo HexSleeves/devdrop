@@ -127,7 +127,7 @@
 - [x] 2.8 Run project domain/command tests covering missing/empty hydration, clean fast-forward, dirty/detached/local-only/no-remote/non-Git skips, non-destructive untrack, and JSON stability.
 - [x] 2.9 Execute the isolated two-machine sync/project workflow and write `13-proofs/13-task-02-proofs.md` with sanitized paths/remotes.
 
-### [~] 3.0 Consolidate env/setup verbs and move server/mount prototypes under experimental
+### [x] 3.0 Consolidate env/setup verbs and move server/mount prototypes under experimental
 
 #### 3.0 Proof Artifact(s)
 
