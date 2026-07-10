@@ -85,9 +85,11 @@ canonical_patterns=(
 # README's marked pre-1.0 migration table names removed paths as historical
 # labels. Only that bounded block is omitted from command matching.
 scan_file() {
-  awk '
-    /<!-- command-surface-migration:start -->/ { excluded = 1; next }
-    /<!-- command-surface-migration:end -->/ { excluded = 0; next }
+  local exclude_markers=0
+  [[ "$1" == "README.md" ]] && exclude_markers=1
+  awk -v exclude_markers="$exclude_markers" '
+    exclude_markers && /<!-- command-surface-migration:start -->/ { excluded = 1; next }
+    exclude_markers && /<!-- command-surface-migration:end -->/ { excluded = 0; next }
     !excluded { print FNR ":" $0 }
   ' "$1"
 }
@@ -95,9 +97,11 @@ scan_file() {
 # Match against one whitespace-normalized stream so Markdown line wrapping
 # cannot split a command path into separately clean physical lines.
 normalized_file() {
-  awk '
-    /<!-- command-surface-migration:start -->/ { excluded = 1; next }
-    /<!-- command-surface-migration:end -->/ { excluded = 0; next }
+  local exclude_markers=0
+  [[ "$1" == "README.md" ]] && exclude_markers=1
+  awk -v exclude_markers="$exclude_markers" '
+    exclude_markers && /<!-- command-surface-migration:start -->/ { excluded = 1; next }
+    exclude_markers && /<!-- command-surface-migration:end -->/ { excluded = 0; next }
     !excluded {
       line = $0
       gsub(/[[:space:]]+/, " ", line)
@@ -109,15 +113,43 @@ normalized_file() {
   ' "$1"
 }
 
+check_removed_paths() {
+  local found=0 pattern file matches normalized_match
+  for pattern in "${removed_patterns[@]}"; do
+    for file in "$@"; do
+      matches="$(scan_file "$file" | grep -E "$pattern" || true)"
+      normalized_match=0
+      if normalized_file "$file" | grep -E "$pattern" >/dev/null; then
+        normalized_match=1
+      fi
+      if [[ -n "$matches" ]] || ((normalized_match)); then
+        if [[ -z "$matches" ]]; then
+          echo "command-surface: removed path (wrapped): $file: pattern $pattern" >&2
+        fi
+        while IFS= read -r match; do
+          [[ -z "$match" ]] || echo "command-surface: removed path: $file:$match" >&2
+        done <<<"$matches"
+        found=1
+      fi
+    done
+  done
+  ((found == 0))
+}
+
 case "${1:-}" in
   --self-test)
-    fixture="scripts/testdata/removed-command-wrapped.md"
-    if normalized_file "$fixture" | grep -E "${removed_patterns[0]}" >/dev/null; then
-      echo "command-surface self-test: wrapped removed path rejected"
-      exit 0
-    fi
-    echo "command-surface self-test: wrapped removed path was not rejected" >&2
-    exit 1
+    for fixture in \
+      scripts/testdata/removed-command-wrapped.md \
+      scripts/testdata/removed-command-bare-workspace.md \
+      scripts/testdata/removed-command-bare-project.md \
+      scripts/testdata/removed-command-fake-markers.md; do
+      if check_removed_paths "$fixture" >/dev/null 2>&1; then
+        echo "command-surface self-test: removed path was not rejected: $fixture" >&2
+        exit 1
+      fi
+    done
+    echo "command-surface self-test: wrapped and bare removed paths rejected"
+    exit 0
     ;;
   "") ;;
   *)
@@ -144,20 +176,9 @@ if [[ "$(grep -c '^<!-- command-surface-migration:start -->$' README.md)" -ne 1 
   exit 1
 fi
 
-for pattern in "${removed_patterns[@]}"; do
-  for file in "${maintained_files[@]}"; do
-    matches="$(scan_file "$file" | grep -E "$pattern" || true)"
-    if normalized_file "$file" | grep -E "$pattern" >/dev/null; then
-      if [[ -z "$matches" ]]; then
-        echo "command-surface: removed path (wrapped): $file: pattern $pattern" >&2
-      fi
-      while IFS= read -r match; do
-        [[ -z "$match" ]] || echo "command-surface: removed path: $file:$match" >&2
-      done <<<"$matches"
-      failed=1
-    fi
-  done
-done
+if ! check_removed_paths "${maintained_files[@]}"; then
+  failed=1
+fi
 
 for pattern in "${canonical_patterns[@]}"; do
   found=0

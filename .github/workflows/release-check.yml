@@ -24,7 +24,7 @@ on:
       - docs/demos/*.tape
       - scripts/check-command-surface.sh
       - scripts/check-command-surface-self-test.sh
-      - scripts/testdata/removed-command-wrapped.md
+      - scripts/testdata/removed-command-*.md
       - scripts/demo-check.sh
       - tui/**
 

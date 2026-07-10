@@ -56,8 +56,14 @@ scripts/check-command-surface-self-test.sh
 
 ```text
 command-surface: maintained documentation and demos use canonical commands
-command-surface self-test: wrapped removed path rejected
+command-surface self-test: wrapped and bare removed paths rejected
 ```
+
+The self-test runs the production scanner against four negative fixtures: a
+wrapped removed path, bare `devspace workspace`, bare `devspace project`, and a
+bare removed path surrounded by migration markers outside README. This proves
+that either line-oriented or normalized matching fails the gate, and that only
+README's bounded migration table receives the historical-command exclusion.
 
 ## Artifact: Isolated Demo and CLI Smoke
 
@@ -114,7 +120,7 @@ goreleaser check
 
 ```text
 command-surface: maintained documentation and demos use canonical commands
-command-surface self-test: wrapped removed path rejected
+command-surface self-test: wrapped and bare removed paths rejected
 ok github.com/liatrio-forge/devdrop-capstone/internal/devspace
 go vet ./...
 0 issues.
@@ -201,6 +207,39 @@ were demonstrably satisfied.
   `manifest sync has no force flag` claims are absent.
 - Plans 020 and 023 remain TODO because Spec 13 does not satisfy their separate
   runtime-validation and managed-hosting scopes.
+- Historical Plan 019 remains recorded as completed work, with an explicit note
+  that Spec 13 task 4.0 superseded its installer with the bundled archive
+  companion.
+
+## Review Follow-Up
+
+The Task 5 quality review identified three release-contract inconsistencies and
+one scanner edge case. The focused corrections are included in the final gate
+results above:
+
+- Bare removed-command examples now fail when found by the line scanner even
+  though concatenated normalization continues past the physical line.
+- Migration exclusion markers apply only to README; the negative marker fixture
+  proves another maintained file cannot hide a removed command with copied
+  markers.
+- The capstone transcript now matches the real formatter:
+  `hydrate web-store: updated` followed by the update summary, with setup kept
+  as a separate explicit workflow.
+- README points to the existing `make snapshot` dry-run instead of a nonexistent
+  `make release` target.
+
+Fresh review-fix verification:
+
+```text
+bash -n scripts/check-command-surface.sh scripts/check-command-surface-self-test.sh scripts/demo-check.sh
+command-surface self-test: wrapped and bare removed paths rejected
+command-surface: maintained documentation and demos use canonical commands
+DevDrop demo-check passed.
+capstone rehearsal: hydrate web-store: updated; 1 updated, 0 skipped, 0 failed
+0 issues.
+No vulnerabilities found.
+archive validator: all four platform fixtures passed
+```
 
 ## Reviewer Conclusion
 

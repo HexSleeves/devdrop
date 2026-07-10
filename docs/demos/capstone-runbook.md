@@ -121,15 +121,16 @@ re-checks each destination is still empty at apply time."
 ### `devspace project update web-store` ← **the magic moment**
 
 ```bash
-Updating web-store...  Hydrated web-store
-Suggested setup: npm install
+Updating web-store...
+hydrate web-store: updated
+Updated projects: 1 updated, 0 skipped, 0 failed
 → web-store/ is now a real checkout (.git, package.json, README.md)
 ```
 
 **Talking point:** "*Now* it clones — into a sibling temp dir, then atomically
 renames into place. It refuses a non-empty destination and validates the remote
-first. Placeholder → real repo, on demand. And it read the setup hint from the
-manifest: `npm install`."
+first. Placeholder → real repo, on demand. Setup remains a separate, explicit
+`devspace setup show` / `devspace setup run` workflow."
 
 ### `devspace status`
 

@@ -153,7 +153,7 @@ make verify
 
 `make verify` runs tests, vet, lint, govulncheck, and the build — the local CI gate.
 
-See `[docs/operations/release.md](docs/operations/release.md)` for the full release process, consumer verification steps, install-from-source instructions, and the manual `make release` fallback.
+See `[docs/operations/release.md](docs/operations/release.md)` for the full release process, consumer verification steps, install-from-source instructions, and the local `make snapshot` dry-run.
 
 ---
 
