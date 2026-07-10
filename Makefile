@@ -107,7 +107,7 @@ tui-install-local: tui-build ## Build devspace-tui and install it into $$DEVSPAC
 
 ##@ Release
 
-snapshot: ## Build a local snapshot release via goreleaser (no publish)
+snapshot: tui-build-all ## Build a local snapshot release via goreleaser (no publish)
 	@command -v goreleaser >/dev/null 2>&1 || (echo "goreleaser not found; see https://goreleaser.com/install/" && exit 1)
 	goreleaser release --snapshot --clean --skip=publish
 

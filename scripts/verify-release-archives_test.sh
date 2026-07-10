@@ -6,6 +6,14 @@ verify="$repo_root/scripts/verify-release-archives.sh"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
+snapshot_plan=$(make -s -n -C "$repo_root" snapshot)
+build_line=$(grep -nF './build-all.sh' <<<"$snapshot_plan" | cut -d: -f1)
+release_line=$(grep -nF 'goreleaser release --snapshot --clean --skip=publish' <<<"$snapshot_plan" | cut -d: -f1)
+if [[ -z "$build_line" || -z "$release_line" || "$build_line" -ge "$release_line" ]]; then
+  echo "snapshot must build companion binaries before GoReleaser" >&2
+  exit 1
+fi
+
 make_archive() {
   local os=$1 arch=$2 include_tui=${3:-1} root="$tmp/root"
   rm -rf "$root"

@@ -209,5 +209,8 @@ To dry-run the release build locally (requires `goreleaser`):
 
 ```bash
 goreleaser check
-goreleaser release --snapshot --clean
+make snapshot
 ```
+
+`make snapshot` builds every `devspace-tui` companion before GoReleaser. If
+invoking GoReleaser directly, run `make tui-build-all` first.
