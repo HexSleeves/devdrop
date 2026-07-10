@@ -68,7 +68,7 @@ func newExperimentalCommand() *cobra.Command {
 		Use:     "experimental",
 		Short:   "Explore unsupported prototype commands",
 		Long:    "Experimental commands are prototypes and are not part of the supported release surface.",
-		Example: "  devspace experimental --help",
+		Example: "  devspace experimental --help\n  devspace experimental mount /tmp/devspace --preview",
 		Args:    cobra.NoArgs,
 	}
 	cmd.RunE = func(cmd *cobra.Command, args []string) error { return cmd.Help() }
@@ -80,10 +80,11 @@ func newExperimentalCommand() *cobra.Command {
 
 func newExperimentalHostedCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "hosted",
-		Short: "Explore the hosted sync server prototype",
-		Long:  "The hosted sync server is an unsupported prototype and is not part of the supported recovery workflow.",
-		Args:  cobra.NoArgs,
+		Use:     "hosted",
+		Short:   "Explore the hosted sync server prototype",
+		Long:    "The hosted sync server is an unsupported prototype and is not part of the supported recovery workflow.",
+		Example: "  export HOSTED_TOKEN=replace-me\n  devspace experimental hosted serve\n  DEVSPACE_HOSTED_TOKEN=\"$HOSTED_TOKEN\" devspace hosted config set http://127.0.0.1:8787",
+		Args:    cobra.NoArgs,
 	}
 	cmd.RunE = func(cmd *cobra.Command, args []string) error { return cmd.Help() }
 	cmd.AddCommand(newHostedServeCommand())
@@ -306,9 +307,10 @@ func newHostedServeCommand() *cobra.Command {
 	var trustedProxies []string
 	var allowPublicHTTP bool
 	cmd := &cobra.Command{
-		Use:   "serve",
-		Short: "Run a local hosted manifest sync prototype server",
-		Args:  cobra.NoArgs,
+		Use:     "serve",
+		Short:   "Run a local hosted manifest sync prototype server",
+		Example: "  export HOSTED_TOKEN=replace-me\n  devspace experimental hosted serve\n  DEVSPACE_HOSTED_TOKEN=\"$HOSTED_TOKEN\" devspace hosted config set http://127.0.0.1:8787",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resolved, err := resolveServeAddr(addr, cmd.Flags().Changed("addr"), os.Getenv("PORT"), allowPublicHTTP)
 			if err != nil {
@@ -427,9 +429,10 @@ func newSyncCommand() *cobra.Command {
 	cmd.AddCommand(newSyncRemoteCommand())
 	cmd.AddCommand(newSyncReconcileCommand())
 	cmd.AddCommand(&cobra.Command{
-		Use:   "push",
-		Short: "Push workspace manifest to the configured Git remote",
-		Args:  cobra.NoArgs,
+		Use:     "push",
+		Short:   "Push workspace manifest to the configured Git remote",
+		Example: "  devspace sync push\n  devspace sync diff",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withAppLock(func() error {
 				warnings := accessRoleAdvisoryWarnings("devspace sync push", "", AccessRoleOwner, AccessRoleMaintainer)
@@ -448,9 +451,10 @@ func newSyncCommand() *cobra.Command {
 		},
 	})
 	cmd.AddCommand(&cobra.Command{
-		Use:   "pull",
-		Short: "Pull workspace manifest from the configured Git remote",
-		Args:  cobra.NoArgs,
+		Use:     "pull",
+		Short:   "Pull workspace manifest from the configured Git remote",
+		Example: "  devspace sync pull\n  devspace plan && devspace apply\n  devspace project update --all",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withAppLock(func() error {
 				_, err := PullWorkspaceManifest()
@@ -466,9 +470,10 @@ func newSyncCommand() *cobra.Command {
 	})
 	var diffJSON bool
 	diffCmd := &cobra.Command{
-		Use:   "diff",
-		Short: "Preview differences from the configured workspace manifest remote",
-		Args:  cobra.NoArgs,
+		Use:     "diff",
+		Short:   "Preview differences from the configured workspace manifest remote",
+		Example: "  devspace sync diff\n  devspace sync reconcile",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			diff, err := DiffWorkspaceManifest()
 			if err != nil {
@@ -502,7 +507,8 @@ func newSyncReconcileCommand() *cobra.Command {
 			"If no base snapshot exists, reconcile falls back to a conservative two-way union: one-sided additions merge, same-key differences become conflicts.",
 			"Use --force-local or --force-remote to resolve every conflict to that side before applying, or repeat --force-project <projectID>=<local|remote> for project-specific conflict choices.",
 		}, "\n\n"),
-		Args: cobra.NoArgs,
+		Example: "  devspace sync reconcile\n  devspace sync reconcile --apply",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if forceLocal && forceRemote {
 				return fmt.Errorf("--force-local and --force-remote are mutually exclusive")
@@ -563,12 +569,17 @@ func parseForceProjectFlags(values []string) (map[string]string, error) {
 }
 
 func newSyncRemoteCommand() *cobra.Command {
-	cmd := &cobra.Command{Use: "remote", Short: "Manage workspace manifest remote"}
+	cmd := &cobra.Command{
+		Use:     "remote",
+		Short:   "Manage workspace manifest remote",
+		Example: "  devspace sync remote get\n  devspace sync push",
+	}
 	var commitEmail, commitName string
 	setCmd := &cobra.Command{
-		Use:   "set <url-or-path>",
-		Short: "Set workspace manifest Git remote",
-		Args:  cobra.ExactArgs(1),
+		Use:     "set <url-or-path>",
+		Short:   "Set workspace manifest Git remote",
+		Example: "  devspace sync remote set ../devspace-manifest.git\n  devspace sync push",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withAppLock(func() error {
 				cfg, err := SetManifestRemote(args[0])
@@ -599,11 +610,16 @@ func newSyncRemoteCommand() *cobra.Command {
 	setCmd.Flags().StringVar(&commitEmail, "commit-email", "", "git author email for manifest commits (default devspace@example.invalid)")
 	setCmd.Flags().StringVar(&commitName, "commit-name", "", "git author name for manifest commits (default DevSpace)")
 	cmd.AddCommand(setCmd)
-	create := &cobra.Command{Use: "create", Short: "Create and set a workspace manifest remote"}
+	create := &cobra.Command{
+		Use:     "create",
+		Short:   "Create and set a workspace manifest remote",
+		Example: "  devspace sync remote create local ../devspace-manifest.git\n  devspace sync push",
+	}
 	create.AddCommand(&cobra.Command{
-		Use:   "local <path>",
-		Short: "Create a local bare Git manifest remote",
-		Args:  cobra.ExactArgs(1),
+		Use:     "local <path>",
+		Short:   "Create a local bare Git manifest remote",
+		Example: "  devspace sync remote create local ../devspace-manifest.git\n  devspace sync push",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withAppLock(func() error {
 				cfg, err := CreateLocalManifestRemote(args[0])
@@ -618,9 +634,10 @@ func newSyncRemoteCommand() *cobra.Command {
 	private := true
 	var public bool
 	github := &cobra.Command{
-		Use:   "github <owner/repo>",
-		Short: "Create a GitHub manifest remote with gh",
-		Args:  cobra.ExactArgs(1),
+		Use:     "github <owner/repo>",
+		Short:   "Create a GitHub manifest remote with gh",
+		Example: "  devspace sync remote create github acme/devspace-manifest\n  devspace sync push",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withAppLock(func() error {
 				if public {
@@ -640,9 +657,10 @@ func newSyncRemoteCommand() *cobra.Command {
 	create.AddCommand(github)
 	cmd.AddCommand(create)
 	cmd.AddCommand(&cobra.Command{
-		Use:   "get",
-		Short: "Print workspace manifest Git remote",
-		Args:  cobra.NoArgs,
+		Use:     "get",
+		Short:   "Print workspace manifest Git remote",
+		Example: "  devspace sync remote get\n  devspace sync diff",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := GetManifestRemote()
 			if err != nil {
@@ -740,7 +758,8 @@ func newMountCommand() *cobra.Command {
 			"Looking up an on-demand Git project through the mount runs the same safe update checks as `devspace project update`.",
 			"Use --preview to inspect the projected mount entries without requiring FUSE.",
 		}, "\n\n"),
-		Args: cobra.ExactArgs(1),
+		Example: "  devspace experimental mount /tmp/devspace --preview\n  devspace project update --all",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if preview {
 				entries, err := BuildMountEntries()
@@ -780,9 +799,10 @@ func newProjectCommand() *cobra.Command {
 	cmd.RunE = func(cmd *cobra.Command, args []string) error { return cmd.Help() }
 	var listJSON bool
 	listCmd := &cobra.Command{
-		Use:   "list",
-		Short: "List tracked projects",
-		Args:  cobra.NoArgs,
+		Use:     "list",
+		Short:   "List tracked projects",
+		Example: "  devspace project list\n  devspace project update --all",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rows, err := buildProjectListRows()
 			if err != nil {
@@ -798,9 +818,10 @@ func newProjectCommand() *cobra.Command {
 	listCmd.Flags().BoolVar(&listJSON, "json", false, "print machine-readable project list")
 	cmd.AddCommand(listCmd)
 	cmd.AddCommand(&cobra.Command{
-		Use:   "track <relative-path>",
-		Short: "Track a project path",
-		Args:  cobra.ExactArgs(1),
+		Use:     "track <relative-path>",
+		Short:   "Track a project path",
+		Example: "  devspace project track apps/api\n  devspace sync push",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withAppLock(func() error {
 				p, err := AddProject(args[0])
@@ -814,8 +835,9 @@ func newProjectCommand() *cobra.Command {
 	})
 	var updateAll bool
 	updateCmd := &cobra.Command{
-		Use:   "update [project]",
-		Short: "Hydrate or fast-forward tracked Git projects",
+		Use:     "update [project]",
+		Short:   "Hydrate or fast-forward tracked Git projects",
+		Example: "  devspace project update --all\n  devspace status --verbose",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if updateAll && len(args) > 0 {
 				return fmt.Errorf("use either --all or <project>, not both")
@@ -849,9 +871,10 @@ func newProjectCommand() *cobra.Command {
 	updateCmd.Flags().BoolVar(&updateAll, "all", false, "update all tracked Git projects")
 	cmd.AddCommand(updateCmd)
 	cmd.AddCommand(&cobra.Command{
-		Use:   "untrack <project>",
-		Short: "Untrack a project (files on disk are not touched)",
-		Args:  cobra.ExactArgs(1),
+		Use:     "untrack <project>",
+		Short:   "Untrack a project (files on disk are not touched)",
+		Example: "  devspace project untrack api\n  devspace sync push",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withAppLock(func() error {
 				warnings := accessRoleAdvisoryWarnings("devspace project untrack", args[0], AccessRoleOwner, AccessRoleMaintainer)
@@ -926,7 +949,8 @@ func newEnvCommand() *cobra.Command {
 		Short: "Write a local .env from an encrypted profile",
 		Long:  "Decrypt the selected encrypted profile and atomically write the project's local .env file with owner-only permissions.",
 		Example: "  devspace env write api\n" +
-			"  devspace env write api --profile staging",
+			"  devspace env write api --profile staging\n" +
+			"  devspace status api",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withAppLock(func() error {
@@ -1076,7 +1100,7 @@ func newStatusCommand() *cobra.Command {
 		Use:     "status [project]",
 		Short:   "Show workspace health",
 		Long:    "Show aggregate workspace health, saved workspace details with --verbose, or the saved state for one tracked project.",
-		Example: "  devspace status\n  devspace status --verbose\n  devspace status api --json",
+		Example: "  devspace status\n  devspace status --verbose\n  devspace status api --json\n  devspace project update api",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if err := cobra.MaximumNArgs(1)(cmd, args); err != nil {
 				return err
@@ -1153,9 +1177,10 @@ func newSetupCommand() *cobra.Command {
 func newSetupShowCommand() *cobra.Command {
 	var jsonOut bool
 	cmd := &cobra.Command{
-		Use:   "show",
-		Short: "Show detected setup commands without running them",
-		Args:  cobra.NoArgs,
+		Use:     "show",
+		Short:   "Show detected setup commands without running them",
+		Example: "  devspace setup show\n  devspace setup run api --dry-run",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			plan, err := BuildSetupPlan()
 			if err != nil {
@@ -1183,6 +1208,7 @@ func newSetupRunCommand() *cobra.Command {
 		Use:   "run [project]",
 		Short: "Run reviewed setup commands for one project or all projects",
 		Example: "  devspace setup run api --dry-run\n" +
+			"  devspace setup run api\n" +
 			"  devspace setup run --all --dry-run",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if all && len(args) > 0 {

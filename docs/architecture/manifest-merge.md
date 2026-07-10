@@ -6,9 +6,9 @@
 > base, reconcile falls back to a two-way merge instead of refusing; (b)
 > `Project` records are keyed by `Project.Path`, not `Project.ID` — a
 > same-path pair with different IDs is a conflict, not a union; (c) the force
-> flags shipped as global `--force-local`/`--force-remote`, not
-> `--force-mine`/`--force-theirs`. The rest of this document is kept as
-> historical design context and is not rewritten below.
+> flags shipped as global `--force-local`/`--force-remote`, not the directional
+> names proposed here. The rest of this document is kept as historical design
+> context; command examples use the maintained release vocabulary.
 
 Manifest pull currently refuses when local and remote manifests both changed since the last sync point. That is the right default safety backstop, but it leaves multi-machine users with a manual JSON merge when two laptops scan or edit different projects before syncing.
 
@@ -60,14 +60,16 @@ The prototype merges Projects and Access only. It leaves Users, Teams, Machines,
 | Team | Follow-up. | Follow-up. | Follow-up. | Follow-up. | Follow-up. |
 | Machine | Prefer local machine localization after sync. | Follow-up. | Follow-up. | Follow-up. | Follow-up. |
 
-## UX Proposal
+## Shipped UX
 
-Add opt-in flags after the policy questions are closed:
+Reconciliation is an explicit review-first command for each sync backend:
 
-- `devspace workspace pull --merge`
-- `devspace hosted pull --merge`
+- `devspace sync reconcile`
+- `devspace hosted reconcile`
 
-Default pull remains refuse-and-explain. With `--merge`, pull should print a summary before saving:
+Pull remains refuse-and-explain when local and remote manifests diverge. A
+reconcile command writes a review artifact before saving, and a second run with
+`--apply` applies the reviewed result. The summary includes:
 
 ```text
 Merged manifest changes:
@@ -76,14 +78,14 @@ Merged manifest changes:
   conflicts: 0
 ```
 
-When true field-level conflicts exist, the command refuses and prints conflict records with entity, key, field, ours, and theirs. Future `--force-theirs` and `--force-mine` can resolve conflicts explicitly, but they should be separate from non-destructive merge.
+When true field-level conflicts exist, the command refuses and prints conflict records with entity, key, field, local, and remote values. Global `--force-local`/`--force-remote` or repeatable `--force-project <projectID>=<local|remote>` choices resolve conflicts explicitly without weakening the default review step.
 
 ## Rollout
 
 1. Land the unwired prototype and tests.
 2. Resolve open questions below.
 3. Add a narrow internal merge proof path for both sync backends without changing default behavior.
-4. Add `--merge` behind explicit CLI flags.
+4. Add explicit `sync reconcile` and `hosted reconcile` review/apply commands.
 5. Keep default pull refusal until the merge path has real-world proof and readable diagnostics.
 
 ## Follow-Up Cards
@@ -91,7 +93,7 @@ When true field-level conflicts exist, the command refuses and prints conflict r
 - Implement field-level Project merging that composes with post-Plan-006 `mergeProject` preservation semantics.
 - Extend reconciliation to Users and Teams so Access rules from remote machines can validate when identities are added independently.
 - Add CLI conflict rendering and machine-readable conflict output for future editor tooling.
-- Design `--force-theirs` and `--force-mine` separately from `--merge`.
+- Keep directional force choices separate from the default non-destructive reconcile review.
 - Add sync-backend tests proving git `previousRemote` and hosted last-synced state provide the expected base.
 
 ## Open Questions
@@ -106,7 +108,7 @@ Recommendation: refuse with a conflict. Access role changes are security-sensiti
 
 ### Should `--force` exist independently of merge?
 
-Recommendation: yes, but only as explicit directional flags such as `--force-theirs` and `--force-mine`. Plain `--force` is too ambiguous for sync.
+Recommendation: yes, but only as explicit directional flags such as the shipped `--force-local` and `--force-remote`. Plain `--force` is too ambiguous for sync.
 
 ### What if a backend lacks a recoverable base?
 

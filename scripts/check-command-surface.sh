@@ -5,9 +5,9 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
 # This is deliberately an allowlist. Completed SDD specs/proofs/validations,
-# docs/architecture/manifest-merge.md (a superseded spike), generated demo
-# GIFs, and the intentional negative fixtures under scripts/testdata/ are not
-# scanned. The linked capstone HTML remains part of the maintained surface.
+# generated demo GIFs, and the intentional negative fixtures under
+# scripts/testdata/ are not scanned. The linked capstone HTML remains part of
+# the maintained surface.
 maintained_files=(
   AGENTS.md
   CLAUDE.md
@@ -16,6 +16,7 @@ maintained_files=(
   ARCHITECTURE.md
   docs/architecture/access-roles.md
   docs/architecture/fuse-lazy-mount.md
+  docs/architecture/manifest-merge.md
   docs/operations/macos-fuse-run-playbook.md
   docs/operations/release-readiness.md
   docs/operations/release.md

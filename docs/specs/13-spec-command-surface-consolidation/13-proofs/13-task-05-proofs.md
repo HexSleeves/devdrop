@@ -244,6 +244,13 @@ No vulnerabilities found.
 archive validator: all four platform fixtures passed
 ```
 
+The maintained architecture allowlist also includes
+`docs/architecture/manifest-merge.md`. Its superseded merge design remains
+available as architecture context, while all executable examples use
+`sync reconcile`, `hosted reconcile`, `--apply`, and the shipped directional
+force flags. The production scanner covers the file directly instead of
+excluding it as a historical spike.
+
 ## Phase 4 Documentation-Gate Remediation
 
 **What it proves:** The linked interactive capstone reader no longer preserves

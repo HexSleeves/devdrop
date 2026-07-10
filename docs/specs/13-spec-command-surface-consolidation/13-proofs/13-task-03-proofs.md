@@ -142,3 +142,16 @@ apps/demo  local  manual         local    false   true
 ```
 
 The experimental mount help retains `--preview`, `--json`, `--hydrate-on-lookup`, and `--debug`, directs on-demand repository maintenance to `devspace project update`, and labels stale-mount cleanup as a previous `devspace experimental mount`.
+
+## Help Sequencing Contract
+
+Focused command-tree tests require `env write`, `setup show`, `setup run`,
+`experimental mount`, and `experimental hosted serve` help to show a common
+invocation plus the next safe command. The examples lead with dry-run/preview
+operations, keep the hosted prototype on loopback by default, and never imply
+that sync transfers source code or secret payloads.
+
+```text
+$ go test ./internal/devspace -run TestCanonicalCommandHelpShowsInvocationAndNextSafeStep -count=1
+ok  github.com/liatrio-forge/devdrop-capstone/internal/devspace
+```

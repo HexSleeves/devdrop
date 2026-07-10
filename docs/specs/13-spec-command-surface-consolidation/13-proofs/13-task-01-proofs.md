@@ -146,3 +146,17 @@ $ devspace --no-color status api --json
 ```
 
 The JSON capture parses as one `ProjectListRow` and contains no ANSI escape bytes.
+
+## Canonical Help Guidance
+
+`TestCanonicalCommandHelpShowsInvocationAndNextSafeStep` walks the release
+command tree and requires each renamed or moved command to provide `Long` or
+`Example` help containing both a common invocation and an exact next safe step.
+The table covers consolidated status; sync actions and remote actions; project
+list, track, untrack, and update; env write; setup show/run; and experimental
+mount/hosted serve.
+
+```text
+$ go test ./internal/devspace -run TestCanonicalCommandHelpShowsInvocationAndNextSafeStep -count=1
+ok  github.com/liatrio-forge/devdrop-capstone/internal/devspace
+```

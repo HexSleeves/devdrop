@@ -204,6 +204,63 @@ func TestReleaseCommandTreeContractProjectGroupShowsHelp(t *testing.T) {
 	}
 }
 
+func TestCanonicalCommandHelpShowsInvocationAndNextSafeStep(t *testing.T) {
+	tests := []struct {
+		path       []string
+		invocation string
+		nextStep   string
+	}{
+		{[]string{"status"}, "devspace status api --json", "devspace project update api"},
+		{[]string{"sync"}, "devspace sync remote create local ~/Projects/devspace-manifest.git", "devspace sync push"},
+		{[]string{"sync", "push"}, "devspace sync push", "devspace sync diff"},
+		{[]string{"sync", "pull"}, "devspace sync pull", "devspace plan && devspace apply"},
+		{[]string{"sync", "diff"}, "devspace sync diff", "devspace sync reconcile"},
+		{[]string{"sync", "reconcile"}, "devspace sync reconcile", "devspace sync reconcile --apply"},
+		{[]string{"sync", "remote"}, "devspace sync remote get", "devspace sync push"},
+		{[]string{"sync", "remote", "set"}, "devspace sync remote set ../devspace-manifest.git", "devspace sync push"},
+		{[]string{"sync", "remote", "get"}, "devspace sync remote get", "devspace sync diff"},
+		{[]string{"sync", "remote", "create"}, "devspace sync remote create local ../devspace-manifest.git", "devspace sync push"},
+		{[]string{"sync", "remote", "create", "local"}, "devspace sync remote create local ../devspace-manifest.git", "devspace sync push"},
+		{[]string{"sync", "remote", "create", "github"}, "devspace sync remote create github acme/devspace-manifest", "devspace sync push"},
+		{[]string{"project"}, "devspace project list", "devspace project update --all"},
+		{[]string{"project", "list"}, "devspace project list", "devspace project update --all"},
+		{[]string{"project", "track"}, "devspace project track apps/api", "devspace sync push"},
+		{[]string{"project", "untrack"}, "devspace project untrack api", "devspace sync push"},
+		{[]string{"project", "update"}, "devspace project update --all", "devspace status --verbose"},
+		{[]string{"env", "write"}, "devspace env write api", "devspace status api"},
+		{[]string{"setup", "show"}, "devspace setup show", "devspace setup run api --dry-run"},
+		{[]string{"setup", "run"}, "devspace setup run api --dry-run", "devspace setup run api"},
+		{[]string{"experimental"}, "devspace experimental --help", "devspace experimental mount /tmp/devspace --preview"},
+		{[]string{"experimental", "hosted"}, "devspace experimental hosted serve", "DEVSPACE_HOSTED_TOKEN=\"$HOSTED_TOKEN\" devspace hosted config set http://127.0.0.1:8787"},
+		{[]string{"experimental", "mount"}, "devspace experimental mount /tmp/devspace --preview", "devspace project update --all"},
+		{[]string{"experimental", "hosted", "serve"}, "devspace experimental hosted serve", "DEVSPACE_HOSTED_TOKEN=\"$HOSTED_TOKEN\" devspace hosted config set http://127.0.0.1:8787"},
+	}
+
+	root := NewRootCommand("test")
+	for _, tt := range tests {
+		name := strings.Join(tt.path, " ")
+		t.Run(name, func(t *testing.T) {
+			cmd, remaining, err := root.Find(tt.path)
+			if err != nil || len(remaining) != 0 {
+				t.Fatalf("find %q: command=%v remaining=%v err=%v", name, cmd, remaining, err)
+			}
+			if strings.TrimSpace(cmd.Long) == "" && strings.TrimSpace(cmd.Example) == "" {
+				t.Fatalf("%q has neither Long nor Example help", name)
+			}
+			lines := strings.Split(cmd.Long+"\n"+cmd.Example, "\n")
+			for i := range lines {
+				lines[i] = strings.TrimSpace(lines[i])
+			}
+			if !slices.Contains(lines, tt.invocation) {
+				t.Errorf("%q help lacks common invocation %q:\n%s", name, tt.invocation, strings.Join(lines, "\n"))
+			}
+			if !slices.Contains(lines, tt.nextStep) {
+				t.Errorf("%q help lacks next safe step %q:\n%s", name, tt.nextStep, strings.Join(lines, "\n"))
+			}
+		})
+	}
+}
+
 func TestVersionFlagPrintsVersion(t *testing.T) {
 	stdout, _, err := executeCommand(t, "v1.2.3-test", "--version")
 	if err != nil {
