@@ -929,6 +929,37 @@ func TestWorkspaceDiffRefusesInvalidRemoteProjectPath(t *testing.T) {
 	}
 }
 
+func TestWorkspaceDiffRefusesCredentialedRemoteProject(t *testing.T) {
+	hardeningInitWorkspace(t, "code")
+	remote, repo := workspaceSyncRemoteWithClone(t)
+	if _, err := SetManifestRemote(remote); err != nil {
+		t.Fatal(err)
+	}
+	const credentialedRemote = "https://synthetic-user:synthetic-pat@example.invalid/app.git"
+	unsafe := Manifest{
+		Version:       ManifestVersion,
+		WorkspaceRoot: ".",
+		Projects:      []Project{hardeningProject("apps/app", ProjectTypeGit, credentialedRemote)},
+	}
+	data, err := manifestBytes(unsafe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hardeningWriteFile(t, filepath.Join(repo, syncedManifestName), string(data), 0o600)
+	workspaceSyncCommitAndPush(t, repo, "credentialed manifest")
+
+	_, err = DiffWorkspaceManifest()
+	if err == nil {
+		t.Fatal("expected credentialed remote to be rejected")
+	}
+	if !strings.Contains(err.Error(), "credentials") {
+		t.Fatal("expected a credentials error")
+	}
+	if strings.Contains(err.Error(), "synthetic-pat") {
+		t.Fatal("diff error leaked the credential")
+	}
+}
+
 func TestWorkspacePushRefusesDirtyManifestRepoState(t *testing.T) {
 	workspace := hardeningInitWorkspace(t, "code")
 	remote := workspaceSyncBareRepo(t)
