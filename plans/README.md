@@ -2,6 +2,64 @@
 
 Generated and reconciled by the improve skill. Execute TODO plans in the order below unless dependencies say otherwise. Each executor: read the plan fully before starting, honor its STOP conditions, and update your row when done.
 
+## Deep audit 2026-07-10 — selected plans
+
+- Planned at: `7b521c3` on `main`.
+- Audit scope: whole source repository across correctness, security,
+  performance, tests, architecture, dependencies, DX, docs, and direction.
+  Generated HTML/GIF/binaries, ignored dependencies, live GitHub/Railway state,
+  release publication, and FUSE runtime integration were excluded.
+- Verification at planning time:
+  - `make verify` → pass.
+  - `go test ./internal/devspace -race -count=1` → pass.
+  - `cd tui && bun test && bun run typecheck` → 45 tests pass; typecheck pass.
+  - Go statement coverage → 75.4%.
+  - `govulncheck` → no called vulnerabilities.
+- User selected findings 1-6. Existing plan 020 was refreshed rather than
+  duplicated; plans 024-028 are new and keep numbering monotonic.
+
+### Execution order & status
+
+| Plan | Title | Priority | Effort | Depends on | Status |
+|---|---|---|---|---|---|
+| 024 | Publish a pending manifest commit when `sync push` is retried | P1 | S | — | DONE |
+| 025 | Keep credentials out of project remotes and sync artifacts | P1 | M | — | DONE |
+| 026 | Verify tagged source before publishing release artifacts | P1 | S | — | DONE |
+| 027 | Serialize diff-cache and mount hydration mutations | P1 | M | — | DONE |
+| 020 | Runtime-validate every devspace-tui RPC result and server event | P1 | M | — | DONE |
+| 028 | Exit devspace-tui with an error when ui-server dies | P2 | S | 020 | DONE |
+
+### Dependency notes
+
+- 024-027 and 020 are independent; the table orders them by impact and
+  shortest safe path.
+- 028 follows 020 because both edit `tui/src/client.ts` and its tests; landing
+  validation first avoids conflict and keeps transport-boundary behavior clear.
+
+### Vetted findings table
+
+| # | Finding | Category | Impact | Effort | Risk | Evidence | Plan |
+|---|---|---|---|---|---|---|---|
+| 1 | A retry after a failed Git manifest push can report unchanged without publishing the cached ahead commit. | correctness | HIGH | S | LOW | `internal/devspace/workspace_sync.go:128-174,418-434` | 024 |
+| 2 | Credential-bearing HTTPS project remotes can enter manifests, sync storage, plan warnings, and clone errors. | security | HIGH | M | MED | `internal/devspace/git.go:55-58,134-151`; `internal/devspace/workspace.go:140-142,399-400` | 025 |
+| 3 | The tag workflow publishes without verifying the exact tagged source. | release / DX | HIGH | S | LOW | `.github/workflows/release.yml:18-53`; `Makefile:115` | 026 |
+| 4 | Diff/status cache mutation and FUSE hydration bypass the application lock. | correctness / concurrency | HIGH | M | MED | `internal/devspace/commands.go:477-486`; `internal/devspace/ui_actions.go:155-203`; `internal/devspace/mount.go:322-334` | 027 |
+| 5 | Runtime ui-server failure exits devspace-tui successfully and discards diagnostics. | correctness | MED | S | LOW | `tui/src/client.ts:198-201`; `tui/src/app.tsx:94`; `tui/src/main.tsx:40-54` | 028 |
+| 6 | TUI results and unsolicited events bypass existing runtime validators. | correctness / tests | MED | M | LOW | `tui/src/client.ts:102-130`; `tui/src/protocol.ts:312-393` | 020 |
+
+### Deferred, not rejected
+
+- Avoid Git subprocesses for every scanned directory.
+- Add the race detector to CI.
+- Test Railway deployment scripting before production mutation.
+- Remove redundant whole-workspace refreshes from `project update --all`.
+- Recognize `bun.lock` during setup detection.
+- Pin privileged release actions to immutable commits.
+- Qualify private-release provenance docs.
+- Replace fixed watcher-test startup sleeps with readiness signaling.
+
+These were audited but not selected for plans in this wave.
+
 ## Reconcile 2026-07-08 — status and audit
 
 - Planned at: `cedcbc7` on branch `feat/11-tui-project-remove`.
@@ -21,7 +79,7 @@ Generated and reconciled by the improve skill. Execute TODO plans in the order b
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
-| 020 | Runtime-validate every devspace-tui RPC response before state updates | P1 | M | — | TODO |
+| 020 | Runtime-validate every devspace-tui RPC result and server event | P1 | M | — | DONE |
 | 021 | Make release-check build devspace-tui assets before the GoReleaser dry-run | P1 | S | — | DONE (spec 13 task 4.0) |
 | 022 | Reconcile README, architecture, and follow-up docs with shipped DevSpace state | P2 | S | — | DONE (spec 13 task 5.0) |
 | 023 | Define the managed hosted sync production contract | P2 | M | 022 | TODO |
@@ -54,7 +112,6 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - `findTUIBinary` PATH lookup: rejected; `internal/devspace/ui.go` documents adjacent binary and `$DEVSPACE_HOME/bin` precedence, then PATH as the usual CLI trust model.
 - ui-server unbounded `ReadString`: rejected; `internal/devspace/ui_server.go` documents trusted parent-child pipe rationale, and plan 018 already covered the risk.
 - `goreleaser release --snapshot --clean --skip=publish` local failure: not a source finding; the observed failure was missing local Docker daemon for ko image loading.
-
 
 This document tracks the execution and status of Liatrio Spec-Driven Development (SDD) plans for DevSpace.
 
@@ -145,6 +202,7 @@ The operational items discovered during planning have all since been resolved:
 - **Dependabot/Renovate for `go.mod`:** DONE — `.github/dependabot.yml` tracks `gomod` and `github-actions` weekly. (The pinned `ko` base-image digest in `.goreleaser.yaml` is still bumped manually.)
 - **Clean up dead code (`PlanSync`/`ApplySync`):** DONE — the wrappers no longer exist in `internal/devspace`.
 
-Current follow-up work is tracked in [`FOLLOWUP.md`](../FOLLOWUP.md) and `docs/superpowers/plans/`.
+Current follow-up work is tracked in the TODO tables above and
+`docs/superpowers/plans/`.
 
 *(Note: The documentation backlog items, such as detailing `DEVSPACE_HOME`, `DEVSPACE_HOSTED_TOKEN`, and `release-readiness.md` sync, were directly resolved in the root `README.md` and repository docs.)*

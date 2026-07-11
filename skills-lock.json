@@ -7,6 +7,12 @@
       "skillPath": "skills/ctx-agent-history-search/SKILL.md",
       "computedHash": "b9ee8ae28832c0058d21c16f1dc1cad4e72ad70597359033d18b6b7e556c40ce"
     },
+    "improve": {
+      "source": "HexSleeves/skills",
+      "sourceType": "github",
+      "skillPath": "skills/improve/SKILL.md",
+      "computedHash": "39a9358732dcff385e9e4d3e60b4547856f834e54a58b35e455aa9bd49928c13"
+    },
     "sdd": {
       "source": "liatrio-labs/spec-driven-workflow",
       "sourceType": "github",

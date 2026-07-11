@@ -8,7 +8,9 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/gofrs/flock"
 	"github.com/spf13/cobra"
 )
 
@@ -639,6 +641,43 @@ func TestSyncCommandPushPullDiffJSONAndReconcileFlags(t *testing.T) {
 	}
 }
 
+// TestSyncDiffUsesAppLockAndRejectsWhenHeld proves `sync diff` mutates the
+// shared manifest cache only while holding the app lock: with another handle
+// already holding it, the command must return the standard lock-contention
+// error before it ever touches the configured remote.
+func TestSyncDiffUsesAppLockAndRejectsWhenHeld(t *testing.T) {
+	initCommandWorkspace(t)
+	remote := workspaceSyncBareRepo(t)
+	if _, _, err := executeCommand(t, "test", "sync", "remote", "set", remote); err != nil {
+		t.Fatal(err)
+	}
+
+	previousTimeout := appLockTimeout
+	previousPoll := appLockPoll
+	appLockTimeout = 30 * time.Millisecond
+	appLockPoll = 5 * time.Millisecond
+	t.Cleanup(func() {
+		appLockTimeout = previousTimeout
+		appLockPoll = previousPoll
+	})
+
+	home, err := appHome()
+	if err != nil {
+		t.Fatal(err)
+	}
+	held := flock.New(filepath.Join(home, ".lock"))
+	if err := held.Lock(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = held.Unlock()
+	}()
+
+	if _, _, err := executeCommand(t, "test", "sync", "diff"); err == nil || !strings.Contains(err.Error(), "another devspace process holds the lock") {
+		t.Fatalf("sync diff error = %v, want lock contention error", err)
+	}
+}
+
 // initCommandWorkspace prepares an isolated DEVSPACE_HOME + initialized
 // workspace and returns the workspace root. Used by the command tests below.
 func initCommandWorkspace(t *testing.T) string {
@@ -1030,6 +1069,12 @@ func TestPlanAndApplyCommandsRoundTrip(t *testing.T) {
 	}
 	if !strings.Contains(applyOut, "Applied safe plan actions.") {
 		t.Fatalf("apply output = %q", applyOut)
+	}
+	if !strings.Contains(applyOut, "Apply results:") {
+		t.Fatalf("apply output missing results heading: %q", applyOut)
+	}
+	if strings.Contains(applyOut, "Planned changes:") {
+		t.Fatalf("apply output still labels applied results as planned changes: %q", applyOut)
 	}
 }
 
