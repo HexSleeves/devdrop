@@ -1,9 +1,14 @@
-# Plan 020: Runtime-validate every devspace-tui RPC response before state updates
+# Plan 020: Runtime-validate every devspace-tui RPC result and server event
 
-> **Executor instructions**: Follow this plan step by step. Run every verification command and confirm the expected result before moving to the next step. If anything in the "STOP conditions" section occurs, stop and report — do not improvise. When done, update the status row for this plan in `plans/README.md`.
+> **Executor instructions**: Follow this plan step by step. Run every
+> verification command and confirm the expected result before moving to the
+> next step. If anything in the "STOP conditions" section occurs, stop and
+> report — do not improvise. When done, update the status row for this plan in
+> `plans/README.md`.
 >
-> **Drift check (run first)**: `git diff --stat cedcbc7..HEAD -- tui/src/client.ts tui/src/protocol.ts tui/test/client.test.ts tui/test/protocol.test.ts tui/test/startup.test.ts`
-> If any in-scope file changed since this plan was written, compare the "Current state" excerpts against live code before proceeding; on mismatch, treat it as a STOP condition.
+> **Drift check (run first)**: `git diff --stat 7b521c3..HEAD -- tui/src/client.ts tui/src/protocol.ts tui/test/client.test.ts tui/test/protocol.test.ts tui/test/startup.test.ts`
+> If any in-scope file changed, compare the excerpts below with live code. Stop
+> if the method map, validator contracts, or dispatch shape no longer match.
 
 ## Status
 
@@ -12,21 +17,23 @@
 - **Risk**: LOW
 - **Depends on**: none
 - **Category**: bug / tests
-- **Planned at**: commit `cedcbc7`, 2026-07-08
+- **Planned at**: commit `7b521c3`, 2026-07-10
 
 ## Why this matters
 
-The TypeScript TUI already has runtime validators for every JSON-RPC DTO, but `DevspaceClient` does not use them when resolving responses. A malformed, stale, or version-skewed server response is currently treated as a typed result and can flow into React state before failing somewhere less obvious. This plan wires the existing validators into the single client dispatch point, so protocol drift fails at the boundary with one clear error.
+The TypeScript TUI has runtime validators for every response DTO and unsolicited
+server event, but `DevspaceClient` trusts parsed JSON after `JSON.parse`.
+Version-skewed or malformed data can therefore enter React state as if it were
+typed. Validate both request results and events at the single transport
+boundary, with explicit errors for bad results and safe rejection of bad events.
 
 ## Current state
 
-Relevant files:
-
-- `tui/src/client.ts` — transport-agnostic NDJSON client. It resolves successful responses directly:
+- `tui/src/client.ts` stores no method on a pending request and resolves the
+  result directly:
 
 ```ts
 // tui/src/client.ts:124-130
-if (typeof msg.id !== "number") return;
 const pending = this.pending.get(msg.id);
 if (!pending) return;
 this.pending.delete(msg.id);
@@ -35,57 +42,32 @@ if (msg.error) pending.reject(new Error(msg.error.message));
 else pending.resolve(msg.result);
 ```
 
-- `tui/src/protocol.ts` — runtime validators already exist:
+- The same dispatch path forwards `msg.params` as `ServerEvent` without calling
+  the validator:
 
 ```ts
-// tui/src/protocol.ts:312-349
-export function isHello(v: unknown): v is Hello { ... }
-export function isSnapshot(v: unknown): v is Snapshot { ... }
-export function isSyncStatus(v: unknown): v is SyncStatus { ... }
-```
-
-- `tui/src/protocol.ts` also defines the full method/result map:
-
-```ts
-// tui/src/protocol.ts:381-393
-export interface RequestMap {
-  hello: { params?: undefined; result: Hello };
-  projects: { params?: undefined; result: Snapshot };
-  scan: { params?: undefined; result: Snapshot };
-  refresh: { params?: undefined; result: Snapshot };
-  plan: { params?: undefined; result: Snapshot };
-  apply: { params?: undefined; result: Snapshot };
-  hydrate: { params: { ref: string }; result: Snapshot };
-  remove: { params: { ref: string }; result: Snapshot };
-  status: { params?: undefined; result: SyncStatus };
-  workspace: { params?: undefined; result: WorkspaceOverview };
-  lastPlan: { params?: undefined; result: Plan };
+// tui/src/client.ts:115-122
+if (msg.method === "event" && msg.params) {
+  if (this.eventListeners.size === 0) this.earlyEvents.push(msg.params);
+  for (const listener of this.eventListeners) listener(msg.params);
 }
 ```
 
-- `tui/src/startup.ts` asks for `hello`, then calls `helloProblem(hello)`; it assumes the resolved value is actually a `Hello`:
-
-```ts
-// tui/src/startup.ts:30-38
-hello = await raceTimeout(client.request("hello"), timeoutMs);
-const problem = helloProblem(hello);
-if (problem) throw new Error(problem);
-return hello;
-```
-
-Repo conventions to match:
-
-- TUI tests use Bun's built-in test runner under `tui/test/*.test.ts`.
-- Protocol fixtures live under `tui/test/fixtures/` and are read by `tui/test/protocol.test.ts`.
-- Keep validation code boring and explicit; this repo favors small switch statements over generic reflection.
+- `tui/src/protocol.ts:312-371` already provides `isHello`, `isSnapshot`,
+  `isSyncStatus`, `isWorkspaceOverview`, and `isServerEvent`.
+- `tui/src/protocol.ts:381-393` defines `RequestMap`; it is the authoritative
+  method-to-result map.
+- Tests use Bun's runner and the in-memory `pair()` transport in
+  `tui/test/client.test.ts`. Keep handwritten validators; do not add a schema
+  dependency.
 
 ## Commands you will need
 
 | Purpose | Command | Expected on success |
-|---------|---------|---------------------|
-| TUI typecheck | `cd tui && bun run typecheck` | exit 0, no TypeScript errors |
-| TUI tests | `cd tui && bun test` | all tests pass |
-| Full TUI gate | `make tui-verify` | exit 0 |
+|---|---|---|
+| Typecheck | `cd tui && bun run typecheck` | exit 0 |
+| Focused tests | `cd tui && bun test test/client.test.ts test/protocol.test.ts test/startup.test.ts` | all pass |
+| Full gate | `make tui-verify` | exit 0 |
 
 ## Scope
 
@@ -95,113 +77,93 @@ Repo conventions to match:
 - `tui/src/client.ts`
 - `tui/test/client.test.ts`
 - `tui/test/protocol.test.ts`
-- `tui/test/startup.test.ts` only if needed for a clearer startup error assertion
+- `tui/test/startup.test.ts` only if needed for a startup error assertion
 
 **Out of scope**:
 
-- Go DTO shape changes in `internal/devspace/ui_server.go`.
-- Regenerating protocol fixtures unless a validator test requires a fixture refresh.
-- Changing request method names or wire format.
-- Adding a schema library; existing handwritten validators are enough.
+- Go DTO or wire-format changes.
+- Regenerating fixtures unless the live Go DTO changed.
+- Adding a validation dependency.
+- UI rendering or exit-code behavior; plan 028 owns unexpected server exits.
 
 ## Git workflow
 
 - Branch: `advisor/020-tui-runtime-validation`
-- Commit message style: conventional commit, e.g. `fix(tui): validate rpc responses at runtime`.
+- Commit: `fix(tui): validate ui-server messages at runtime`
 - Do not push or open a PR unless instructed.
 
 ## Steps
 
-### Step 1: Add a per-method result parser in `tui/src/protocol.ts`
+### Step 1: Add one explicit result parser
 
-Add an exported function near `RequestMap`:
-
-```ts
-export function parseResult<M extends Method>(method: M, result: unknown): RequestMap[M]["result"] {
-  const ok =
-    method === "hello" ? isHello(result) :
-    method === "projects" || method === "scan" || method === "refresh" || method === "plan" || method === "apply" || method === "hydrate" || method === "remove" ? isSnapshot(result) :
-    method === "status" ? isSyncStatus(result) :
-    method === "workspace" ? isWorkspaceOverview(result) :
-    method === "lastPlan" ? isPlan(result) :
-    false;
-  if (!ok) throw new Error(`invalid ${method} response from devspace ui-server`);
-  return result as RequestMap[M]["result"];
-}
-```
-
-A `switch` is also fine if lint/typecheck prefer it. Keep `isPlan` unexported unless tests need it; `parseResult` can call it inside the same module.
+In `tui/src/protocol.ts`, add `parseResult<M extends Method>(method, result)`.
+Use a `switch` over every `RequestMap` method: hello → `isHello`; snapshot
+methods → `isSnapshot`; status → `isSyncStatus`; workspace →
+`isWorkspaceOverview`; lastPlan → the existing plan validator. Throw
+`invalid <method> response from devspace ui-server` when validation fails.
 
 **Verify**: `cd tui && bun run typecheck` → exit 0.
 
-### Step 2: Store each pending request's method and validate before resolving
+### Step 2: Validate results before resolving
 
-In `tui/src/client.ts`:
-
-1. Import `parseResult` from `./protocol`.
-2. Add `method: Method` to the `Pending` interface.
-3. When creating a pending request, set `method`.
-4. In `dispatch`, replace direct `pending.resolve(msg.result)` with:
-
-```ts
-try {
-  pending.resolve(parseResult(pending.method, msg.result));
-} catch (err) {
-  pending.reject(err instanceof Error ? err : new Error(String(err)));
-}
-```
-
-Keep the timer cleanup and pending deletion exactly where they are, so invalid responses do not leave hanging timers.
+Add `method: Method` to `Pending`, store it in `request`, and pass
+`msg.result` through `parseResult(pending.method, msg.result)` inside a
+`try/catch`. Preserve pending deletion and timer cleanup before resolve/reject.
 
 **Verify**: `cd tui && bun run typecheck` → exit 0.
 
-### Step 3: Add regression tests for invalid successful responses
+### Step 3: Validate unsolicited events
 
-In `tui/test/client.test.ts`, add tests using the existing `pair()` helper:
+Treat parsed `params` as `unknown`, not `ServerEvent`. For `method === "event"`,
+call `isServerEvent`; ignore invalid events without buffering or notifying
+listeners. Do not close the stream: one malformed line must not break later
+valid traffic.
 
-- `hello` response missing `workspaceRoot` rejects with `invalid hello response`.
-- `status` response missing `conflictCount` rejects with `invalid status response`.
-- `projects` response with `rows` not an array rejects with `invalid projects response`.
-- A valid response still resolves normally; keep or reuse existing tests.
+**Verify**: `cd tui && bun run typecheck` → exit 0.
 
-In `tui/test/protocol.test.ts`, add a direct `parseResult` test if useful:
+### Step 4: Add boundary regression tests
 
-- valid `hello.json` parses for method `hello`.
-- the same object with `protocol` removed throws.
+Using `pair()` in `tui/test/client.test.ts`, prove:
 
-**Verify**: `cd tui && bun test` → all tests pass.
+- malformed hello, status, and snapshot results reject with method-specific errors;
+- a valid result still resolves and clears its timer;
+- malformed and unknown events are not delivered or buffered;
+- a valid event after a malformed event is still delivered.
 
-### Step 4: Run the full TUI gate
+Add a direct `parseResult` fixture assertion in `protocol.test.ts` only if it
+makes the method map coverage clearer.
 
-Run the same TUI verification CI uses.
+**Verify**: `cd tui && bun test test/client.test.ts test/protocol.test.ts test/startup.test.ts` → all pass.
+
+### Step 5: Run the TUI gate
 
 **Verify**: `make tui-verify` → exit 0.
 
 ## Test plan
 
-- Unit tests in `tui/test/client.test.ts` prove malformed successful responses reject at the transport boundary.
-- Existing fixture tests in `tui/test/protocol.test.ts` continue proving the Go-generated fixtures match TypeScript validators.
-- `make tui-verify` proves typecheck and all Bun tests pass together.
+Follow the existing `pair()` request/response tests in
+`tui/test/client.test.ts:28-100`. Cover invalid results, invalid events, recovery
+on the next frame, valid out-of-order responses, and timeout cleanup.
 
 ## Done criteria
 
-- [ ] `cd tui && bun run typecheck` exits 0.
-- [ ] `cd tui && bun test` exits 0 with the new invalid-response tests passing.
-- [ ] `make tui-verify` exits 0.
-- [ ] `DevspaceClient` no longer resolves `msg.result` without `parseResult` or equivalent validation.
-- [ ] No Go files are modified.
-- [ ] No files outside the in-scope list are modified, except `plans/README.md` status.
-- [ ] `plans/README.md` row 020 is updated when complete.
+- [ ] Every `RequestMap` method is handled by `parseResult`.
+- [ ] `pending.resolve(msg.result)` no longer exists.
+- [ ] Events reach listeners only after `isServerEvent` succeeds.
+- [ ] Focused Bun tests pass.
+- [ ] `make tui-verify` passes.
+- [ ] Only in-scope files and `plans/README.md` changed.
+- [ ] Plan 020 is marked DONE in `plans/README.md`.
 
 ## STOP conditions
 
-Stop and report back if:
-
-- The live `RequestMap` differs from the method list in this plan.
-- Adding validation requires changing Go DTOs or fixture generation.
-- The TUI has intentionally started accepting partial DTOs that fail the existing validators.
-- `make tui-verify` fails for unrelated dependency/toolchain reasons after the code-level tests pass.
+- `RequestMap` differs from the listed live methods.
+- Validation requires a Go DTO or protocol-version change.
+- Live code intentionally accepts partial objects rejected by existing validators.
+- The full gate fails for an unrelated toolchain reason after focused tests pass.
 
 ## Maintenance notes
 
-Future UI-server methods must update `RequestMap`, add or reuse a validator, and update `parseResult`. Reviewers should reject new client methods that bypass runtime validation; otherwise the Go/TS golden fixtures only prove static examples, not live response handling.
+Every future UI-server method needs a `RequestMap` entry and parser branch.
+Every future event variant needs an `isServerEvent` branch. Reviewers should
+reject new dispatch paths that cast parsed JSON directly to protocol types.
