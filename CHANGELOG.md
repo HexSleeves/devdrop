@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.0](https://github.com/liatrio-forge/forge-capstone-devspace/compare/v0.4.0...v0.5.0) (2026-07-11)
+
+
+### Features
+
+* **improve:** add new skill for codebase auditing and improvement planning ([1969ef4](https://github.com/liatrio-forge/forge-capstone-devspace/commit/1969ef43fe3827d822153194bc0876ed1bc16a4f))
+
+
+### Bug Fixes
+
+* deep audit 2026-07-10 wave — sync retry, remote credentials, release verify, locking, TUI validation/exit ([#48](https://github.com/liatrio-forge/forge-capstone-devspace/issues/48)) ([a53c899](https://github.com/liatrio-forge/forge-capstone-devspace/commit/a53c899f9ab2274079f16a62a94c95c194726d1d))
+* label applied plan output as results ([7b521c3](https://github.com/liatrio-forge/forge-capstone-devspace/commit/7b521c34ec268b892986f9dd52bcecdeb9eab5c6))
+
 ## [0.4.0](https://github.com/liatrio-forge/forge-capstone-devspace/compare/v0.3.0...v0.4.0) (2026-07-10)
 
 
